@@ -1,0 +1,8 @@
+{
+  "name": "conclave",
+  "description": "Scrum methodology for distributed engineering teams using Claude Code. Specialized AI subagents for every role (PM, Tech Lead, Scrum Master, Developer, QA). All artifacts are plain markdown committed to git in a visible conclave/ directory.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Conclave"
+  }
+}
