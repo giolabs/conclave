@@ -11,13 +11,19 @@ last_updated_at: "{{iso_date}}"
 
 ## Schedule
 
-| Ceremony | Day | Time | Duration | Who attends |
-|----------|-----|------|----------|-------------|
-| Sprint Planning | Monday (sprint start) | 10:00 | 90 min | PM, TL, SM, all Devs, QA |
-| Daily Standup | Every weekday | 09:30 | 15 min | All Devs, TL, QA (SM facilitates) |
-| Backlog Grooming | Wednesday mid-sprint | 11:00 | 45 min | PM, TL, optional Devs |
-| Sprint Review | Friday (sprint end) | 14:00 | 60 min | Whole team + stakeholders |
-| Sprint Retrospective | Friday (sprint end, after Review) | 15:30 | 60 min | Whole team |
+The `Required` column reflects the team's `team_profile` in `conclave/config.md`. Required ceremonies are enforced by Conclave's slash commands; optional ones can be skipped silently. To change what's required, edit `config.md`, not this file.
+
+| Ceremony | Required | Day | Time | Duration | Who attends |
+|----------|----------|-----|------|----------|-------------|
+| Sprint Planning | **always** | Monday (sprint start) | 10:00 | 90 min | PM, TL, SM, all Devs, QA |
+| QA Verification (per story) | **always** | rolling | — | per story | QA (+ Dev for fixes) |
+| Daily Standup | {{daily_standup_label}} | Every weekday | 09:30 | 15 min | All Devs, TL, QA (SM facilitates) |
+| Backlog Grooming | {{backlog_grooming_label}} | Wednesday mid-sprint | 11:00 | 45 min | PM, TL, optional Devs |
+| Peer PR Review | {{peer_pr_review_label}} | rolling | — | per PR | one non-author teammate |
+| Sprint Review | {{sprint_review_label}} | Friday (sprint end) | 14:00 | 60 min | Whole team + stakeholders |
+| Sprint Retrospective | {{sprint_retrospective_label}} | Friday (after Review) | 15:30 | 60 min | Whole team |
+
+Legend: **always** = structural, never skippable. `required` = enforced by the team's profile. `optional` = skippable (the team chose `lean` or set this ceremony off in `custom`).
 
 ## Working agreement
 

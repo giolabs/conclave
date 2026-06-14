@@ -7,6 +7,8 @@ last_updated_at: "{{iso_date}}"
 
 A story is **Done** when all of the following are true. The QA confirms every item before marking the story `status: done`.
 
+> Items in the **Process — conditional** section depend on the team's profile in `conclave/config.md`. If a flag is `required: false` there, the corresponding DoD check is skipped silently. Everything else is structural and applies to every team.
+
 ## Code and tests
 
 - [ ] All Gherkin acceptance scenarios pass as automated tests in CI.
@@ -28,10 +30,17 @@ A story is **Done** when all of the following are true. The QA confirms every it
 
 ## Process
 
-- [ ] PR has been reviewed and approved by at least one team member who is not the author.
+Structural items (always required):
+
 - [ ] PR has been merged to the agreed integration branch.
 - [ ] Story file's frontmatter status is `done`.
 - [ ] Verification report is appended to `acceptance/AC-US-NNN.md`.
+
+## Process — conditional
+
+These items apply only if the corresponding flag in `conclave/config.md` is `required: true`.
+
+- [ ] Peer PR review — at least one teammate who is not the author has approved the PR. *(Governed by `ceremonies.peer_pr_review.required` — off in the `lean` profile.)*
 
 ## How to update
 

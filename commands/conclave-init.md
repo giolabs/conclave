@@ -32,8 +32,28 @@ Use `AskUserQuestion` to collect:
 3. **Team size**: 2–3, 4–6, 7+ (rough; used to scale the roster template).
 4. **Sprint length**: 1 week, 2 weeks, 3 weeks, 4 weeks (default 2).
 5. **Timezone** (free text, e.g. "America/Montevideo"). If unsure, default to UTC.
+6. **Team profile** — which ceremonies the team commits to:
+   - `lean` (default for team sizes 2–3): only Sprint Planning and QA Verification are required; Standup, Backlog Grooming, Peer PR Review, Sprint Review, and Retro are off.
+   - `full-scrum` (default for team sizes 4+): every ceremony is required.
+   - `custom`: the user will edit each flag in `config.md` after init.
 
 Do **not** ask for stack details here — that is `/conclave-spec`'s job.
+
+### Profile-to-flag mapping
+
+Once the user picks a profile, set the per-ceremony booleans accordingly so the templates can be rendered:
+
+| Flag in `config.md` and `ceremonies.md` | `lean` | `full-scrum` | `custom` |
+|---|---|---|---|
+| `daily_standup.required` | `false` | `true` | ask the user |
+| `backlog_grooming.required` | `false` | `true` | ask the user |
+| `peer_pr_review.required` | `false` | `true` | ask the user |
+| `sprint_review.required` | `false` | `true` | ask the user |
+| `sprint_retrospective.required` | `false` | `true` | ask the user |
+
+`sprint_planning.required` and `qa_verification.required` are always `true` regardless of profile. Do not expose them as toggles.
+
+When rendering `ceremonies.md`, use the human-readable labels for the `Required` column: `required` when the flag is `true`, `optional` when it is `false`.
 
 ## Step 4 — Create the directory tree
 
@@ -73,6 +93,7 @@ For the roster, populate the table with one placeholder row per role (PM, TL, SM
 Print a short summary to the user:
 
 - Path to the new `conclave/` directory.
+- The selected `team_profile` and which ceremonies are required vs optional under it. Tell the user how to change it: edit `team_profile` in `conclave/config.md` to `full-scrum` to opt back into every ceremony, or set it to `custom` and toggle individual `ceremonies.*.required` flags.
 - The four files they should edit by hand right now: `team/roster.md`, `team/ceremonies.md`, `product/definition-of-ready.md`, `product/definition-of-done.md`.
 - Next step: `/conclave-spec "<one-line product idea>"` to generate the Product Backlog, Architectural Foundation, and Sprint 1 plan.
 - Suggested git commands:

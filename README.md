@@ -81,6 +81,18 @@ The subagents are markdown role charters under `skills/conclave/agents/`. Slash 
 
 ---
 
+## Team profiles — skip what you don't need
+
+Not every team needs every Scrum ceremony. Conclave separates **structural invariants** (sprint planning, acceptance criteria, QA verification, DoD) from **ceremonies the team chooses** (daily standup, backlog grooming, peer PR review, sprint review, retro).
+
+Pick a profile in `conclave/config.md`:
+
+- **`lean`** (default for solo / 2–3-person teams) — only Sprint Planning and QA Verification are enforced. Everything else is silently skippable.
+- **`full-scrum`** (default for 4+-person teams) — every ceremony is required.
+- **`custom`** — toggle each `ceremonies.*.required` flag individually.
+
+You can change the profile any time by editing `conclave/config.md`. The ceremony commands (`/conclave-standup`, `/conclave-review`, `/conclave-retro`, etc.) read the flags and become silent no-ops when their flag is `false`. The two structural gates (`sprint_planning` and `qa_verification`) cannot be turned off.
+
 ## MVP scope
 
 This release ships the **Day 0 founding-artifacts flow** only:

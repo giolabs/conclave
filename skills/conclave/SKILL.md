@@ -105,7 +105,7 @@ Two role subagents can run in parallel (e.g. PM and TL in `/conclave-spec`) by i
 
 ---
 
-## Templates
+## 5. Templates
 
 All Conclave-managed artifacts are produced by filling in templates from `skills/conclave/templates/`. The orchestrator reads the template, replaces `{{placeholders}}`, and writes the resulting markdown to the team's `conclave/` directory.
 
@@ -124,6 +124,45 @@ Templates available:
 - `acceptance.template.md`
 
 ---
+
+## 6. What is mandatory vs skippable
+
+Conclave separates **structural invariants** (you cannot do Scrum without them) from **ceremonies** (process gates the team chooses to commit to).
+
+### Always required (structural — never skippable)
+
+- **A Sprint Plan.** Without a goal and a locked story list, there is no sprint. Enforced by `/conclave-planning` and the existence of `conclave/sprints/SPRINT-NNN/spec.md`.
+- **Acceptance criteria on every story.** Every story file must reference a non-empty `acceptance/AC-US-NNN.md` with Gherkin scenarios. Stories without them fail the DoR.
+- **QA verification of acceptance criteria.** Every `done` story carries a verification report appended to its acceptance file. Without this, `done` means nothing. Enforced by `/conclave-qa`.
+- **Definition of Done compliance.** The team-customized DoD checklist must be met for every story. The structural items of the DoD are non-negotiable; some items become conditional (see below).
+
+### Skippable per team profile
+
+The team chooses a profile in `conclave/config.md` (`team_profile: lean | full-scrum | custom`) and Conclave's ceremony commands read it. Skipped ceremonies are silently a no-op; required ceremonies are enforced.
+
+| Ceremony | Command | `lean` default | `full-scrum` default | Notes |
+|---|---|---|---|---|
+| Daily Standup | `/conclave-standup` | off | on | Logs to `sprints/SPRINT-NNN/daily/`. |
+| Backlog Grooming | `/conclave-groom` | off | on | When off, grooming happens inside `/conclave-planning`. |
+| Peer PR Review | (DoD check) | off | on | Solo devs and small teams often skip this. The Dev agent still self-reviews. |
+| Sprint Review | `/conclave-review` | off | on | Required when there are stakeholders to demo to. |
+| Sprint Retrospective | `/conclave-retro` | off | on | First thing to get dropped under pressure; team should opt back in when it stabilizes. |
+
+### Profile semantics
+
+- **`lean`** — only the structural invariants are enforced. Intended for solo devs, very small teams (2–3), and internal/tooling work.
+- **`full-scrum`** — every ceremony is required. Intended for cross-functional teams that ship to external stakeholders.
+- **`custom`** — the team sets each `ceremonies.*.required` flag individually. The profile is recorded as `custom` so it is obvious nobody is following a preset.
+
+### How commands respect the profile
+
+When a future ceremony command runs (e.g. `/conclave-standup`), the first thing it does is read `conclave/config.md` and check its `required:` flag.
+
+- If `required: true`, the command runs normally.
+- If `required: false` and the user invoked the command explicitly, it still runs but prints a hint that it is optional in this profile.
+- If `required: false` and the command is triggered indirectly (e.g. as a step inside `/conclave-close-sprint`), it is skipped silently.
+
+The two always-required gates (`sprint_planning`, `qa_verification`) cannot be flagged off — attempting to set `required: false` for them is rejected with a clear error.
 
 ## Glossary
 
