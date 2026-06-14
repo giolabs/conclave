@@ -85,11 +85,11 @@ conclave/                             # VISIBLE top-level directory, all markdow
 
 Role charters are markdown files under `skills/conclave/agents/`. They have no frontmatter — they are pure prose loaded by slash commands when delegating work.
 
-| Subagent file | Used by (MVP) | Used by (planned) |
+| Subagent file | Used by (shipped) | Used by (planned) |
 |---|---|---|
-| `agents/product-manager.md` | `/conclave-spec` (backlog generation) | `/conclave-groom`, `/conclave-planning`, `/conclave-review` |
-| `agents/tech-lead.md` | `/conclave-spec` (architecture) | `/conclave-planning`, `/conclave-substack`, `/conclave-dev` |
-| `agents/scrum-master.md` | — | `/conclave-planning`, `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
+| `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review) | `/conclave-groom`, `/conclave-review` |
+| `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review) | `/conclave-substack`, `/conclave-dev` |
+| `agents/scrum-master.md` | `/conclave-planning` (facilitator) | `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
 | `agents/developer.md` | — | `/conclave-dev US-NNN` |
 | `agents/qa.md` | — | `/conclave-qa US-NNN` |
 
@@ -122,6 +122,7 @@ Templates available:
 - `sprint-spec.template.md`
 - `story.template.md`
 - `acceptance.template.md`
+- `planning.template.md`
 
 ---
 

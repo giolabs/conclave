@@ -20,23 +20,35 @@ Restart Claude Code. You should now see `/conclave-init` and `/conclave-spec` in
 
 ---
 
-## Quick start (Day 0)
+## Quick start
 
 In your project repo:
 
 ```bash
-# 1. Bootstrap the Scrum directory
+# 1. Bootstrap the Scrum directory (once)
 /conclave-init
 
-# 2. Generate the founding artifacts from your product idea
+# 2. Generate the founding artifacts from your product idea (once per project)
 /conclave-spec "REST API for task management with JWT auth"
+
+# 3. Lock the sprint (once per sprint, when you're ready to start)
+/conclave-planning
 ```
 
-You will be asked a few clarifying questions (stack, sprint length, team size, constraints). Conclave then invokes the Tech Lead and Product Manager subagents in parallel to produce:
+`/conclave-spec` invokes the Tech Lead and Product Manager subagents in parallel to produce:
 
 - `conclave/product/backlog.md` — initial Product Backlog
 - `conclave/product/architecture.md` — Architectural Foundation with ADRs
-- `conclave/sprints/SPRINT-001/` — Sprint 1 plan with stories and Gherkin acceptance criteria
+- `conclave/sprints/SPRINT-001/` — Sprint 1 draft with stories and Gherkin acceptance criteria
+
+`/conclave-planning` then runs the Sprint Planning ceremony: Scrum Master facilitates, PM validates scope, TL validates feasibility, all in parallel. The output:
+
+- Sprint goal confirmed (one sentence)
+- Stories assigned to specific devs
+- Definition-of-Ready check per story
+- Capacity computed vs commitment
+- `conclave/sprints/SPRINT-001/planning.md` — the meeting record
+- Sprint status moves from `draft` → `active`
 
 All markdown. All in git. Open it as a PR and let the team review it line by line.
 
@@ -93,18 +105,16 @@ Pick a profile in `conclave/config.md`:
 
 You can change the profile any time by editing `conclave/config.md`. The ceremony commands (`/conclave-standup`, `/conclave-review`, `/conclave-retro`, etc.) read the flags and become silent no-ops when their flag is `false`. The two structural gates (`sprint_planning` and `qa_verification`) cannot be turned off.
 
-## MVP scope
+## Shipped so far
 
-This release ships the **Day 0 founding-artifacts flow** only:
+- `/conclave-init` — bootstrap the `conclave/` workspace, pick a team profile.
+- `/conclave-spec <idea>` — produce the Product Backlog, Architectural Foundation, and Sprint 1 draft from an idea plus the project's `CLAUDE.md`, installed Skills, and detected stack signals.
+- `/conclave-planning` — run Sprint Planning: confirm the goal, assign stories, validate the DoR, compute capacity, lock the sprint. Profile-aware: depth of the ceremony scales with `team_profile`.
 
-- `/conclave-init` bootstraps `conclave/`.
-- `/conclave-spec <idea>` produces the Product Backlog, Architectural Foundation, and Sprint 1 plan from an idea plus the project's `CLAUDE.md`, installed Skills, and detected stack signals.
-
-Live ceremonies (planning, daily, review, retro), per-story dev/QA loops, and stack-specific sub-specs are out of scope for this iteration. They are listed as next-iteration work in [the plan](#roadmap).
+Per-story dev/QA loops, sprint closeout ceremonies, and stack-specific sub-specs are next.
 
 ## Roadmap
 
-- `/conclave-planning` — Sprint Planning ceremony
 - `/conclave-standup` — daily standup logger
 - `/conclave-review` and `/conclave-retro` — sprint closeout ceremonies
 - `/conclave-groom` — backlog grooming
