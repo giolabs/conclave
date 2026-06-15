@@ -38,8 +38,8 @@ Everything here is **plain markdown** — committed to git, reviewable in PR. Th
 | `/conclave-init` | Once, when bootstrapping this directory |
 | `/conclave-spec <idea>` | Once, to generate the founding artifacts |
 | `/conclave-planning` | Per sprint, to lock the sprint plan and assign stories |
+| `/conclave-dev US-NNN` | When you pick up an assigned story — implements with tests and opens a PR |
+| `/conclave-qa US-NNN` | When a story reaches `status: review` — verifies it against Gherkin scenarios and either approves or blocks |
 | `/conclave-standup` | Daily, to log your update *(planned, not yet shipped)* |
-| `/conclave-dev US-NNN` | To pick up a story *(planned, not yet shipped)* |
-| `/conclave-qa US-NNN` | To verify a story *(planned, not yet shipped)* |
 | `/conclave-review` | At sprint end, to capture the demo and acceptance results *(planned, not yet shipped)* |
 | `/conclave-retro` | At sprint end, to capture Keep / Change / Start / Stop *(planned, not yet shipped)* |

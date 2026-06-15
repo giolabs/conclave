@@ -88,10 +88,10 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 | Subagent file | Used by (shipped) | Used by (planned) |
 |---|---|---|
 | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review) | `/conclave-groom`, `/conclave-review` |
-| `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review) | `/conclave-substack`, `/conclave-dev` |
+| `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review) | `/conclave-substack` |
 | `agents/scrum-master.md` | `/conclave-planning` (facilitator) | `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
-| `agents/developer.md` | — | `/conclave-dev US-NNN` |
-| `agents/qa.md` | — | `/conclave-qa US-NNN` |
+| `agents/developer.md` | `/conclave-dev US-NNN` | — |
+| `agents/qa.md` | `/conclave-qa US-NNN` | — |
 
 A slash command delegates by spawning an Agent subagent and passing the **full content of the role charter file** as the system prompt prefix, followed by the task-specific instructions and the context the role needs.
 
@@ -123,6 +123,8 @@ Templates available:
 - `story.template.md`
 - `acceptance.template.md`
 - `planning.template.md`
+- `pr-body.template.md`
+- `verification-report.template.md`
 
 ---
 

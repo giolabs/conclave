@@ -69,6 +69,6 @@ generated_by: conclave
 
 ## Next steps
 
-- Each assigned dev runs `/conclave-dev US-NNN` to start their story. *(planned, not yet shipped)*
-- QA runs `/conclave-qa US-NNN` as stories enter `review`. *(planned, not yet shipped)*
-- The team runs `/conclave-standup` daily *(if `daily_standup.required: true` in `conclave/config.md`; otherwise this step is silent)*.
+- Each assigned dev runs `/conclave-dev US-NNN` to start their story.
+- QA runs `/conclave-qa US-NNN` as stories enter `review`.
+- The team runs `/conclave-standup` daily *(if `daily_standup.required: true` in `conclave/config.md`; otherwise this step is silent — and the command itself is planned, not yet shipped)*.

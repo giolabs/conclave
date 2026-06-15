@@ -33,6 +33,12 @@ In your project repo:
 
 # 3. Lock the sprint (once per sprint, when you're ready to start)
 /conclave-planning
+
+# 4. Each dev picks up their assigned story
+/conclave-dev US-001
+
+# 5. QA verifies the story when it reaches review
+/conclave-qa US-001
 ```
 
 `/conclave-spec` invokes the Tech Lead and Product Manager subagents in parallel to produce:
@@ -110,8 +116,10 @@ You can change the profile any time by editing `conclave/config.md`. The ceremon
 - `/conclave-init` — bootstrap the `conclave/` workspace, pick a team profile.
 - `/conclave-spec <idea>` — produce the Product Backlog, Architectural Foundation, and Sprint 1 draft from an idea plus the project's `CLAUDE.md`, installed Skills, and detected stack signals.
 - `/conclave-planning` — run Sprint Planning: confirm the goal, assign stories, validate the DoR, compute capacity, lock the sprint. Profile-aware: depth of the ceremony scales with `team_profile`.
+- `/conclave-dev US-NNN` — Developer picks up a story: branches, implements with tests against each Gherkin scenario, opens a PR. Profile-aware peer-review tagging.
+- `/conclave-qa US-NNN` — QA verifies a story in `status: review` adversarially: re-derives PASS/FAIL per scenario, probes edge cases, appends a verification report, then approves or requests changes on the PR. **Structurally required — cannot be skipped by any profile.**
 
-Per-story dev/QA loops, sprint closeout ceremonies, and stack-specific sub-specs are next.
+Sprint closeout ceremonies (review, retro) and stack-specific sub-specs are next.
 
 ## Roadmap
 
