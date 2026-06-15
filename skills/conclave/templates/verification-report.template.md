@@ -39,6 +39,8 @@ Conditional items (only checked if the flag in `conclave/config.md` says `requir
 
 {{verdict_summary}}
 
-Story status set to: **{{new_story_status}}**.
+Story status set to: **{{new_story_status}}** *(one of `verified`, `done`, or unchanged `review`)*.
 
 {{action_on_pr}}
+
+> QA does not approve the PR. Code-level approval is the Tech Lead's call via `/conclave-pr-review US-NNN`. This verification covers acceptance criteria + structural DoD only.

@@ -71,4 +71,5 @@ generated_by: conclave
 
 - Each assigned dev runs `/conclave-dev US-NNN` to start their story.
 - QA runs `/conclave-qa US-NNN` as stories enter `review`.
-- The team runs `/conclave-standup` daily *(if `daily_standup.required: true` in `conclave/config.md`; otherwise this step is silent — and the command itself is planned, not yet shipped)*.
+- Tech Lead runs `/conclave-pr-review US-NNN` as stories enter `verified` *(only when `peer_pr_review.required: true` in `conclave/config.md`; in `lean` profile, QA's pass moves the story directly to `done`)*.
+- The team runs `/conclave-standup` daily *(if `daily_standup.required: true`; otherwise silent — and the command itself is planned, not yet shipped)*.

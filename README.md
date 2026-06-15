@@ -39,6 +39,9 @@ In your project repo:
 
 # 5. QA verifies the story when it reaches review
 /conclave-qa US-001
+
+# 6. Tech Lead approves the PR (only in profiles where peer_pr_review is on)
+/conclave-pr-review US-001
 ```
 
 `/conclave-spec` invokes the Tech Lead and Product Manager subagents in parallel to produce:
@@ -117,7 +120,8 @@ You can change the profile any time by editing `conclave/config.md`. The ceremon
 - `/conclave-spec <idea>` — produce the Product Backlog, Architectural Foundation, and Sprint 1 draft from an idea plus the project's `CLAUDE.md`, installed Skills, and detected stack signals.
 - `/conclave-planning` — run Sprint Planning: confirm the goal, assign stories, validate the DoR, compute capacity, lock the sprint. Profile-aware: depth of the ceremony scales with `team_profile`.
 - `/conclave-dev US-NNN` — Developer picks up a story: branches, implements with tests against each Gherkin scenario, opens a PR. Profile-aware peer-review tagging.
-- `/conclave-qa US-NNN` — QA verifies a story in `status: review` adversarially: re-derives PASS/FAIL per scenario, probes edge cases, appends a verification report, then approves or requests changes on the PR. **Structurally required — cannot be skipped by any profile.**
+- `/conclave-qa US-NNN` — QA verifies a story in `status: review` adversarially: re-derives PASS/FAIL per scenario, probes edge cases, appends a verification report, leaves a PR comment with the verdict. Moves story to `verified` (when TL gate is on) or `done` (when off). **Structurally required — cannot be skipped by any profile.** QA does NOT approve the PR itself.
+- `/conclave-pr-review US-NNN` — Tech Lead reviews the code against the architecture, ADRs, and code-level DoD items, then runs `gh pr review --approve` or `--request-changes`. Only runs when `ceremonies.peer_pr_review.required: true`. Story moves from `verified` to `done` on approve.
 
 Sprint closeout ceremonies (review, retro) and stack-specific sub-specs are next.
 

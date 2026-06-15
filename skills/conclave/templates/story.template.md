@@ -3,7 +3,7 @@ id: "US-{{id}}"
 title: "{{title}}"
 priority: "{{priority}}"        # must | should | could | wont
 estimate: "{{estimate}}"        # XS | S | M | L | XL
-status: backlog                 # backlog | ready | in-progress | review | done
+status: backlog                 # backlog | ready | in-progress | review | verified | done
 dependencies: []
 assignee: ""
 sprint: "{{sprint_id}}"
@@ -38,6 +38,7 @@ See [`acceptance/AC-US-{{id}}.md`](../acceptance/AC-US-{{id}}.md).
 
 - `backlog` — exists in the Product Backlog but not yet ready.
 - `ready` — passes the Definition of Ready; can be pulled into a sprint.
-- `in-progress` — assigned and being implemented.
+- `in-progress` — assigned and being implemented (`/conclave-dev`).
 - `review` — PR open, awaiting QA verification.
-- `done` — verified, merged, DoD met.
+- `verified` — QA passed the acceptance criteria; awaiting Tech Lead PR approval. **Used only when `ceremonies.peer_pr_review.required: true`** in `conclave/config.md`. When the flag is `false`, QA pass jumps directly to `done`.
+- `done` — QA verified, Tech Lead approved (when applicable), DoD met, PR mergeable.

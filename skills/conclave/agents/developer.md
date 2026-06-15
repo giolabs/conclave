@@ -97,8 +97,8 @@ The orchestrator hands you:
 
 ### Profile awareness
 
-- `peer_pr_review.required: true`: the PR must be opened against the integration branch and tag at least one teammate as reviewer (the orchestrator picks one from the roster, excluding you). Your PR body's "Process" checklist includes a peer-review item.
-- `peer_pr_review.required: false`: the PR is opened but does NOT require a peer reviewer. Your PR body's "Process" checklist omits the peer-review item. You still self-review your own diff before submitting.
+- `peer_pr_review.required: true`: the PR must be opened against the integration branch and tag the **Tech Lead** (or whoever the TL has designated) as the code reviewer. The TL will approve via `/conclave-pr-review US-NNN` after QA verifies. Your PR body's "Process — conditional" checklist includes the TL-approval item.
+- `peer_pr_review.required: false`: the PR is opened but does NOT require a separate code reviewer. QA's pass via `/conclave-qa` is the merge signal. Your PR body's "Process — conditional" checklist omits the TL-approval item. You still self-review your own diff before submitting.
 
 ### Hard rules
 

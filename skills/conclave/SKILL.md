@@ -88,7 +88,7 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 | Subagent file | Used by (shipped) | Used by (planned) |
 |---|---|---|
 | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review) | `/conclave-groom`, `/conclave-review` |
-| `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review) | `/conclave-substack` |
+| `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review), `/conclave-pr-review` (code review + approval) | `/conclave-substack` |
 | `agents/scrum-master.md` | `/conclave-planning` (facilitator) | `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
 | `agents/developer.md` | `/conclave-dev US-NNN` | — |
 | `agents/qa.md` | `/conclave-qa US-NNN` | — |
@@ -138,6 +138,26 @@ Conclave separates **structural invariants** (you cannot do Scrum without them) 
 - **Acceptance criteria on every story.** Every story file must reference a non-empty `acceptance/AC-US-NNN.md` with Gherkin scenarios. Stories without them fail the DoR.
 - **QA verification of acceptance criteria.** Every `done` story carries a verification report appended to its acceptance file. Without this, `done` means nothing. Enforced by `/conclave-qa`.
 - **Definition of Done compliance.** The team-customized DoD checklist must be met for every story. The structural items of the DoD are non-negotiable; some items become conditional (see below).
+
+### Who approves the PR (two gates, two roles)
+
+Conclave separates two distinct checks on a finished story:
+
+1. **QA verification** — does the implementation match the acceptance criteria behaviorally? Owned by the QA role, run via `/conclave-qa US-NNN`. Always required.
+2. **Tech Lead PR approval** — does the code meet the architecture, ADRs, and code-level DoD items? Owned by the Tech Lead role, run via `/conclave-pr-review US-NNN`. Required only when `ceremonies.peer_pr_review.required: true`.
+
+The two gates do NOT collapse. QA never runs `gh pr review --approve`. The TL does. When the flag is off (typical for `lean`), QA's pass implicitly approves the PR because there is no separate technical gate.
+
+### Story status transitions, profile-aware
+
+```
+backlog → ready → in-progress → review → [verified] → done
+```
+
+- `review → verified`: only happens when `peer_pr_review.required: true`. QA pass moves the story here while waiting for TL approval.
+- `review → done`: direct, when `peer_pr_review.required: false`. QA pass and PR approval collapse into the same step.
+- `verified → done`: TL approves the PR via `/conclave-pr-review`.
+- Any failure: back to `review`. The dev fixes, pushes, then QA re-verifies (and TL re-reviews if applicable).
 
 ### Skippable per team profile
 

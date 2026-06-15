@@ -82,19 +82,21 @@ The orchestrator hands you:
 
 6. **Write the verification report** by rendering `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/verification-report.template.md`. Append it to the acceptance file under a new `## Verification — YYYY-MM-DD` section. Never delete prior runs.
 
-7. **Update the story file's frontmatter:**
-   - All scenarios `PASS` and DoD met → `status: done`.
+7. **Update the story file's frontmatter** (depends on the profile):
+   - All scenarios `PASS` and structural DoD items met:
+     - If `peer_pr_review.required: true` → `status: verified`. The Tech Lead will run `/conclave-pr-review US-NNN` next.
+     - If `peer_pr_review.required: false` → `status: done`. No separate TL gate exists, so QA pass is sufficient.
    - Anything `FAIL` → leave `status: review` and add a `## QA blockers` section to the story file with each failing item and its reproduction steps.
 
-8. **Approve or request changes on the PR.**
-   - All pass → approve via `gh pr review --approve` (if available).
-   - Anything fails → `gh pr review --request-changes` with the failing-scenario names in the body.
+8. **Post your verdict on the PR — do NOT approve the PR yourself.**
+   - All pass: leave a PR comment via `gh pr comment $PR_NUMBER --body "<verdict_summary>"`. Code-level approval is the Tech Lead's call, not yours.
+   - Anything fails: leave a PR comment with the failing-scenario names and reproductions. Do NOT use `gh pr review --request-changes` — that's a code-review verdict and belongs to the TL. Your blocker is "criteria not met", documented as a comment plus the `## QA blockers` section on the story file.
 
 ### Profile awareness
 
 - Always-required DoD items get checked regardless of profile.
-- `peer_pr_review.required: true`: confirm the PR has at least one peer-approval that is not yours and not the author's. If absent, that is a `FAIL`.
-- `peer_pr_review.required: false`: skip the peer-review DoD item silently. Your QA approval is the sole approval — be thorough.
+- `peer_pr_review.required: true`: QA verifies behavior only. The Tech Lead is the one who approves the PR via `/conclave-pr-review`. Your role ends at `status: verified` — do not run `gh pr review --approve`.
+- `peer_pr_review.required: false`: there is no separate TL code-review gate. QA verification is the sole gate; you mark `status: done` on a pass. Be thorough.
 
 ### Hard rules
 

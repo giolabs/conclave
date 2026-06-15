@@ -41,7 +41,8 @@ See `../../product/architecture.md`. If a story in this sprint requires an archi
 
 - [ ] Run `/conclave-planning` to lock the sprint (assign stories, confirm capacity, move status to `active`).
 - [ ] Each Dev runs `/conclave-dev US-NNN` to pick up their assigned story.
-- [ ] QA runs `/conclave-qa US-NNN` to verify each story.
+- [ ] QA runs `/conclave-qa US-NNN` to verify each story behaviorally.
+- [ ] Tech Lead runs `/conclave-pr-review US-NNN` to approve each PR *(only when `peer_pr_review.required: true`)*.
 - [ ] Run `/conclave-review` and `/conclave-retro` at sprint end. *(planned, not yet shipped)*
 
 For the MVP, after this file is generated:

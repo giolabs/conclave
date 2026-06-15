@@ -40,7 +40,7 @@ Structural items (always required):
 
 These items apply only if the corresponding flag in `conclave/config.md` is `required: true`.
 
-- [ ] Peer PR review — at least one teammate who is not the author has approved the PR. *(Governed by `ceremonies.peer_pr_review.required` — off in the `lean` profile.)*
+- [ ] **Tech Lead PR approval** — the Tech Lead (or designated approver) has run `/conclave-pr-review US-NNN` and approved the PR. *(Governed by `ceremonies.peer_pr_review.required` — off in the `lean` profile. When off, QA verification is the merge signal and there is no separate code-level gate.)*
 
 ## How to update
 

@@ -30,7 +30,7 @@ Structural items (always required):
 
 Conditional items (apply only if the flag in `conclave/config.md` says `required: true`):
 
-- [ ] Peer reviewer assigned and aware *(governed by `ceremonies.peer_pr_review.required`)*
+- [ ] Tech Lead assigned as PR reviewer and aware. The TL will approve via `/conclave-pr-review US-NNN` after QA verifies. *(Governed by `ceremonies.peer_pr_review.required`. When the flag is off, QA verification is the merge signal.)*
 
 ## Architectural deviations
 
