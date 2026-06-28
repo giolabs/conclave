@@ -1,0 +1,30 @@
+{
+  "name": "conclave",
+  "owner": {
+    "name": "Conclave"
+  },
+  "metadata": {
+    "description": "Conclave — Scrum for Claude Code teams. Specialized AI subagents for every role (PM, Tech Lead, Scrum Master, Developer, QA). All artifacts are plain markdown committed to git in a visible conclave/ directory.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "conclave",
+      "source": "./",
+      "description": "Scrum methodology for distributed engineering teams using Claude Code. Six shipped slash commands (/conclave-init, /conclave-spec, /conclave-planning, /conclave-dev, /conclave-qa, /conclave-pr-review) cover the Day-0 founding-artifacts flow and the per-story delivery loop. Profile-aware (lean / full-scrum / custom).",
+      "version": "0.1.0",
+      "author": {
+        "name": "Conclave"
+      },
+      "keywords": [
+        "scrum",
+        "agile",
+        "sprint",
+        "spec-driven",
+        "team-coordination",
+        "subagents"
+      ],
+      "license": "MIT"
+    }
+  ]
+}
