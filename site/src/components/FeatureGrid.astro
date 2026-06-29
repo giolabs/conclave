@@ -1,0 +1,70 @@
+---
+import { getLangFromUrl, useTranslations } from "../i18n/utils";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+const features = [
+  {
+    key: "roles",
+    icon: `<path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>`,
+  },
+  {
+    key: "profiles",
+    icon: `<path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>`,
+  },
+  {
+    key: "markdown",
+    icon: `<path d="M3 4a2 2 0 012-2h10a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm3 1h2v3H6V5zm0 5h8v1H6v-1zm0 3h8v1H6v-1zm6-8h2v3h-2V5z"/>`,
+  },
+  {
+    key: "multiuser",
+    icon: `<path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM5 10a3 3 0 105 2.236A3.989 3.989 0 0010 13a4 4 0 00-4 4h.5a2.5 2.5 0 011.93-2.434A3 3 0 005 10zM13 13a3 3 0 105.93 2.434A2.5 2.5 0 0117.5 17H18a4 4 0 00-4-4 3.989 3.989 0 00-1 .126A2.99 2.99 0 0013 13z"/>`,
+  },
+  {
+    key: "commands",
+    icon: `<path fill-rule="evenodd" d="M2 3a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H3a1 1 0 01-1-1V3zm5.621 4.621a.75.75 0 010 1.06L6.182 10l1.439 1.319a.75.75 0 11-1.04 1.08l-2-1.83a.75.75 0 010-1.08l2-1.831a.75.75 0 011.04-.037zm4.018 0a.75.75 0 011.04 0l2 1.83a.75.75 0 010 1.08l-2 1.831a.75.75 0 11-1.04-1.08L13.078 10l-1.439-1.319a.75.75 0 010-1.06z" clip-rule="evenodd"/>`,
+  },
+  {
+    key: "specdriven",
+    icon: `<path fill-rule="evenodd" d="M4.5 2A2.5 2.5 0 002 4.5v11A2.5 2.5 0 004.5 18h11a2.5 2.5 0 002.5-2.5V8.621a2.5 2.5 0 00-.732-1.767l-4.121-4.121A2.5 2.5 0 0011.379 2H4.5zm9 4.5V4l4 4h-2.5a1.5 1.5 0 01-1.5-1.5zM6.75 9a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zm0 3a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5z" clip-rule="evenodd"/>`,
+  },
+];
+---
+
+<section class="relative border-y border-[--color-border] bg-[--color-bg-elevated]/30">
+  <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+    <div class="mx-auto max-w-2xl text-center">
+      <h2 class="text-3xl font-bold tracking-tight text-[--color-text] sm:text-4xl">
+        {t("features.title")}
+      </h2>
+      <p class="mt-4 text-base text-[--color-text-muted]">{t("features.subtitle")}</p>
+    </div>
+    <div class="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {features.map((f) => (
+        <div
+          class="group relative rounded-[--radius-card] border border-[--color-border] bg-[--color-bg-card] p-6 transition hover:border-[--color-border-strong] hover:bg-[--color-bg-card]/80"
+        >
+          <div
+            class="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-md bg-[--color-bg-elevated] text-[--color-accent-400] ring-1 ring-[--color-border]"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              class="h-5 w-5"
+              aria-hidden="true"
+              set:html={f.icon}
+            />
+          </div>
+          <h3 class="text-base font-semibold text-[--color-text]">
+            {t(`features.${f.key}.title` as any)}
+          </h3>
+          <p class="mt-1.5 text-sm leading-relaxed text-[--color-text-muted]">
+            {t(`features.${f.key}.body` as any)}
+          </p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

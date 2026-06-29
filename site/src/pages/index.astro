@@ -1,0 +1,29 @@
+---
+const base = import.meta.env.BASE_URL;
+const target = `${base.replace(/\/$/, "")}/en/`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content={`0; url=${target}`} />
+    <link rel="canonical" href={target} />
+    <title>Conclave</title>
+    <script is:inline define:vars={{ target, base }}>
+      // client-side: try to detect browser language and redirect accordingly
+      try {
+        const lang = (navigator.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
+        const finalUrl = `${base.replace(/\/$/, "")}/${lang}/`;
+        window.location.replace(finalUrl);
+      } catch (_) {
+        window.location.replace(target);
+      }
+    </script>
+  </head>
+  <body>
+    <p>
+      Redirecting to <a href={target}>Conclave</a>…
+    </p>
+  </body>
+</html>

@@ -1,0 +1,55 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import Sidebar from "../components/Sidebar.astro";
+import DocBreadcrumbs from "../components/DocBreadcrumbs.astro";
+import { getLangFromUrl, useTranslations } from "../i18n/utils";
+
+interface Props {
+  title: string;
+  description?: string;
+  category?: string;
+  slug: string;
+}
+
+const { title, description, category, slug } = Astro.props;
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+const editPath = `https://github.com/lucasgio/conclave/edit/main/site/src/content/docs/${lang}/${slug}.md`;
+---
+
+<BaseLayout title={title} description={description}>
+  <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-1 gap-8 py-10 lg:grid-cols-[16rem_1fr]">
+      <aside class="lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
+        <Sidebar />
+      </aside>
+      <article class="min-w-0">
+        <DocBreadcrumbs title={title} category={category} />
+        <div class="prose-docs">
+          <slot />
+        </div>
+        <div class="mt-12 border-t border-[--color-border] pt-6">
+          <a
+            href={editPath}
+            target="_blank"
+            rel="noopener"
+            class="inline-flex items-center gap-2 text-sm text-[--color-text-muted] hover:text-[--color-text]"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              class="h-4 w-4"
+            >
+              <path
+                d="M2.695 14.762l-1.262 3.155a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.886L17.5 5.501a2.121 2.121 0 00-3-3L3.58 13.419a4 4 0 00-.885 1.343z"
+              ></path>
+            </svg>
+            {t("docs.editonGitHub")}
+          </a>
+        </div>
+      </article>
+    </div>
+  </div>
+</BaseLayout>

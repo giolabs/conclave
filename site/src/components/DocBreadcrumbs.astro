@@ -1,0 +1,49 @@
+---
+import { getLangFromUrl, useTranslations, withBase } from "../i18n/utils";
+
+interface Props {
+  title: string;
+  category?: string;
+}
+
+const { title, category } = Astro.props;
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+const categoryLabels: Record<string, Record<string, string>> = {
+  en: { overview: "Get started", methodology: "Methodology", commands: "Commands" },
+  es: { overview: "Empezar", methodology: "Metodología", commands: "Comandos" },
+};
+const catLabel = category ? categoryLabels[lang]?.[category] : undefined;
+---
+
+<nav class="mb-6 text-xs text-[--color-text-subtle]" aria-label="Breadcrumb">
+  <ol class="flex items-center gap-1.5">
+    <li>
+      <a
+        href={withBase(`/${lang}/`, base)}
+        class="hover:text-[--color-text-muted]"
+      >
+        Conclave
+      </a>
+    </li>
+    <li aria-hidden="true">/</li>
+    <li>
+      <a
+        href={withBase(`/${lang}/docs/getting-started/`, base)}
+        class="hover:text-[--color-text-muted]"
+      >
+        {t("nav.docs")}
+      </a>
+    </li>
+    {catLabel && (
+      <>
+        <li aria-hidden="true">/</li>
+        <li class="text-[--color-text-muted]">{catLabel}</li>
+      </>
+    )}
+    <li aria-hidden="true">/</li>
+    <li class="text-[--color-text]" aria-current="page">{title}</li>
+  </ol>
+</nav>
