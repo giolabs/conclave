@@ -9,7 +9,11 @@ stack:
 repo_url: "{{repo_url}}"
 claude_md_path: "CLAUDE.md"
 initialized_at: "{{iso_date}}"
-conclave_version: "0.1.0"
+conclave_version: "0.2.0"
+
+# Whether this is a solo developer or a real team. Set once by /conclave-init.
+# solo forces team_profile to lean and renders a single-person roster.
+team_mode: "{{team_mode}}"              # solo | team
 
 # Which ceremonies / quality gates the team commits to.
 # Profiles set sensible defaults; the per-ceremony flags override them.
@@ -35,6 +39,10 @@ ceremonies:
 # Conclave configuration
 
 This file captures the project-level configuration Conclave uses to generate and verify artifacts. It is read by every `/conclave-*` command.
+
+## Team mode
+
+`{{team_mode}}` — `solo` if this is a one-person project (forces `team_profile: lean`, roster is a single row covering every discipline), `team` otherwise. Set once by `/conclave-init`; not meant to be hand-edited afterward (growing from solo to a team is a manual `roster.md` edit plus flipping this field — see `conclave/team/roster.md`).
 
 ## Project type
 `{{project_type}}`

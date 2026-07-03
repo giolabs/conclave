@@ -21,16 +21,16 @@ The argument is required and must match a story file under the active sprint.
 1. Verifies the working tree is clean (refuses on a dirty tree).
 2. Locates the active sprint and the story file. Refuses if the story is past the dev gate.
 3. Checks the assignee — if it does not match you, asks whether to take over.
-4. Loads context: `config.md` (profile + peer-review flag), architecture, DoD, roster, story, acceptance.
+4. Loads context: `config.md` (profile + peer-review flag), architecture, DoD, roster (with a one-time compatibility warning if it predates the `Discipline` column), story, acceptance.
 5. Creates branch `feat/US-NNN-<slug>` from the integration branch.
 6. Marks the story `in-progress` in its own commit (visible to the team immediately).
-7. **Delegates to the Developer subagent.** The agent:
+7. **Reads the story's `discipline` and delegates to the matching subagent.** The agent:
    - Reads story, acceptance, architecture, DoD.
    - Plans a technical breakdown (scratch only — not committed).
-   - Detects or bootstraps the test setup.
-   - Implements story-then-test, scenario by scenario. Each Gherkin scenario gets at least one passing test.
-   - Runs the full test suite once at the end.
-   - Lints / typechecks.
+   - Detects or bootstraps the test/verification setup.
+   - Implements story-then-verify, scenario by scenario. Each Gherkin scenario gets at least one form of verification (a passing test for Developer/DevOps, a design decision for Designer).
+   - Runs the full test suite / final check once at the end.
+   - Lints / typechecks (where applicable).
    - Commits in scoped chunks (`feat(US-NNN): ...`).
    - Renders the PR body from `templates/pr-body.template.md`.
 8. Pushes the branch.
@@ -38,16 +38,26 @@ The argument is required and must match a story file under the active sprint.
 10. Tags a peer reviewer if `peer_pr_review.required: true` — picks one from the roster, excluding the assignee.
 11. Marks the story `status: review`.
 
+## Discipline routing
+
+| Story `discipline` | Charter |
+|---|---|
+| `frontend`, `backend`, `multi`, or unset (pre-0.2.0 stories) | `developer.md` |
+| `design` | `designer.md` — design artifacts and Frontend handoff notes only, never application code |
+| `devops` | `devops.md` — CI/CD pipelines and infrastructure-as-code, same implement → verify → PR loop as Developer |
+
+All three charters share the same inputs, outputs shape, and PR-body template — only the domain of what gets built differs.
+
 ## What it produces
 
-- Code + tests in the repo.
+- Code (or, for `design`, handoff notes) + verification evidence in the repo.
 - A feature branch `feat/US-NNN-<slug>` pushed to `origin`.
 - A PR (or prepared `gh pr create` command).
 - Story-file frontmatter updated: `assignee`, `status: review`.
 
-## Hard rules the Dev subagent follows
+## Hard rules the execution subagent follows
 
-- Every Gherkin scenario maps to at least one passing test.
+- Every Gherkin scenario maps to at least one form of verification.
 - No architectural deviation without an ADR proposal in the PR body.
 - Never modifies acceptance criteria. If they look wrong, flags it via a comment, does not silently fix.
 - Touches no file under `conclave/` except its own story file's frontmatter.

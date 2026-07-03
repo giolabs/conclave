@@ -19,16 +19,19 @@ This is one of the two **structural** Scrum gates Conclave enforces — required
 ## What it does
 
 1. Locates the draft sprint (highest-numbered `SPRINT-NNN` with `status: draft`).
-2. Loads context: `config.md`, roster, backlog, DoR, architecture, current sprint files, optionally the previous sprint's retro.
+2. Loads context: `config.md`, roster, backlog, DoR, architecture, current sprint files, optionally the previous sprint's retro. If the roster predates the `Discipline` column, every member is treated as multi-discipline with a one-time compatibility warning.
 3. Asks the team for inputs — depth scales with the profile:
    - Always: sprint dates, facilitator name.
    - Full-scrum: per-dev capacity adjustments, carryover commitments.
    - When grooming is off: whether to refine top-of-backlog inside planning.
-4. **Delegates to SM, PM and TL in parallel.**
-5. Reconciles their outputs:
+4. **Delegates in two waves — PM + TL in parallel first (Wave 1), then SM alone (Wave 2).** Assignment needs to know each story's discipline before it can pick a valid assignee, so SM waits for TL's output instead of guessing ahead of it:
+   - Wave 1 — TL validates feasibility **and assigns a `discipline`** (`frontend | backend | qa | design | devops | multi`) to each story; PM validates scope.
+   - Wave 2 — SM assigns each story to a roster member whose `Discipline` matches (or who holds Tech Lead, for cross-cutting stories). If no one matches, it flags an unresolved **coverage gap** instead of guessing.
+5. Reconciles the outputs:
    - PM scope swaps → surfaces to user for accept/reject.
    - TL feasibility findings → records as recommendations.
-   - DoR validation → drops stories that fail (or refuses to lock in full-scrum).
+   - DoR validation → drops stories that fail (or refuses to lock in full-scrum). Now includes checking that every story has a `discipline` assigned.
+   - Coverage gaps → surfaced via `AskUserQuestion`: assign to Tech Lead as a temporary fallback, or pick someone else. Every gap must be resolved before the sprint locks.
    - Capacity check → warns on over-commit > 20%.
 6. Writes outputs (see below).
 
@@ -36,8 +39,8 @@ This is one of the two **structural** Scrum gates Conclave enforces — required
 
 - `conclave/sprints/SPRINT-NNN/meta.md` updated with `status: active`, target dates.
 - `conclave/sprints/SPRINT-NNN/spec.md` updated with assignees, `status: active`.
-- Each `stories/US-NNN-*.md` frontmatter updated: `assignee` set, `status: ready`.
-- `conclave/sprints/SPRINT-NNN/planning.md` — the meeting record (goal, capacity, assignments, DoR findings, experiments imported from prior retro).
+- Each `stories/US-NNN-*.md` frontmatter updated: `assignee` and `discipline` set, `status: ready`.
+- `conclave/sprints/SPRINT-NNN/planning.md` — the meeting record (goal, capacity, assignments, discipline assignments & coverage gaps, DoR findings, experiments imported from prior retro).
 - `conclave/product/backlog.md` updated to show selected stories as `in-progress` in the active sprint.
 
 ## Profile awareness

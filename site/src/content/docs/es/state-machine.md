@@ -15,7 +15,7 @@ Una user story se mueve por un conjunto chico de estados bien definidos. El cami
 | Status | Significado |
 |---|---|
 | `backlog` | Existe en el Product Backlog pero todavía no está ready. |
-| `ready` | Pasa la Definition of Ready; se puede traer a un sprint. |
+| `ready` | Pasa la Definition of Ready — incluyendo una `discipline` asignada por el Tech Lead; se puede traer a un sprint. |
 | `in-progress` | Asignada y siendo implementada (`/conclave-dev`). |
 | `review` | PR abierto, esperando verificación QA. |
 | `verified` | QA pasó los criterios de aceptación; esperando aprobación del PR por Tech Lead. **Solo usado cuando `peer_pr_review.required: true`.** |

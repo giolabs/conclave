@@ -15,7 +15,7 @@ A user story moves through a small set of well-defined states. The exact path de
 | Status | Meaning |
 |---|---|
 | `backlog` | Exists in the Product Backlog but not yet ready. |
-| `ready` | Passes the Definition of Ready; can be pulled into a sprint. |
+| `ready` | Passes the Definition of Ready — including a `discipline` assignment from the Tech Lead; can be pulled into a sprint. |
 | `in-progress` | Assigned and being implemented (`/conclave-dev`). |
 | `review` | PR open, awaiting QA verification. |
 | `verified` | QA passed acceptance criteria; awaiting Tech Lead PR approval. **Used only when `peer_pr_review.required: true`.** |

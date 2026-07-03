@@ -21,16 +21,16 @@ El argumento es requerido y debe matchear un story file bajo el sprint activo.
 1. Verifica que el working tree esté limpio (se niega en un working tree sucio).
 2. Localiza el sprint activo y el story file. Se niega si la historia está pasada la gate del dev.
 3. Chequea el assignee — si no matchea con vos, pregunta si tomar la historia.
-4. Carga contexto: `config.md` (profile + peer-review flag), architecture, DoD, roster, story, acceptance.
+4. Carga contexto: `config.md` (profile + peer-review flag), architecture, DoD, roster (con un aviso único de compatibilidad si es previo a la columna `Discipline`), story, acceptance.
 5. Crea la branch `feat/US-NNN-<slug>` desde la branch de integración.
 6. Marca la historia `in-progress` en su propio commit (visible al equipo inmediatamente).
-7. **Delega al subagent Developer.** El agente:
+7. **Lee la `discipline` de la historia y delega al subagent que corresponda.** El agente:
    - Lee story, acceptance, architecture, DoD.
    - Planea un breakdown técnico (solo scratch — no commiteado).
-   - Detecta o bootstrapea el test setup.
-   - Implementa story-then-test, escenario por escenario. Cada escenario Gherkin obtiene por lo menos un test que pasa.
-   - Corre la suite de tests entera una vez al final.
-   - Linta / typechequea.
+   - Detecta o bootstrapea el setup de tests/verificación.
+   - Implementa story-then-verify, escenario por escenario. Cada escenario Gherkin obtiene por lo menos una forma de verificación (un test que pasa para Developer/DevOps, una decisión de diseño para Designer).
+   - Corre la suite de tests / chequeo final una vez al final.
+   - Linta / typechequea (cuando aplica).
    - Commitea en chunks scopeados (`feat(US-NNN): ...`).
    - Renderiza el body del PR desde `templates/pr-body.template.md`.
 8. Pushea la branch.
@@ -38,16 +38,26 @@ El argumento es requerido y debe matchear un story file bajo el sprint activo.
 10. Taggea un peer reviewer si `peer_pr_review.required: true` — agarra uno del roster, excluyendo al assignee.
 11. Marca la historia `status: review`.
 
+## Ruteo por disciplina
+
+| `discipline` de la historia | Charter |
+|---|---|
+| `frontend`, `backend`, `multi`, o sin setear (historias pre-0.2.0) | `developer.md` |
+| `design` | `designer.md` — solo artefactos de diseño y notas de handoff a Frontend, nunca código de aplicación |
+| `devops` | `devops.md` — pipelines CI/CD e infraestructura como código, el mismo loop implementar → verificar → PR que Developer |
+
+Los tres charters comparten los mismos inputs, la misma forma de output, y el mismo template de PR body — solo difiere el dominio de lo que se construye.
+
 ## Qué produce
 
-- Código + tests en el repo.
+- Código (o, para `design`, notas de handoff) + evidencia de verificación en el repo.
 - Una feature branch `feat/US-NNN-<slug>` pusheada a `origin`.
 - Un PR (o comando `gh pr create` preparado).
 - Frontmatter del story-file actualizado: `assignee`, `status: review`.
 
-## Reglas duras que el subagent Dev sigue
+## Reglas duras que el subagent de ejecución sigue
 
-- Cada escenario Gherkin mapea a por lo menos un test que pasa.
+- Cada escenario Gherkin mapea a por lo menos una forma de verificación.
 - Sin desviación arquitectónica sin un ADR proposal en el body del PR.
 - Nunca modifica criterios de aceptación. Si parecen mal, flaggea vía comentario, no arregla silenciosamente.
 - No toca ningún archivo bajo `conclave/` excepto el frontmatter de su propio story file.

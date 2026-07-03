@@ -18,14 +18,20 @@ Este comando es **read/write solo dentro de tu repo**. No toca los archivos del 
 
 ## Qué pregunta
 
+Primero, `/conclave-init` pregunta **"¿Sos solo vos, o un equipo?"** — esto setea `team_mode: solo | team` y ramifica todo lo que sigue.
+
+- **Solo** → `team_profile` se fuerza a `lean`, sin preguntas por disciplina, sin preguntas de tamaño/profile.
+- **Team** → continúa con las preguntas de abajo, y después pregunta quién cubre cada una de las seis disciplinas.
+
 `/conclave-init` usa `AskUserQuestion` para juntar:
 
 1. **Nombre del proyecto** (default: el basename del repo).
 2. **Tipo de proyecto**: backend / frontend / mobile / devops / multi.
-3. **Tamaño del equipo**: 2–3, 4–6, 7+ (grueso; escala el template del roster).
+3. **Tamaño del equipo** (solo en modo `team`): 2–3, 4–6, 7+ (grueso; define el default del team profile de abajo).
 4. **Duración del sprint**: 1, 2, 3 o 4 semanas (default 2).
 5. **Timezone** (ej. `America/Montevideo`, default UTC).
-6. **Team profile**: `lean`, `full-scrum`, o `custom` — controla qué ceremonias son requeridas. Mirá [profiles](/conclave/es/docs/profiles/) para detalle.
+6. **Team profile** (solo en modo `team` — `solo` ya fuerza `lean`): `lean`, `full-scrum`, o `custom` — controla qué ceremonias son requeridas. Mirá [profiles](/conclave/es/docs/profiles/) para detalle.
+7. **Quién cubre cada disciplina** (solo en modo `team`): una pregunta por disciplina — **Tech Lead, Frontend, Backend, QA, Designer, DevOps** — nombre + handle de GitHub, o `TBD` si no está cubierta. Después una pregunta más por quién (si alguien) lleva los process roles opcionales de Product Manager / Scrum Master.
 
 ## Qué crea
 
@@ -52,9 +58,11 @@ conclave/
 
 ## Después de que corre
 
-Los cuatro archivos que casi seguro vas a querer editar a mano:
+`conclave/team/roster.md` queda **completamente poblado** en ambos modos — un proyecto solo obtiene una fila cubriendo las seis disciplinas, un equipo obtiene una fila por disciplina (con `TBD` para lo que quedó sin cubrir) — sin placeholders para llenar a mano.
 
-- `conclave/team/roster.md` — listá tus miembros reales del equipo.
+Archivos que vale la pena revisar igual:
+
+- `conclave/team/roster.md` — chequeá nombres/handles, sumá a quien haya quedado como `TBD`.
 - `conclave/team/ceremonies.md` — ajustá a tu cadencia real (sprint length, planning day, etc.).
 - `conclave/product/definition-of-ready.md` — customizá el checklist.
 - `conclave/product/definition-of-done.md` — customizá el checklist.

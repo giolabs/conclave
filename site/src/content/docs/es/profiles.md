@@ -16,8 +16,13 @@ Estos cuatro checks se enforce en cada team profile. Son el mínimo que Scrum ne
 
 - **Sprint Planning** — sin goal y lista lockeada de historias, no hay sprint. Enforce por `/conclave-planning` y la existencia de `conclave/sprints/SPRINT-NNN/spec.md`.
 - **Acceptance criteria en cada historia** — cada story file debe referenciar un `acceptance/AC-US-NNN.md` no vacío con escenarios Gherkin. Historias sin esto fallan la DoR.
+- **Una `discipline` asignada a cada historia** (`frontend | backend | qa | design | devops | multi`) — asignada por el Tech Lead durante `/conclave-planning`, chequeada por la misma gate de DoR. Sin default; una historia sin discipline no puede entrar a un sprint.
 - **Verificación QA de acceptance criteria** — cada historia `done` lleva un verification report appendeado a su archivo de aceptación. Enforce por `/conclave-qa`.
 - **Compliance con Definition of Done** — el checklist de DoD customizado por el equipo debe estar cumplido para cada historia.
+
+## `team_mode` es distinto de `team_profile`
+
+`team_mode` (`solo | team`, seteado una vez por `/conclave-init`) controla la **forma del roster** — una sola persona cubriendo cada disciplina, o un roster real de varias personas. `team_profile` controla **qué ceremonias se enforce**. Los proyectos solo siempre son `lean` (no hay nadie con quien hacer peer-review o standup); un equipo puede elegir cualquiera de los tres profiles independientemente de cuántas disciplinas estén realmente cubiertas.
 
 ## Skippeable por profile
 

@@ -8,7 +8,9 @@ lang: en
 
 # Getting started
 
-Conclave is a Claude Code plugin that brings **Scrum** to distributed engineering teams. Six AI subagents — one per Scrum role — coordinate through plain markdown committed to git. No central server, no proprietary format.
+Conclave is a Claude Code plugin that brings **Scrum** to distributed engineering teams. Seven AI subagents — one per discipline (Tech Lead, Frontend/Backend, QA, Designer, DevOps), plus two optional Product Manager/Scrum Master process roles — coordinate through plain markdown committed to git. No central server, no proprietary format.
+
+`/conclave-init` asks up front whether you're solo or a team — solo gets a single-person roster and the `lean` profile automatically; a team gets asked who covers each discipline.
 
 ## Three commands to get going
 

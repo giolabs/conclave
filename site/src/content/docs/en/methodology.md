@@ -8,18 +8,20 @@ lang: en
 
 # Methodology
 
-Conclave assumes standard **Scrum** with two practical accommodations real engineering teams make: explicit **Tech Lead** and **QA** roles, and **git** as the team's coordination substrate.
+Conclave assumes standard **Scrum** with practical accommodations real engineering teams make: a **discipline-first roster** (every project has Tech Lead, Frontend, Backend, QA, Designer, and DevOps work, whether or not it has a dedicated Product Manager or Scrum Master), and **git** as the team's coordination substrate.
 
 ## The Scrum mapping
 
 | Scrum concept | Conclave term | Notes |
 |---|---|---|
-| Product Owner | **Product Manager (PM)** | Same responsibilities — owns the backlog, prioritizes, defines acceptance. Most teams call it PM in practice. |
-| Scrum Master | **Scrum Master (SM)** | Facilitates ceremonies, surfaces blockers. |
-| Development Team | **Developers (Dev) + QA + Tech Lead (TL)** | TL and QA are named as distinct roles for clarity. They are still part of the Dev Team in pure Scrum. |
+| Development Team | **Disciplines: Tech Lead, Frontend, Backend, QA, Designer, DevOps** | Always present in the roster, even on a solo project where one person covers all six. This is the primary roster axis. |
+| Product Owner | **Product Manager (PM)** | An **optional process role** any discipline-holder can additionally carry — owns the backlog, prioritizes, defines acceptance, when someone holds it. Most teams call it PM in practice. |
+| Scrum Master | **Scrum Master (SM)** | An **optional process role**. Facilitates ceremonies, surfaces blockers, when someone holds it. If nobody does, the Tech Lead and team decide process by consensus. |
 | Product Backlog | `conclave/product/backlog.md` | Ordered list of user stories. |
 | Sprint Backlog | `conclave/sprints/SPRINT-NNN/spec.md` selected stories table | Snapshot at planning time. |
 | Increment | The merged PRs that close stories | Conclave does not track this — git does. |
+
+Solo developers get their own setup path: `/conclave-init` asks up front whether the project is solo or a team. Solo mode forces the `lean` profile and renders a single-person roster covering every discipline; team mode asks who covers each of the six disciplines (name + GitHub handle, or `TBD`) plus who — if anyone — holds the PM/SM process roles.
 
 ## The artifact tree
 
@@ -30,7 +32,7 @@ conclave/
 ├── README.md                         # explains the directory on GitHub
 ├── config.md                         # project type, stack, team profile
 ├── team/
-│   ├── roster.md                     # who plays which role
+│   ├── roster.md                     # who covers which discipline, plus optional PM/SM process roles
 │   └── ceremonies.md                 # cadence
 ├── product/                          # persists across sprints
 │   ├── backlog.md
@@ -61,7 +63,7 @@ conclave/
 
 Each slash command is a markdown orchestrator. Its body says, in prose: *"Spawn a subagent loaded with `skills/conclave/agents/<role>.md` to produce X."*
 
-Claude reads the role charter file, dispatches an `Agent` tool call with that content as the system-prompt prefix, and continues when the subagent returns. Two roles can run in parallel (PM + TL in `/conclave-spec`, SM + PM + TL in `/conclave-planning`) by issuing both `Agent` calls in a single message.
+Claude reads the role charter file, dispatches an `Agent` tool call with that content as the system-prompt prefix, and continues when the subagent returns. Independent roles run in parallel by issuing both `Agent` calls in a single message (PM + TL in `/conclave-spec`). `/conclave-planning` runs in two waves instead of one: PM + TL in parallel first (Wave 1), then SM alone (Wave 2) — assignment needs to know each story's Tech-Lead-assigned discipline before it can pick a valid assignee.
 
 There is no DSL. The pattern is the same one Anthropic's own `code-review` plugin uses for its parallel review agents.
 
@@ -70,7 +72,7 @@ There is no DSL. The pattern is the same one Anthropic's own `code-review` plugi
 Each team member runs their own local Claude Code. The shared state lives in `conclave/` and is committed to git. Coordination happens through pull requests:
 
 - PM grooms the backlog → opens a PR to `conclave/product/backlog.md`.
-- Dev picks up a story → branches `feat/US-NNN-<slug>` → implements → opens a PR.
+- Dev, Designer, or DevOps picks up a story (whichever matches its `discipline`) → branches `feat/US-NNN-<slug>` → implements → opens a PR.
 - QA verifies → appends a verification report to the acceptance file → PR comment.
 - TL approves the code → runs `gh pr review --approve`.
 

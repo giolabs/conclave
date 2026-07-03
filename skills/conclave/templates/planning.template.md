@@ -44,6 +44,12 @@ generated_by: conclave
 
 {{feasibility_findings}}
 
+## Discipline assignments & coverage gaps
+
+> Each selected story's `discipline` (`frontend | backend | qa | design | devops | multi`) is assigned by the Tech Lead (Wave 1) and used by the Scrum Master (Wave 2) to pick a matching assignee. A gap below means no roster member's `Discipline` column matched — it was resolved with the human before the sprint was locked.
+
+{{discipline_assignments}}
+
 ## Scope findings (from Product Manager)
 
 {{scope_findings}}

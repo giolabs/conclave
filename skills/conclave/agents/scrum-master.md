@@ -62,10 +62,12 @@ All output is markdown with YAML frontmatter for status fields.
 
 ## How you operate inside `/conclave-planning`
 
-You are invoked as one of three subagents (alongside PM and TL) during Sprint Planning. The orchestrator gives you:
+You are invoked in **Wave 2**, after the Product Manager and Tech Lead subagents (Wave 1) have already returned — not fully in parallel with them. This is deliberate: your assignment task needs the Tech Lead's per-story `discipline` values to pick valid assignees, so you run once that's known rather than guessing ahead of it. The orchestrator gives you:
 
 - The draft sprint's `spec.md` (currently `status: draft`)
-- `conclave/team/roster.md` — who can be assigned, with their role
+- `conclave/team/roster.md` — who can be assigned, with their `Discipline` and `Process role(s)` columns. If the roster predates this schema (no `Discipline` column), treat every member as `multi`-discipline — the orchestrator will have already printed a one-time compatibility warning.
+- The Tech Lead's Wave 1 output — per-story feasibility findings **and** the `discipline` value assigned to each story
+- The Product Manager's Wave 1 output — scope findings, in case a swap changes which stories you're assigning
 - `conclave/product/backlog.md` — the wider backlog (in case stories must be swapped in)
 - `conclave/product/definition-of-ready.md`
 - `conclave/config.md` — pay attention to `team_profile` and the `ceremonies` block
@@ -76,9 +78,11 @@ You are invoked as one of three subagents (alongside PM and TL) during Sprint Pl
 
 1. **Confirm the sprint goal.** The orchestrator hands you the goal currently in `spec.md`. Either confirm it as-is or propose a tighter, single-sentence version. Never expand scope without an explicit team ask.
 
-2. **Assign each story to a dev.** Use the roster (only people with the `Developer` role are assignable as primary). Balance load — sum of estimates per dev should not vary by more than ~30 % across the team. Respect skill hints in the roster `Notes` column if present.
+2. **Assign each story to a dev.** Use the roster and the Tech Lead's per-story `discipline` values (from Wave 1) — only roster members whose `Discipline` column matches the story's discipline, or who hold `Tech Lead` (for cross-cutting stories), are assignable. If no roster member matches a story's discipline, do not guess: list that story as an **unresolved coverage gap** in your output for the orchestrator to raise with the human. Balance load among the remaining valid assignees — sum of estimates per person should not vary by more than ~30 % across the team. Respect skill hints in the roster `Notes` column if present.
 
 3. **Run capacity check and surface risk.** Compute a rough capacity (devs × sprint weeks × 5 nominal estimate units, where XS=1, S=2, M=3, L=5, XL=8). Compare against the sum of selected stories. If over-commit > 20 %, raise it as a commitment-risk and recommend dropping the lowest-priority story.
+
+4. **Report discipline assignments and coverage gaps.** Fill the planning record's "Discipline assignments & coverage gaps" section: one line per story naming its discipline and assignee, plus a clearly marked list of any unresolved coverage gaps from task 2. Never resolve a gap yourself — the orchestrator surfaces it to the human via `AskUserQuestion`.
 
 ### Profile awareness
 

@@ -23,9 +23,9 @@ Conclave assumes a standard Scrum setup with a small accommodation for real engi
 
 | Scrum concept | Conclave term | Notes |
 |---|---|---|
-| Product Owner | **Product Manager (PM)** | Same responsibilities (own the backlog, prioritize, define acceptance). We call it PM because most teams in practice do. |
-| Scrum Master | **Scrum Master (SM)** | Facilitates ceremonies, removes blockers. |
-| Development Team | **Developers (Dev) + QA + Tech Lead (TL)** | We treat TL and QA as named roles for clarity. They are still part of the Dev Team in pure Scrum. |
+| Development Team | **Disciplines: Tech Lead, Frontend, Backend, QA, Designer, DevOps** | Always present in the roster, whether or not they map to six different people (v0.2.0+). This is the primary roster axis — see `conclave/team/roster.md`'s `Discipline` column. |
+| Product Owner | **Product Manager (PM)** | An **optional process role** (v0.2.0+), not a discipline — any discipline-holder can additionally carry it. Same responsibilities when someone does (own the backlog, prioritize, define acceptance). We call it PM because most teams in practice do. |
+| Scrum Master | **Scrum Master (SM)** | An **optional process role** (v0.2.0+), not a discipline. Facilitates ceremonies, removes blockers, when someone holds it. If nobody does, the Tech Lead and team decide process by consensus. |
 | Product Backlog | `conclave/product/backlog.md` | Ordered list of user stories. |
 | Sprint Backlog | `conclave/sprints/SPRINT-NNN/spec.md` selected stories table | Snapshot at planning time. |
 | Increment | The merged PRs that close stories | Conclave does not track this directly; git does. |
@@ -49,7 +49,7 @@ conclave/                             # VISIBLE top-level directory, all markdow
 ├── README.md                         # explains the directory to anyone browsing on GitHub
 ├── config.md                         # project type, stack, paths (frontmatter + prose)
 ├── team/
-│   ├── roster.md                     # team members + Scrum roles
+│   ├── roster.md                     # team members, discipline(s), optional PM/SM process role(s)
 │   └── ceremonies.md                 # sprint length, planning day, standup time, retro day
 ├── product/                          # persists across sprints
 │   ├── backlog.md                    # ordered Product Backlog
@@ -78,6 +78,7 @@ conclave/                             # VISIBLE top-level directory, all markdow
 - **Snapshot context.** Every artifact-generating command writes a fresh snapshot under `conclave/context/` so the artifact is auditable against the inputs that produced it.
 - **Reference, don't duplicate.** Stories reference their acceptance file (`See acceptance/AC-US-NNN.md`); sprint spec references `product/definition-of-done.md` rather than copying it.
 - **Numbering is sticky.** `SPRINT-NNN` and `US-NNN` IDs increment monotonically and are never reused.
+- **Roster schema degrades gracefully.** A `roster.md` written before v0.2.0 (no `Discipline` column) is not rejected — commands that read it treat every member as `multi`-discipline and print a one-time compatibility hint. No auto-migration is provided; a team opts into discipline-based assignment by re-running `/conclave-init` or hand-editing the roster.
 
 ---
 
@@ -87,10 +88,12 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 
 | Subagent file | Used by (shipped) | Used by (planned) |
 |---|---|---|
-| `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review) | `/conclave-groom`, `/conclave-review` |
-| `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review), `/conclave-pr-review` (code review + approval) | `/conclave-substack` |
-| `agents/scrum-master.md` | `/conclave-planning` (facilitator) | `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
-| `agents/developer.md` | `/conclave-dev US-NNN` | — |
+| `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review, Wave 1) | `/conclave-groom`, `/conclave-review` |
+| `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review + discipline assignment, Wave 1), `/conclave-pr-review` (code review + approval) | `/conclave-substack` |
+| `agents/scrum-master.md` | `/conclave-planning` (facilitator + assignment, Wave 2 — runs after PM/TL) | `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
+| `agents/developer.md` | `/conclave-dev US-NNN` (stories with `discipline: frontend \| backend \| multi`, or unset) | — |
+| `agents/designer.md` | `/conclave-dev US-NNN` (stories with `discipline: design`) | — |
+| `agents/devops.md` | `/conclave-dev US-NNN` (stories with `discipline: devops`) | — |
 | `agents/qa.md` | `/conclave-qa US-NNN` | — |
 
 A slash command delegates by spawning an Agent subagent and passing the **full content of the role charter file** as the system prompt prefix, followed by the task-specific instructions and the context the role needs.

@@ -21,6 +21,7 @@ A story is **Ready** to be pulled into a sprint when all of the following are tr
 - [ ] If the story implies an architectural change, an ADR proposal is linked.
 - [ ] The story has a T-shirt estimate (XS, S, M, L, XL). XL stories must be split before they can enter a sprint.
 - [ ] Any new dependencies (libraries, services, infrastructure) are identified.
+- [ ] The story has a `discipline` assigned (`frontend | backend | qa | design | devops | multi`). A story with no discipline cannot enter a sprint.
 
 ## Common pitfalls (avoid these)
 

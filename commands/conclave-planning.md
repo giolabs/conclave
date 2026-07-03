@@ -36,7 +36,7 @@ Read `$REPO_ROOT/conclave/config.md`. Extract:
 
 Read the rest of the workspace in parallel:
 
-- `$REPO_ROOT/conclave/team/roster.md`
+- `$REPO_ROOT/conclave/team/roster.md` — if it has no `Discipline` column (pre-0.2.0 schema), treat every member's discipline as `multi` for this run and print once: *"Roster is using the pre-0.2.0 schema (no Discipline column) — treating all members as multi-discipline. Run `/conclave-init` again or add a Discipline column by hand to opt into discipline-based assignment."* Do not refuse to run.
 - `$REPO_ROOT/conclave/product/backlog.md`
 - `$REPO_ROOT/conclave/product/definition-of-ready.md`
 - `$REPO_ROOT/conclave/product/architecture.md`
@@ -63,18 +63,13 @@ Use `AskUserQuestion`. The depth of the questionnaire depends on the profile.
 
 6. **Refine top-of-backlog?** (yes / no — default yes) → if yes, the SM will absorb a light grooming pass into the planning output.
 
-## Step 4 — Delegate to SM, PM, and TL in parallel
+## Step 4 — Delegate to PM and TL (Wave 1), then SM (Wave 2)
 
-Issue **three `Agent` tool calls in a single message**:
+Dispatch happens in **two waves**, not one three-way-parallel round: Scrum Master's assignment task needs the Tech Lead's per-story `discipline` values to pick valid assignees, so it runs after Wave 1 returns rather than guessing ahead of it.
 
-### Agent A — Scrum Master (facilitator)
+### Wave 1 — issue two `Agent` tool calls in a single message
 
-- Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/scrum-master.md`.
-- Task: produce the **Sprint Planning record** following `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/planning.template.md`.
-- Inputs to embed: the draft `spec.md`, story files, roster, backlog, DoR, prior retro if any, the user's answers from Step 3, the resolved profile and ceremony flags, and the `architecture.md` (read-only for context).
-- Output: the planning-record markdown.
-
-### Agent B — Product Manager (scope reviewer)
+#### Agent B — Product Manager (scope reviewer)
 
 - Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/product-manager.md`.
 - Task: validate **scope** of the selected stories. For each story in the draft sprint:
@@ -83,16 +78,28 @@ Issue **three `Agent` tool calls in a single message**:
   - Confirm the acceptance criteria are unambiguous.
 - Output: a markdown section titled `## Scope findings` listing per-story verdicts (`ok` or a specific recommendation). No re-writes — only findings.
 
-### Agent C — Tech Lead (feasibility reviewer)
+#### Agent C — Tech Lead (feasibility reviewer + discipline assignment)
 
 - Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/tech-lead.md`.
 - Task: validate **technical feasibility** of the selected stories against the current `architecture.md`. For each story:
   - Confirm the story respects existing ADRs, or flag the deviation it would force.
   - Identify any cross-story technical dependencies (US-002 must merge before US-004).
   - Flag stories that exceed their estimate based on the architecture (e.g. an `S` story that needs a new service is actually `M`+).
-- Output: a markdown section titled `## Technical feasibility findings` listing per-story verdicts. No re-writes.
+  - **Assign a `discipline` value** (`frontend | backend | qa | design | devops | multi`) based on the nature of the work. Prefer `multi` over a guessed precision if the story text doesn't make it obvious.
+- Output: a markdown section titled `## Technical feasibility findings` listing per-story verdicts, each including its assigned `discipline`. No re-writes.
 
-Wait for all three. If any errors, surface and stop.
+Wait for both. If either errors, surface and stop.
+
+### Wave 2 — issue one `Agent` tool call, after Wave 1 returns
+
+#### Agent A — Scrum Master (facilitator)
+
+- Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/scrum-master.md`.
+- Task: produce the **Sprint Planning record** following `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/planning.template.md`.
+- Inputs to embed: the draft `spec.md`, story files, roster (with the backward-compat note from Step 2 if applicable), backlog, DoR, prior retro if any, the user's answers from Step 3, the resolved profile and ceremony flags, `architecture.md` (read-only for context), **and Wave 1's two outputs** — the TL's per-story `discipline` values and feasibility findings, and the PM's scope findings.
+- Output: the planning-record markdown, including the "Discipline assignments & coverage gaps" section (per-story assignee, or an explicit unresolved-coverage-gap flag — see `scrum-master.md`'s assignment rule).
+
+Wait for it. If it errors, surface and stop.
 
 ## Step 5 — Synthesize and validate
 
@@ -108,7 +115,7 @@ If the TL flagged a story as under-estimated or needing a split:
 - Surface to user. If accepted, update the story file's frontmatter `estimate` field or create a split-story placeholder (`US-NNN-a`, `US-NNN-b`). For MVP, do not auto-split — just record the recommendation and ask the user to handle next groom.
 
 ### 5.3 Run DoR validation
-For each remaining story, check against `definition-of-ready.md`. Stories that fail the DoR cannot enter the sprint:
+For each remaining story, check against `definition-of-ready.md`, including the new **"discipline is assigned"** item — use the TL's Wave 1 `discipline` value (not yet written to disk). Stories that fail the DoR cannot enter the sprint:
 - If any fail in `lean`: surface to user, ask whether to drop them.
 - If any fail in `full-scrum`: refuse to lock — the team must groom first.
 
@@ -122,6 +129,9 @@ Compute:
 ### 5.5 Absorb grooming if `backlog_grooming.required: false`
 The SM agent included a `## Top-of-backlog refinement` subsection. Use it to update `conclave/product/backlog.md` — only the `last_groomed_at` field and any reordering the SM recommended. Do NOT write new stories from this step.
 
+### 5.6 Resolve discipline coverage gaps
+If the SM's Wave 2 output flags any story as an unresolved coverage gap (no roster member's `Discipline` matches), surface it to the human via `AskUserQuestion` **yourself** — do not let the SM subagent guess: *"No one on the roster covers `<discipline>` for `<story>`. Assign to Tech Lead as a temporary fallback, or pick someone else?"* Record the resolution (who was actually assigned, and that it was a fallback) in that story's `Notes` cell for `planning.template.md`'s selected-stories table, so it's visible in the PR. Resolve every gap before proceeding to Step 6 — an unresolved gap blocks locking the sprint the same way a failed DoR item does.
+
 ## Step 6 — Write outputs
 
 ### 6.1 Update `meta.md`
@@ -132,7 +142,8 @@ Replace the selected-stories table with the final list (with assignees filled in
 
 ### 6.3 Update each story's frontmatter
 For each story in the final selection:
-- `assignee` → the dev assigned by the SM
+- `assignee` → the person assigned by the SM (including any coverage-gap fallback resolved in 5.6)
+- `discipline` → the value the Tech Lead assigned in Wave 1
 - `status` → `ready`
 
 ### 6.4 Write `planning.md`
@@ -147,7 +158,8 @@ Print a short summary:
 
 - The sprint is locked: `SPRINT_ID` is now `active`, runs from start_date to end_date.
 - Number of committed stories and total estimate units vs team capacity (with the buffer percentage).
-- Assignees (one line per dev).
+- Assignees and their discipline (one line per story: `US-NNN → <assignee> (<discipline>)`).
+- Any discipline coverage gaps that came up and how they were resolved (5.6).
 - Any open commitments / risks the SM flagged.
 - Suggested git command sequence:
 

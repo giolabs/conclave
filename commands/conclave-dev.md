@@ -40,7 +40,7 @@ Read:
 - `$REPO_ROOT/conclave/config.md` — especially `team_profile` and `ceremonies.peer_pr_review.required`
 - `$REPO_ROOT/conclave/product/architecture.md`
 - `$REPO_ROOT/conclave/product/definition-of-done.md`
-- `$REPO_ROOT/conclave/team/roster.md` — needed to pick a peer reviewer if peer review is on
+- `$REPO_ROOT/conclave/team/roster.md` — needed to pick a peer reviewer if peer review is on. If it has no `Discipline` column (pre-0.2.0 schema), treat every member as `multi`-discipline and print once: *"Roster is using the pre-0.2.0 schema (no Discipline column) — treating all members as multi-discipline. Run `/conclave-init` again or add a Discipline column by hand to opt into discipline-based assignment."*
 - The story file (`stories/US-NNN-*.md`)
 - The acceptance file (`acceptance/AC-US-NNN.md`)
 - The sprint's `spec.md` (for the sprint goal as context)
@@ -56,11 +56,19 @@ Read:
 
 Update the story file's frontmatter `status: in-progress` and `assignee: <current user>` (if the user agreed in Step 2). Commit just this change with `chore(US-NNN): pick up story`. This commit makes the assignment visible to the team immediately.
 
-## Step 6 — Delegate to the Developer subagent
+## Step 6 — Delegate to the execution subagent
+
+Read the story's `discipline` field and select the charter to load:
+
+| `discipline` | Charter |
+|---|---|
+| `design` | `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/designer.md` |
+| `devops` | `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/devops.md` |
+| `frontend`, `backend`, `multi`, or empty/unset (pre-0.2.0 stories) | `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/developer.md` (today's only path — unchanged) |
 
 Issue a single `Agent` tool call with:
 
-- Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/developer.md`.
+- Prompt prefix: full content of the charter resolved above.
 - Task: implement the story end-to-end per the charter.
 - Inputs to embed in the prompt:
   - Story file content
@@ -90,6 +98,7 @@ Set frontmatter `status: review`. Commit with `chore(US-NNN): ready for QA verif
 Print:
 
 - Story ID and title
+- Discipline and which charter handled it (`developer.md` / `designer.md` / `devops.md`)
 - Branch name and PR URL (or the prepared `gh pr create` command if no `gh`)
 - Tests added (paths)
 - Whether a peer reviewer was tagged (and who)

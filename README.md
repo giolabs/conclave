@@ -70,7 +70,7 @@ conclave/
 ├── README.md                 # explains the directory
 ├── config.md                 # project type, stack, paths
 ├── team/
-│   ├── roster.md             # who plays which Scrum role
+│   ├── roster.md             # who covers which discipline, plus optional PM/SM process roles
 │   └── ceremonies.md         # sprint length, planning day, retro day
 ├── product/                  # persists across sprints
 │   ├── backlog.md            # ordered Product Backlog
@@ -90,13 +90,18 @@ conclave/
 
 ## Roles and subagents
 
-| Scrum role | Conclave subagent | MVP? |
+Every project has six disciplines — Tech Lead, Frontend, Backend, QA, Designer, DevOps — whether or not they map to six different people. Product Manager and Scrum Master are optional **process roles** any discipline-holder can additionally carry, not disciplines themselves.
+
+| Discipline / process role | Conclave subagent | Status |
 |---|---|---|
-| Product Owner (PM) | `product-manager` | yes |
-| Tech Lead / Architect | `tech-lead` | yes |
-| Scrum Master | `scrum-master` | charter defined, used in next iteration |
-| Developer | `developer` | charter defined, used in next iteration |
-| QA | `qa` | charter defined, used in next iteration |
+| Tech Lead | `tech-lead` | shipped |
+| Frontend | `developer` | shipped |
+| Backend | `developer` | shipped |
+| QA | `qa` | shipped |
+| Designer | `designer` | shipped |
+| DevOps | `devops` | shipped |
+| Product Manager (process role) | `product-manager` | shipped |
+| Scrum Master (process role) | `scrum-master` | shipped |
 
 The subagents are markdown role charters under `skills/conclave/agents/`. Slash commands invoke them by referencing their path in prose, the same pattern `code-review` and `skill-creator` use.
 
