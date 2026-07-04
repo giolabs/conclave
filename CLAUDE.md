@@ -6,9 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository **is** the Conclave Claude Code plugin — it is not a project that *uses* Conclave. Conclave brings Scrum methodology to distributed engineering teams: every Scrum role (Product Manager, Tech Lead, Scrum Master, Developer, QA) is a markdown-defined subagent charter, invoked by slash commands, that reads/writes plain-markdown Scrum artifacts inside a `conclave/` directory in whatever *target* repo the plugin is installed into.
 
-There are two independent things living in this repo:
-1. **The plugin itself** — `commands/`, `skills/conclave/` (plugin logic, this is the product).
-2. **The docs site** — `site/` (an Astro 5 + Tailwind 4 static site, deployed to GitHub Pages, documenting the plugin).
+This repo contains just the plugin itself — `commands/`, `skills/conclave/` (plugin logic, this is the product). There is no docs site currently (a prior Astro/Nextra docs site under `site/` was removed; if one is reintroduced, document it here).
 
 ## Repo layout
 
@@ -18,7 +16,9 @@ skills/conclave/
   SKILL.md                       # the methodology spec — read this first, it's the source of truth for the whole system
   agents/                        # role charters: product-manager.md, tech-lead.md, scrum-master.md, developer.md, qa.md
   templates/                     # *.template.md files with {{placeholders}} filled in by commands when writing artifacts
-site/                            # Astro docs site (separate npm project, see below)
+docs/
+  adr/                           # Architecture Decision Records
+  specs/                         # implementation specs
 .claude-plugin/
   plugin.json                    # plugin manifest (name, version, description)
   marketplace.json               # marketplace listing metadata
@@ -26,22 +26,11 @@ site/                            # Astro docs site (separate npm project, see be
 
 ## Development commands
 
-There is no build/lint/test step for the plugin itself — `commands/` and `skills/` are markdown consumed directly by Claude Code. Validate changes by installing the plugin locally and exercising the slash commands:
+There is no build/lint/test step for this plugin — `commands/` and `skills/` are markdown consumed directly by Claude Code. Validate changes by installing the plugin locally and exercising the slash commands:
 
 ```bash
 ln -s "$(pwd)" ~/.claude/plugins/conclave   # symlink install, then restart Claude Code
 ```
-
-### Docs site (`site/`)
-
-```bash
-cd site
-npm run dev       # local dev server
-npm run build     # static build to site/dist
-npm run preview   # preview the production build
-```
-
-The site auto-deploys to GitHub Pages via `.github/workflows/deploy-docs.yml` on push to `main` when files under `site/**` change.
 
 ## Architecture
 

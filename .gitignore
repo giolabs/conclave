@@ -14,3 +14,8 @@ tmp/
 
 # Node (in case any tooling lands at the repo root)
 node_modules/
+
+# Next.js (site/) build output
+site/.next/
+site/out/
+site/next-env.d.ts
