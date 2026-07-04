@@ -1,0 +1,44 @@
+---
+title: /conclave-pr-review
+description: Tech Lead reviews the code, approves the PR, moves the story to done.
+---
+
+# /conclave-pr-review US-NNN
+
+Tech Lead PR approval gate. Reviews the code of a story that QA has already verified behaviorally. On approve, the PR is approved and the story moves to `status: done`. On request-changes, the story moves back to `review` and the dev fixes.
+
+```
+/conclave-pr-review US-001
+```
+
+This command runs only when `ceremonies.peer_pr_review.required: true` in `conclave/config.md`. In `lean` profile (flag off), QA's pass is the merge signal and there is no separate TL gate.
+
+## What it does
+
+1. Resolves the workspace and checks the profile gate — refuses immediately if `peer_pr_review.required: false`.
+2. Resolves the story — must be `status: verified` (QA already passed).
+3. Switches to the dev branch and computes the diff against the integration branch.
+4. Loads context in parallel: config, architecture, DoD, the story and acceptance files (including QA's latest verification block), the full diff, and PR metadata.
+5. **Delegates to the Tech Lead subagent**, which checks ADR compliance, code-level DoD items (linter, coverage, docs), and code quality — race conditions, security smells, abstraction mistakes — the things QA's behavioral verification can't catch.
+6. Writes outputs (below).
+
+## What it produces
+
+- Story frontmatter update:
+  - Verdict `approved` → `status: done`.
+  - Verdict `request_changes` → `status: review`, with a `## TL findings` section (one bullet per finding, tagged `blocker` or `non-blocking`).
+- `gh pr review --approve` or `--request-changes` with the rendered review body.
+
+## Guardrails
+
+- Never approves a story whose status is not `verified` — the QA gate always comes first.
+- Never runs on a workspace where `peer_pr_review.required: false` — refuses at the first step.
+- Does not merge the PR. Approval is sufficient; merging is a separate human decision (release windows, batching).
+- Does not modify code on the dev branch — findings go in the review body, the dev addresses them.
+- A single `blocker`-severity finding is enough to withhold approval. No "approve with notes" when one exists.
+- Re-runs are append-only on the story file: after dev fixes, a second run adds a new `## TL findings` section if issues remain, or removes it and moves to `done` on approval.
+
+## After it runs
+
+- **Approved** — the PR is ready to merge (a separate human action).
+- **Request changes** — dev pushes fixes, then re-run [`/conclave-qa US-NNN`](/commands/qa) (criteria may have shifted) followed by `/conclave-pr-review US-NNN` again.

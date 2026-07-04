@@ -1,0 +1,50 @@
+---
+title: /conclave-qa
+description: Adversarially verify a story against its Gherkin acceptance criteria. Structurally required.
+---
+
+# /conclave-qa US-NNN
+
+Verify a single user story in `status: review` against its acceptance criteria. When this finishes, the story has moved to one of three states:
+
+- **`verified`** — QA passed, awaiting Tech Lead PR approval. Happens when `peer_pr_review.required: true`.
+- **`done`** — QA passed and there is no separate TL gate. Happens when `peer_pr_review.required: false`.
+- **`review` (with blockers)** — QA found failures. The dev fixes, pushes, and QA re-runs.
+
+```
+/conclave-qa US-001
+```
+
+This is one of the two **structural** Scrum gates Conclave enforces (along with Sprint Planning). It cannot be skipped by any profile. **QA does not approve the PR itself** — code-level approval belongs to the Tech Lead via `/conclave-pr-review`. QA's verdict goes into the verification report and a PR comment.
+
+## What it does
+
+1. Resolves the workspace and confirms `qa_verification.required: true` (always true — refuses if a malformed config says otherwise).
+2. Resolves the story — must be `status: review`.
+3. Switches to the story's dev branch (`feat/US-NNN-<slug>`) and captures the exact commit SHA the verification is anchored to.
+4. Loads context in parallel: config, DoD, story, acceptance file, the verification-report template, and PR metadata (reviews, CI status) if `gh` is available.
+5. **Delegates to the QA subagent**, which re-derives PASS/FAIL for every Gherkin scenario from first principles — adversarially, not by trusting the dev's own claims.
+6. Writes outputs (below).
+
+## What it produces
+
+- A `## Verification — <date>` section **appended** to `acceptance/AC-US-NNN.md` — never overwrites previous verification runs.
+- Story frontmatter update:
+  - Verdict `passed` + `peer_pr_review.required: true` → `status: verified`.
+  - Verdict `passed` + `peer_pr_review.required: false` → `status: done` directly.
+  - Verdict `blocked` → stays `status: review`, with a `## QA blockers` section listing each failing scenario and its reproduction.
+- A PR **comment** with the verdict (never a review/approval — `gh pr review` is never called from here).
+
+## Guardrails
+
+- Only ever modifies `conclave/` files that belong to this story's acceptance file — QA writes verification reports, QA does not fix code.
+- Never deletes prior verification sections — the acceptance file is the story's full audit trail.
+- Never runs `gh pr review --approve` or `--request-changes`. That is the Tech Lead's call via `/conclave-pr-review`.
+- Never passes a story when any scenario fails or any required DoD item is unmet.
+- Does not merge the PR, even when the verdict directly produces `status: done`.
+
+## After it runs
+
+- **Verdict `passed`, `peer_pr_review.required: true`** — Tech Lead runs [`/conclave-pr-review US-NNN`](/commands/pr-review) to approve and merge.
+- **Verdict `passed`, `peer_pr_review.required: false`** — no separate gate; the PR is ready to merge.
+- **Verdict `blocked`** — dev fixes and pushes, then re-run `/conclave-qa US-NNN`.

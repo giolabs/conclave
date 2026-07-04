@@ -1,0 +1,39 @@
+---
+title: Conclave
+description: Scrum for Claude Code teams — every role as a specialized AI subagent, coordinated through plain markdown committed to git.
+---
+
+# Conclave
+
+**Scrum for Claude Code teams.**
+
+Conclave is a Claude Code plugin that brings Scrum methodology to distributed engineering teams. Every discipline — Tech Lead, Frontend, Backend, QA, Designer, DevOps — gets a specialized AI subagent that helps whoever holds that discipline execute their duties. Product Manager and Scrum Master are optional process roles any discipline-holder can additionally carry.
+
+The shared source of truth is plain markdown committed to git, inside a visible `conclave/` directory at the root of your project.
+
+No central server, no proprietary format, no hidden state. The team coordinates through pull requests.
+
+## Why Conclave exists
+
+Most "AI does Scrum" tools either invent a new proprietary data format or require a hosted service. Conclave does neither:
+
+- **Everything is markdown.** Backlog, architecture, sprint plans, stories, acceptance criteria, verification reports — all plain `.md` files with YAML frontmatter for structured fields.
+- **Git is the only coordination mechanism.** Each team member runs their own local Claude Code session. There is no shared server, no database, no API. Teams sync through normal pull requests, exactly like code.
+- **The methodology is enforced by structure, not by trust.** A story cannot reach `done` without acceptance criteria, without QA verification, without meeting the Definition of Done — because the commands that move a story through its lifecycle check for these things before writing the next status.
+
+## What you get
+
+- **Seven role charters** (`skills/conclave/agents/*.md`) — Tech Lead, Developer (covering Frontend and Backend), QA, Designer, DevOps, Product Manager, Scrum Master — each a markdown "system prompt" a slash command loads when it spawns a subagent for that discipline.
+- **Six slash commands** covering the full Day-0-to-done loop: `/conclave-init`, `/conclave-spec`, `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`.
+- **Profile-aware ceremonies.** Lean teams skip the daily standup, peer review, and retro. Full-scrum teams enforce everything. Two structural gates — Sprint Planning and QA Verification — are always on, regardless of profile.
+- **Solo-friendly.** `/conclave-init` asks up front whether it's just you or a team, and scales the whole setup accordingly.
+
+## Where to go next
+
+- [Getting started](/getting-started) — install the plugin and run the Day-0 flow in a few minutes.
+- [Methodology](/methodology) — the Scrum model Conclave assumes and the accommodations it makes for real engineering teams.
+- [Roles](/roles) — the seven role charters and which commands invoke each.
+- [Team profiles](/profiles) — how to scale ceremony overhead to your team's size.
+- [Configuration reference](/configuration) — every field in `conclave/config.md` explained.
+- [Story state machine](/state-machine) — how a story moves from `backlog` to `done`, profile-aware.
+- [Commands](/commands/init) — full reference for each of the six shipped slash commands.

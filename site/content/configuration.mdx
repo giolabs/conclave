@@ -1,0 +1,126 @@
+---
+title: Configuration reference
+description: Every field in conclave/config.md and conclave/team/roster.md explained.
+---
+
+# Configuration reference
+
+Every `/conclave-*` command reads `conclave/config.md`. This page documents every field, plus the roster schema it works alongside.
+
+## `conclave/config.md`
+
+```yaml
+project_name: "my-project"
+project_type: "backend"          # backend | frontend | mobile | devops | multi
+stack:
+  language: "TypeScript"
+  framework: "NestJS"
+  datastore: "PostgreSQL"
+  infrastructure: "Docker + AWS ECS"
+repo_url: "https://github.com/org/my-project"
+claude_md_path: "CLAUDE.md"
+initialized_at: "2026-01-01T00:00:00Z"
+conclave_version: "0.2.0"
+
+team_mode: "solo"                # solo | team
+team_profile: "lean"             # lean | full-scrum | custom
+
+ceremonies:
+  sprint_planning:
+    required: true               # always true — structural
+  qa_verification:
+    required: true               # always true — structural
+  daily_standup:
+    required: false
+  backlog_grooming:
+    required: false
+  peer_pr_review:
+    required: false
+  sprint_review:
+    required: false
+  sprint_retrospective:
+    required: false
+```
+
+### Field reference
+
+| Field | Values | Notes |
+|---|---|---|
+| `project_name` | free text | Defaults to the repo's basename. |
+| `project_type` | `backend \| frontend \| mobile \| devops \| multi` | Set during `/conclave-init`; refined by `/conclave-spec`. |
+| `stack.*` | free text | Confirmed by `/conclave-spec`, not asked during `/conclave-init`. |
+| `repo_url` | URL | Used to build links (edit-on-GitHub, PR templates). |
+| `claude_md_path` | path | Where Conclave looks for project context when generating founding artifacts. |
+| `conclave_version` | semver-ish string | Schema version. Commands check this to decide whether to degrade gracefully against older artifacts. |
+| `team_mode` | `solo \| team` | Set once by `/conclave-init`. Controls roster shape — see below. Not meant to be hand-edited; growing from solo to a team is a manual `roster.md` edit plus flipping this field. |
+| `team_profile` | `lean \| full-scrum \| custom` | Controls which ceremonies are enforced. See [team profiles](/profiles). |
+| `ceremonies.sprint_planning.required` | always `true` | Structural. Rejecting an edit to `false` is enforced by `/conclave-planning`. |
+| `ceremonies.qa_verification.required` | always `true` | Structural. Enforced by `/conclave-qa`. |
+| `ceremonies.daily_standup.required` | `true \| false` | Off by default in `lean`, on in `full-scrum`. |
+| `ceremonies.backlog_grooming.required` | `true \| false` | When off, grooming happens inside `/conclave-planning` instead of a separate ceremony. |
+| `ceremonies.peer_pr_review.required` | `true \| false` | Gates whether `/conclave-pr-review` runs at all — the Tech Lead PR-approval step. |
+| `ceremonies.sprint_review.required` | `true \| false` | Sprint-closeout ceremony. Planned command, not yet shipped. |
+| `ceremonies.sprint_retrospective.required` | `true \| false` | Sprint-closeout ceremony. Planned command, not yet shipped. |
+
+### Conventions block
+
+`config.md`'s body (below the frontmatter) also documents team conventions every command respects:
+
+- **Branch naming**: `feat/US-NNN-<slug>` for stories, `fix/<short-slug>` for bugs, `chore/<short-slug>` for maintenance.
+- **Commit messages**: reference the story ID, e.g. `feat(US-001): add JWT middleware`.
+- **PR titles**: mirror the story title, e.g. `US-001: Add JWT middleware`.
+
+Edit this file directly to change any of these — the next `/conclave-*` command picks up the change. Commit the edit so the rest of the team sees it.
+
+## `conclave/team/roster.md`
+
+The roster's primary axis is **Discipline**, not a Scrum role. Its shape depends on `team_mode`:
+
+### `team_mode: team`
+
+| Member | GitHub handle | Discipline | Process role(s) | Notes |
+|---|---|---|---|---|
+| Ada | @ada | Tech Lead | | |
+| Bea | @bea | Frontend | PM | |
+| Cy | @cy | Backend | | |
+| Dee | @dee | QA | | |
+| TBD | | Designer | | Unstaffed |
+| Fen | @fen | DevOps | SM | |
+
+- The `Discipline` column can hold more than one value (comma-separated) when one person covers several.
+- An unstaffed discipline keeps its row with `TBD` in place of the name/handle — the discipline still exists, it's just not covered yet.
+- `Process role(s)` is optional: `PM`, `SM`, both, or blank.
+
+### `team_mode: solo`
+
+| Member | GitHub handle | Discipline | Process role(s) | Notes |
+|---|---|---|---|---|
+| Ada | @ada | Tech Lead, Frontend, Backend, QA, Designer, DevOps | PM, SM | Solo project — one person covers every discipline. |
+
+### Role rules
+
+- One person can hold multiple disciplines and process roles at once.
+- The Tech Lead has final say on architectural decisions and ADRs.
+- Whoever holds the Product Manager process role has final say on priority and acceptance.
+- Whoever holds the Scrum Master process role has final say on process and ceremony cadence.
+- If no one holds PM or SM, the Tech Lead and team decide priority and process by consensus.
+- A roster written before the discipline model shipped (no `Discipline` column) is not rejected — commands treat every member as `multi`-discipline and print a one-time compatibility hint.
+
+## Story frontmatter
+
+Every story file (`conclave/sprints/SPRINT-NNN/stories/US-NNN-<slug>.md`) carries:
+
+```yaml
+id: "US-042"
+title: "Add JWT middleware"
+priority: "must"                # must | should | could | wont
+estimate: "M"                   # XS | S | M | L | XL
+status: backlog                 # backlog | ready | in-progress | review | verified | done
+dependencies: []
+assignee: ""
+discipline: ""                  # frontend | backend | qa | design | devops | multi
+sprint: "SPRINT-003"
+created_at: "2026-01-01T00:00:00Z"
+```
+
+`discipline` starts empty and is set by the Tech Lead during `/conclave-planning` — see the [story state machine](/state-machine) for exactly when each field becomes required.

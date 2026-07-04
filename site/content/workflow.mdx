@@ -1,0 +1,83 @@
+---
+title: Workflow map
+description: How the same six commands play out differently for a solo developer versus a team.
+---
+
+# Workflow map
+
+Conclave runs the exact same six commands whether you're solo or a team — what changes is how much each command asks, and how assignment works. This page maps the full loop end to end, branching where solo and team actually differ.
+
+## Day 0 — bootstrap and founding artifacts
+
+```mermaid
+flowchart TD
+    Start(["/conclave-init"]) --> Q{"Is this just<br/>you, or a team?"}
+
+    Q -->|Solo| SoloBranch["team_mode: solo<br/>team_profile forced to lean<br/>single-person roster, all 6 disciplines"]
+    Q -->|Team| TeamBranch["team_mode: team<br/>ask team size → default profile<br/>staff 6 disciplines + optional PM/SM"]
+
+    SoloBranch --> Spec(["/conclave-spec &lt;idea&gt;"])
+    TeamBranch --> Spec
+
+    Spec --> Parallel["Tech Lead + Product Manager<br/>run in parallel"]
+    Parallel --> Artifacts["backlog.md + architecture.md<br/>+ Sprint 1 draft (discipline still empty)"]
+```
+
+Solo and team run the identical `/conclave-spec` step — the branch only changes what `/conclave-init` asked and how `roster.md` looks afterward.
+
+## Sprint Planning — where solo and team diverge most
+
+```mermaid
+flowchart TD
+    Plan(["/conclave-planning"]) --> Wave1["Wave 1 (parallel):<br/>PM reviews scope<br/>TL assigns discipline + feasibility"]
+    Wave1 --> Wave2["Wave 2: Scrum Master assigns<br/>each story to a matching Discipline"]
+
+    Wave2 --> Match{"Roster member<br/>matches the story's<br/>discipline?"}
+
+    Match -->|"Solo: always yes<br/>(one person = every discipline)"| Lock["Sprint locked: active"]
+    Match -->|"Team: usually yes"| Lock
+    Match -->|"Team: no match found"| Gap["Coverage gap →<br/>AskUserQuestion:<br/>Tech Lead fallback, or reassign"]
+    Gap --> Lock
+```
+
+On a solo project, the discipline-match check in Wave 2 never produces a coverage gap — the single roster row lists every discipline, so the Scrum Master always finds a match. On a team, an unstaffed discipline (`TBD` in the roster) or a genuinely uncovered one triggers the gap prompt.
+
+## Per-story delivery loop — identical after that
+
+```mermaid
+flowchart TD
+    Dev(["/conclave-dev US-NNN"]) --> Route{"story.discipline"}
+    Route -->|frontend / backend / multi| Developer["developer.md"]
+    Route -->|design| Designer["designer.md"]
+    Route -->|devops| DevOps["devops.md"]
+
+    Developer --> QA(["/conclave-qa US-NNN"])
+    Designer --> QA
+    DevOps --> QA
+
+    QA --> Verdict{"Verdict"}
+    Verdict -->|blocked| Dev
+    Verdict -->|"passed, peer_pr_review off"| Done["status: done"]
+    Verdict -->|"passed, peer_pr_review on"| Verified["status: verified"]
+
+    Verified --> PRReview(["/conclave-pr-review US-NNN"])
+    PRReview --> TLVerdict{"TL verdict"}
+    TLVerdict -->|request changes| Dev
+    TLVerdict -->|approved| Done
+```
+
+`peer_pr_review.required` is normally `false` in `lean` (the solo default), so a solo run typically skips the `/conclave-pr-review` step entirely — QA's pass goes straight to `done`. A team on `full-scrum` always routes through both gates.
+
+## Solo vs. team, side by side
+
+| Step | Solo | Team |
+|---|---|---|
+| `/conclave-init` questions | Project name, type, sprint length, timezone. No profile question — `lean` is forced. | Same, plus team size (defaults the profile), and one question per discipline to staff the roster. |
+| Roster shape | One row, `Discipline` = all six, `Process role(s)` = PM, SM. | One row per discipline (or per person, if someone covers several), `TBD` for anything unstaffed. |
+| `/conclave-spec` | Identical — Tech Lead and Product Manager still run as two separate subagents in parallel, even though a human might be doing both jobs. | Identical. |
+| `/conclave-planning` Wave 2 (assignment) | Always finds a match; coverage gaps cannot happen. | Can hit a coverage gap if a discipline is `TBD` or a story needs one nobody covers — resolved via `AskUserQuestion`. |
+| `/conclave-dev` discipline routing | Same routing table (`developer.md` / `designer.md` / `devops.md`) — the charter run depends on the story, not on who's running it. | Identical. |
+| `/conclave-pr-review` | Skipped by default (`peer_pr_review.required: false` under `lean`). QA's pass alone reaches `done`. | Runs when `peer_pr_review.required: true` (the `full-scrum` default) — a second, code-level gate before `done`. |
+
+The takeaway: **the six commands and the discipline model never change.** What changes is purely `conclave/config.md`'s `team_mode` and `team_profile` values, and how many humans are behind the roster's rows.
+

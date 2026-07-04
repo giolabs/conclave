@@ -1,0 +1,44 @@
+---
+title: /conclave-spec
+description: Generate the founding artifacts — Product Backlog, Architectural Foundation, Sprint 1 plan — from a one-line product idea.
+---
+
+# /conclave-spec &lt;idea&gt;
+
+Produce the **founding Scrum artifacts** for the current repo, from a one-line product idea plus all available project context. This is the MVP main command.
+
+```
+/conclave-spec "REST API for task management with JWT auth"
+```
+
+If `conclave/config.md` doesn't exist yet, this command runs the `/conclave-init` flow inline first rather than failing.
+
+## What it does
+
+1. Resolves the workspace and determines the next `SPRINT-NNN` ID.
+2. Ingests project context in parallel: `CLAUDE.md` (project + global), the list of skills available in the session, and detected stack-signal files (`package.json`, `pubspec.yaml`, `go.mod`, etc.) — each snapshotted under `conclave/context/` for auditability.
+3. Asks the user to confirm the detected stack, project type, how many stories to pull into Sprint 1 (3–5 default), and any hard constraints (deadlines, compliance, banned dependencies).
+4. **Delegates to the Tech Lead and Product Manager in parallel** — two concurrent `Agent` calls, neither waits on the other:
+   - **Tech Lead** produces the Architectural Foundation: overview, confirmed stack, component diagram, 3–7 ADRs, cross-cutting concerns, and a technical risk table.
+   - **Product Manager** produces the Product Backlog as INVEST stories with MoSCoW priority, T-shirt estimates, and Gherkin acceptance criteria.
+5. Synthesizes both outputs: writes `architecture.md`, builds the backlog table, picks the top N stories for Sprint 1, and splits each into a story file plus an acceptance file.
+6. On re-runs, updates the backlog **additively** — never overwrites it.
+
+## What it produces
+
+- `conclave/product/backlog.md` — the ordered Product Backlog.
+- `conclave/product/architecture.md` — the Architectural Foundation with ADRs.
+- `conclave/sprints/SPRINT-NNN/` — the sprint draft: `meta.md`, `spec.md`, one `stories/US-NNN-<slug>.md` and one `acceptance/AC-US-NNN.md` per selected story.
+
+Every story is created with `discipline: ""` (empty) — the Tech Lead assigns it later, during `/conclave-planning`, not here. See the [story state machine](/state-machine) for why.
+
+## Guardrails
+
+- Does not modify any file outside `conclave/` (and only reads `CLAUDE.md`, never edits it).
+- Does not commit — the team reviews the artifacts as a PR.
+- The Product Backlog is append-only; per-sprint directories are always new, so they never collide.
+- If the PM or TL output fails a quality check from its own role charter, the failure surfaces to the user with the specific check that failed — nothing is silently patched.
+
+## After it runs
+
+- `/conclave-planning` locks the sprint and assigns each story's discipline and owner.

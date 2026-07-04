@@ -1,0 +1,31 @@
+---
+title: Installation
+description: Install Conclave as a Claude Code plugin.
+---
+
+# Installation
+
+Conclave ships as a Claude Code plugin. Install it via a directory marketplace, the same mechanism used by other Claude Code plugins.
+
+## Via the marketplace
+
+```bash
+claude plugin marketplace add lucasgio/conclave
+claude plugin install conclave@conclave
+```
+
+Restart Claude Code. Type `/conclave` to see the six shipped commands.
+
+## From source (local development)
+
+If you're working on Conclave itself, or want to run an unreleased version, symlink this repository into your local plugin folder instead:
+
+```bash
+ln -s "$(pwd)" ~/.claude/plugins/conclave
+```
+
+Restart Claude Code. You should now see `/conclave-init` and `/conclave-spec` in the slash-command list.
+
+## Verifying the install
+
+Run `/conclave-init` inside any git repository. If the command exists and asks *"Is this just you, or a team?"*, the plugin is installed correctly. If nothing happens, double-check the plugin appears in `claude plugin list` (marketplace install) or that the symlink target is correct (local install), then restart Claude Code again.

@@ -1,0 +1,78 @@
+---
+title: /conclave-init
+description: Bootstrap the conclave/ directory in your repo and pick a team profile.
+---
+
+# /conclave-init
+
+Initialize a Conclave Scrum workspace at the root of the current repository.
+
+```
+/conclave-init
+```
+
+This command is **read/write inside your repo only**. It does not touch the plugin's own files. The output is a fully-formed `conclave/` directory the team can immediately work from.
+
+## What it asks
+
+First, `/conclave-init` asks **"Is this just you, or a team?"** — this sets `team_mode: solo | team` and branches everything that follows.
+
+- **Solo** → `team_profile` is forced to `lean`, no per-discipline questions, no team-size/profile questions.
+- **Team** → continues to the questions below, then asks who covers each of the six disciplines.
+
+`/conclave-init` uses `AskUserQuestion` to collect:
+
+1. **Project name** (default: the basename of the repo).
+2. **Project type**: backend / frontend / mobile / devops / multi.
+3. **Team size** (`team` mode only): 2–3, 4–6, 7+ (rough; defaults the team profile below).
+4. **Sprint length**: 1, 2, 3 or 4 weeks (default 2).
+5. **Timezone** (e.g. `America/Montevideo`, default UTC).
+6. **Team profile** (`team` mode only — `solo` already forces `lean`): `lean`, `full-scrum`, or `custom` — controls which ceremonies are required. See [profiles](/profiles) for details.
+7. **Who covers each discipline** (`team` mode only): one question per discipline — **Tech Lead, Frontend, Backend, QA, Designer, DevOps** — name + GitHub handle, or `TBD` if unstaffed. Then one more question for who (if anyone) holds the optional Product Manager / Scrum Master process roles.
+
+## What it creates
+
+```
+conclave/
+├── README.md
+├── config.md
+├── team/
+│   ├── roster.md
+│   └── ceremonies.md
+├── product/
+│   ├── definition-of-ready.md
+│   └── definition-of-done.md
+├── context/
+└── sprints/
+```
+
+`product/backlog.md` and `product/architecture.md` are intentionally left empty — `/conclave-spec` populates them.
+
+## What it does NOT do
+
+- **Does not commit.** The team should review the seed files (especially roster, DoR and DoD) before committing.
+- **Does not touch files outside `conclave/`** — your code is safe.
+
+## After it runs
+
+`conclave/team/roster.md` is written out **fully populated** in both modes — a solo project gets a single row covering all six disciplines, a team gets one row per discipline (with `TBD` for anything unstaffed) — no placeholders left to fill in by hand.
+
+Files worth reviewing anyway:
+
+- `conclave/team/roster.md` — double-check names/handles, add anyone you left as `TBD`.
+- `conclave/team/ceremonies.md` — adjust to your real cadence (sprint length, planning day, etc.).
+- `conclave/product/definition-of-ready.md` — customize the checklist.
+- `conclave/product/definition-of-done.md` — customize the checklist.
+
+Then commit:
+
+```bash
+git add conclave/
+git commit -m "conclave: bootstrap Scrum workspace"
+```
+
+And move on to `/conclave-spec`.
+
+## Idempotency
+
+Re-running `/conclave-init` on a workspace that already has `conclave/config.md` is refused. To change the profile or other settings, edit `conclave/config.md` directly.

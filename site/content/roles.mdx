@@ -1,0 +1,83 @@
+---
+title: Roles
+description: The seven role charters Conclave ships and which commands invoke each.
+---
+
+# Roles
+
+Conclave ships **seven role charters** — markdown files under `skills/conclave/agents/` that the slash commands load as system-prompt prefixes when they spawn subagents.
+
+Six are **disciplines**, always present in the roster whether or not they map to six different people: Tech Lead, Frontend, Backend, QA, Designer, DevOps. Product Manager and Scrum Master are **optional process roles** any discipline-holder can additionally carry — they are not disciplines themselves.
+
+| Role | Kind | Charter | Invoked by |
+|---|---|---|---|
+| Tech Lead | Discipline | `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility + discipline assignment, Wave 1), `/conclave-pr-review` (code review) |
+| Frontend / Backend | Discipline | `agents/developer.md` | `/conclave-dev` (stories with `discipline: frontend \| backend \| multi`) |
+| QA | Discipline | `agents/qa.md` | `/conclave-qa` |
+| Designer | Discipline | `agents/designer.md` | `/conclave-dev` (stories with `discipline: design`) |
+| DevOps | Discipline | `agents/devops.md` | `/conclave-dev` (stories with `discipline: devops`) |
+| Product Manager | Process role (optional) | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review, Wave 1) |
+| Scrum Master | Process role (optional) | `agents/scrum-master.md` | `/conclave-planning` (facilitator + assignment, Wave 2 — runs after Product Manager and Tech Lead) |
+
+## Product Manager
+
+Functionally the **Product Owner** in Scrum terms, when someone holds this optional process role. Owns the Product Backlog, prioritizes, defines acceptance criteria.
+
+- **Input**: idea + context + clarifications + (optionally) Tech Lead's architectural draft.
+- **Output**: ordered Product Backlog as INVEST stories with MoSCoW priority, T-shirt estimate, Gherkin acceptance criteria.
+- **Quality checklist**: every story testable, every criterion verifiable, backlog ordered by value, acceptance criteria written before estimation.
+
+## Tech Lead
+
+Owns architectural decisions, technical risks, per-story discipline assignment, and the code-level PR approval gate.
+
+- **Input**: idea + context + clarifications (for spec); draft sprint + architecture (for planning); PR diff + architecture + ADRs (for pr-review).
+- **Output**:
+  - `/conclave-spec` → Architectural Foundation: overview + ADRs + risks + cross-cutting concerns + mermaid diagram.
+  - `/conclave-planning` (Wave 1, in parallel with Product Manager) → feasibility findings per story, plus a `discipline` value (`frontend | backend | qa | design | devops | multi`) per story.
+  - `/conclave-pr-review` → structured verdict (approved / request-changes) + per-file findings (blocker / non-blocking) + ADR proposal evaluation.
+
+## Scrum Master
+
+Facilitates ceremonies, assigns stories, surfaces blockers, protects the team's process. Does not write code, does not own the backlog or architecture.
+
+- **Input**: sprint draft + roster + backlog + DoR + Product Manager's and Tech Lead's Wave 1 findings (including each story's assigned discipline) + (optionally) previous retro.
+- **Output**: meeting record for the current ceremony (sprint planning today; standup / review / retro in future iterations). Runs in Wave 2 — after Product Manager and Tech Lead return — because assignment needs to know each story's discipline first.
+
+**Hard rule**: only assigns a story to a roster member whose `Discipline` matches (or who holds Tech Lead, for cross-cutting stories). If no match exists, it flags an unresolved coverage gap for the orchestrator to raise with the human — it never guesses.
+
+## Developer
+
+Picks up a story tagged `discipline: frontend`, `backend`, or `multi` (also the fallback for stories with no discipline set), breaks it into technical tasks, implements with tests, prepares a PR.
+
+- **Input**: story file + acceptance file + architecture + DoD + current branch.
+- **Output**: code + tests + commits + PR body (rendered from `templates/pr-body.template.md`) + story-frontmatter status update.
+
+**Hard rules**: every Gherkin scenario maps to at least one test; no architectural deviation without an ADR proposal in the PR body; never modifies acceptance criteria; never merges own PR.
+
+## Designer
+
+Picks up a story tagged `discipline: design`. Produces UI/UX design decisions and a Frontend-ready handoff — never application code.
+
+- **Input**: story file + acceptance file + architecture (for existing design-system conventions) + DoD.
+- **Output**: design notes / handoff spec (markdown) + PR body mapping each Gherkin scenario to a design decision + story-frontmatter status update.
+
+**Hard rules**: every Gherkin scenario maps to at least one design decision; never writes frontend implementation code; never modifies acceptance criteria; never merges own PR.
+
+## DevOps
+
+Picks up a story tagged `discipline: devops`. Implements CI/CD pipeline and infrastructure-as-code changes, same operating loop as Developer.
+
+- **Input**: story file + acceptance file + architecture (for the confirmed infra stack) + DoD + current branch.
+- **Output**: pipeline/infra changes + verification evidence (dry-run, CI run, or plan diff) + PR body + story-frontmatter status update.
+
+**Hard rules**: every Gherkin scenario maps to at least one piece of verification evidence; never hardcodes secrets; never modifies application business logic; never merges own PR.
+
+## QA
+
+Adversarial verification against acceptance criteria. Discipline-agnostic — verifies every story the same way regardless of which of the above produced it.
+
+- **Input**: story file + acceptance file + DoD + PR diff + CI status.
+- **Output**: verification report (appended to `acceptance/AC-US-NNN.md`) + story-status update (`verified` or `done` depending on profile, or `review` with blockers).
+
+**Hard rules**: verifies the criteria, not the code; never approves or requests changes on the PR (that is the TL's job); never approves a story whose DoD is unmet; never deletes prior verification sections.

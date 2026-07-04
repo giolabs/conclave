@@ -1,0 +1,26 @@
+{
+  "name": "conclave-site",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "postinstall": "patch-package"
+  },
+  "dependencies": {
+    "next": "^16.2.10",
+    "nextra": "4.5.1",
+    "nextra-theme-docs": "4.5.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "patch-package": "^8.0.1",
+    "typescript": "^5.6.0"
+  }
+}
