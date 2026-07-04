@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository **is** the Conclave Claude Code plugin — it is not a project that *uses* Conclave. Conclave brings Scrum methodology to distributed engineering teams: every Scrum role (Product Manager, Tech Lead, Scrum Master, Developer, QA) is a markdown-defined subagent charter, invoked by slash commands, that reads/writes plain-markdown Scrum artifacts inside a `conclave/` directory in whatever *target* repo the plugin is installed into.
 
-This repo contains just the plugin itself — `commands/`, `skills/conclave/` (plugin logic, this is the product). There is no docs site currently (a prior Astro/Nextra docs site under `site/` was removed; if one is reintroduced, document it here).
+There are two things living in this repo:
+1. **The plugin itself** — `commands/`, `skills/conclave/` (plugin logic, this is the product).
+2. **The docs site** — `site/` (Next.js 16 + Nextra 4, single locale, static export to GitHub Pages at `https://giolabs.github.io/conclave/`, basePath `/conclave`).
 
 ## Repo layout
 
@@ -14,11 +16,13 @@ This repo contains just the plugin itself — `commands/`, `skills/conclave/` (p
 commands/                        # slash commands (/conclave-init, /conclave-spec, /conclave-planning, /conclave-dev, /conclave-qa, /conclave-pr-review)
 skills/conclave/
   SKILL.md                       # the methodology spec — read this first, it's the source of truth for the whole system
-  agents/                        # role charters: product-manager.md, tech-lead.md, scrum-master.md, developer.md, qa.md
+  agents/                        # role charters: product-manager.md, tech-lead.md, scrum-master.md, developer.md, qa.md, designer.md, devops.md
   templates/                     # *.template.md files with {{placeholders}} filled in by commands when writing artifacts
 docs/
   adr/                           # Architecture Decision Records
   specs/                         # implementation specs
+site/                            # Nextra docs site (separate npm project, see below)
+CHANGELOG.md                     # release notes — see "Release notes and doc updates" below
 .claude-plugin/
   plugin.json                    # plugin manifest (name, version, description)
   marketplace.json               # marketplace listing metadata
@@ -26,11 +30,32 @@ docs/
 
 ## Development commands
 
-There is no build/lint/test step for this plugin — `commands/` and `skills/` are markdown consumed directly by Claude Code. Validate changes by installing the plugin locally and exercising the slash commands:
+There is no build/lint/test step for the plugin itself — `commands/` and `skills/` are markdown consumed directly by Claude Code. Validate changes by installing the plugin locally and exercising the slash commands:
 
 ```bash
 ln -s "$(pwd)" ~/.claude/plugins/conclave   # symlink install, then restart Claude Code
 ```
+
+### Docs site (`site/`)
+
+```bash
+cd site
+npm run dev       # local dev server
+npm run build     # static export to site/out
+```
+
+`site/` pins `nextra`/`nextra-theme-docs` to an exact version (`4.5.1`) and ships a `patch-package` fix (`site/patches/`) for a known upstream Zod-validation bug in `Layout` — do not bump those two packages without re-checking whether the patch is still needed. The site auto-deploys to GitHub Pages via `.github/workflows/deploy-docs.yml` on push to `main` when files under `site/**` change.
+
+## Release notes and doc updates
+
+**Every change to this repo must be accompanied by a `CHANGELOG.md` entry** (under `[Unreleased]`, following the existing Keep-a-Changelog-style format) describing what changed and why, from the perspective of someone installing or upgrading the plugin.
+
+In addition, check whether the change affects anything described in these places, and update them if so:
+- `skills/conclave/SKILL.md` — the methodology spec (role/discipline model, directory contract, ceremony rules).
+- `README.md` — install instructions, quick start, shipped-commands list.
+- `site/content/**/*.mdx` — the docs site. If a slash command's steps, a role charter's responsibilities, or the `conclave/config.md`/`roster.md`/story-frontmatter schema changes, the corresponding page (`commands/*.mdx`, `roles.mdx`, `configuration.mdx`, `state-machine.mdx`, `workflow.mdx`) needs the same update — these pages are hand-written prose, not generated, so nothing enforces this automatically.
+
+Do not skip the CHANGELOG entry for "small" changes — an incomplete changelog is worse than a verbose one.
 
 ## Architecture
 
