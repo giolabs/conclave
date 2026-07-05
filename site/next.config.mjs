@@ -21,6 +21,13 @@ export default withNextra({
     unoptimized: true,
   },
   reactStrictMode: true,
+  // Without this, `output: "export"` writes each route as a flat file
+  // (e.g. en.html) instead of a directory with an index (en/index.html) —
+  // GitHub Pages then 404s on the trailing-slash URL (/conclave/en/) that
+  // the root redirect page and every internal link produce, even though
+  // the slash-less form (/conclave/en) resolves fine. This matches what
+  // static hosts expect for pretty URLs.
+  trailingSlash: true,
   i18n: {
     locales: ["en", "es"],
     defaultLocale: "en",
