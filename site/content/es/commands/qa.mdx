@@ -1,0 +1,66 @@
+---
+title: /conclave-qa
+description: Verificación adversarial de una historia contra sus criterios de aceptación en Gherkin. Estructuralmente requerido.
+---
+
+# /conclave-qa US-NNN
+
+Verifica una sola historia de usuario en `status: review` contra sus criterios de aceptación. Cuando termina, la historia pasó a uno de cuatro estados:
+
+- **`verified`** — QA pasó, esperando la aprobación de PR del Tech Lead. Pasa cuando `peer_pr_review.required: true`.
+- **`done`** — QA pasó y no hay un gate separado del TL. Pasa cuando `peer_pr_review.required: false`.
+- **`review` (UAT pendiente)** — se generaron y pushearon artefactos de UAT y nada falló, pero un checklist de mobile está esperando a una persona, o quedó incompleto. No es un defecto.
+- **`review` (con bloqueos)** — QA encontró fallas — en los escenarios Gherkin, la DoD, o la corrida de CI de los tests UAT generados. El dev (o la persona tester) arregla, y QA vuelve a correr.
+
+```
+/conclave-qa US-001
+```
+
+Este es uno de los dos gates **estructurales** de Scrum que Conclave hace cumplir (junto a Sprint Planning). No se puede saltar en ningún perfil. **QA no aprueba el PR él mismo** — la aprobación a nivel de código le corresponde al Tech Lead vía `/conclave-pr-review`. El veredicto de QA va al reporte de verificación y a un comentario en el PR.
+
+## Qué hace
+
+1. Resuelve el workspace y confirma `qa_verification.required: true` (siempre true — se rehúsa si una config mal formada dice lo contrario).
+2. Resuelve la historia — debe estar en `status: review`.
+3. Cambia a la branch de dev de la historia (`feat/US-NNN-<slug>`) y captura el SHA exacto de commit al que se ancla la verificación.
+4. Carga contexto en paralelo: config, DoD, historia, archivo de aceptación, `conclave/team/testing-environments.md`, las plantillas de verification-report/UAT-report, y metadata del PR (reviews, status de CI) si `gh` está disponible. Si `testing-environments.md` falta o cada fila sigue en `TBD`, UAT se salta para esta corrida — QA verifica exactamente como siempre lo hizo.
+5. **Genera artefactos de test UAT**, cuando UAT está habilitado, según la `discipline` de la historia:
+   - `frontend` / `multi` → un spec de Playwright (`tests/uat/US-NNN.spec.ts`), un caso de test por escenario Gherkin.
+   - `backend` / `multi` → mergea los endpoints de esta historia en la única colección, compartida y en evolución, `tests/uat/api-collection.postman_collection.json`, corrida vía Newman — nunca sobreescribe los requests de otra historia.
+   - `mobile` → un checklist funcional manual (`tests/uat/US-NNN-UAT.md`) para que una persona tester lo ejecute y registre un veredicto. Sin espera de CI para mobile.
+   - Si todavía no hay ningún job de CI que corra `tests/uat/`, propone la adición mínima y confirma con el humano vía `AskUserQuestion` antes de escribirla.
+6. **Pushea y espera al CI** (se salta para `mobile`) — sondea la corrida de CI disparada por el commit pusheado, hasta `ceremonies.qa_verification.ci_wait_timeout_minutes` (default 20). Una falla de CI, o ninguna corrida encontrada / una espera que expira, se trata exactamente igual que un escenario Gherkin que falla.
+7. **Delega al subagente de QA**, que re-deriva PASS/FAIL para cada escenario Gherkin desde cero — de forma adversarial, no confiando en lo que dice el propio dev — e incorpora el resultado de UAT/CI (o el estado actual de un checklist de mobile en una corrida posterior).
+8. Escribe las salidas (abajo).
+
+QA nunca ejecuta los tests generados él mismo — lo hace el propio CI del repo target, y nunca resuelve, lee, ni escribe un valor de secreto en ningún momento.
+
+## Qué produce
+
+- Una sección `## Verification — <fecha>` **agregada** a `acceptance/AC-US-NNN.md` — nunca sobreescribe corridas de verificación previas, ahora incluyendo una subsección de ejecución de UAT (corrida de CI + resultado, o el estado del checklist de mobile).
+- Nuevos artefactos de UAT commiteados al repo target bajo `tests/uat/` (cuando UAT está habilitado).
+- Actualización del frontmatter de la historia:
+  - Veredicto `passed` + `peer_pr_review.required: true` → `status: verified`.
+  - Veredicto `passed` + `peer_pr_review.required: false` → `status: done` directamente.
+  - Veredicto `pending_uat` → se queda en `status: review`, con una sección `## QA pending` nombrando qué necesita completar una persona — redactado como esperando finalización, no como un defecto.
+  - Veredicto `blocked` → se queda en `status: review`, con una sección `## QA blockers` listando cada escenario/ítem de DoD/falla de CI y su reproducción o evidencia (extracto de log + URL de la corrida de CI).
+- Un **comentario** en el PR con el veredicto (nunca una review/aprobación — `gh pr review` nunca se llama desde acá).
+
+## Salvaguardas
+
+- Solo modifica `conclave/`, el archivo de aceptación de esta historia, y `tests/uat/US-NNN.spec.ts` / los archivos compartidos de colección+environment de Postman / `tests/uat/US-NNN-UAT.md` — QA escribe reportes de verificación y artefactos de UAT, QA no arregla código.
+- Puede proponer (con confirmación humana) agregar el único job/step de CI que corre `tests/uat/` — ningún otro cambio de pipeline.
+- Nunca borra secciones de verificación previas — el archivo de aceptación es el registro de auditoría completo de la historia.
+- Nunca sobreescribe los requests de otra historia en la colección compartida de Postman.
+- Nunca resuelve, lee, ni escribe un valor de secreto, en ningún lado, en ningún paso.
+- Nunca corre `gh pr review --approve` ni `--request-changes`. Esa es decisión del Tech Lead vía `/conclave-pr-review`.
+- Nunca pasa una historia cuando algún escenario falla, algún ítem requerido de DoD no se cumple, o la corrida de CI de los tests UAT generados falló o expiró.
+- Nunca confunde `pending_uat` con `blocked`.
+- No mergea el PR, ni siquiera cuando el veredicto produce `status: done` directamente.
+
+## Después de que corre
+
+- **Veredicto `passed`, `peer_pr_review.required: true`** — el Tech Lead corre [`/conclave-pr-review US-NNN`](/es/commands/pr-review) para aprobar y mergear.
+- **Veredicto `passed`, `peer_pr_review.required: false`** — sin gate separado; el PR está listo para mergear.
+- **Veredicto `pending_uat`** — una persona completa `tests/uat/US-NNN-UAT.md` (checklist de mobile), después se vuelve a correr `/conclave-qa US-NNN`.
+- **Veredicto `blocked`** — el dev arregla y pushea (o una persona tester de mobile registra un FAIL con notas), después se vuelve a correr `/conclave-qa US-NNN`.

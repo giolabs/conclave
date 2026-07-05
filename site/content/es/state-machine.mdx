@@ -1,0 +1,87 @@
+---
+title: Máquina de estados de la historia
+description: Cómo una historia pasa de backlog a done, según el perfil.
+---
+
+# Máquina de estados de la historia
+
+Una historia de usuario pasa por un conjunto pequeño y bien definido de estados. El camino exacto depende del perfil del equipo — específicamente si `peer_pr_review.required` está activo.
+
+## Los estados
+
+| Status | Significado |
+|---|---|
+| `backlog` | Existe en el Product Backlog pero todavía no está lista. `discipline` típicamente sigue vacío en este punto. |
+| `ready` | Pasa la Definition of Ready — incluyendo una asignación de `discipline` por parte del Tech Lead; puede entrar a un sprint. |
+| `in-progress` | Asignada y en implementación (`/conclave-dev`). |
+| `review` | PR abierto, esperando verificación de QA. |
+| `verified` | QA pasó los criterios de aceptación; esperando la aprobación de PR del Tech Lead. **Se usa solo cuando `peer_pr_review.required: true`.** |
+| `done` | Todos los gates pasados, DoD cumplida, PR mergeable. |
+
+## Transiciones
+
+```
+backlog → ready → in-progress → review → [verified] → done
+```
+
+### Cuando `peer_pr_review.required: true` (default de full-scrum)
+
+```
+review ──/conclave-qa──→ verified ──/conclave-pr-review──→ done
+                ↘                                        ↗
+                  blocked → vuelve a review para arreglos
+```
+
+QA pasa → `status: verified`, publica un comentario en el PR con el veredicto. El Tech Lead corre `/conclave-pr-review`, revisa el diff contra la arquitectura y los ADRs, y corre `gh pr review --approve`. Al aprobar → `status: done`.
+
+### Cuando `peer_pr_review.required: false` (default de lean)
+
+```
+review ──/conclave-qa──→ done
+              ↘
+                blocked → vuelve a review para arreglos
+```
+
+QA pasa → `status: done` directamente. Sin gate separado del Tech Lead. QA es la señal de merge.
+
+## UAT: una distinción de veredicto, no un nuevo status (v0.3.0+)
+
+Cuando `conclave/team/testing-environments.md` está configurado, `/conclave-qa` genera tests UAT ejecutables en CI a partir de los escenarios Gherkin de la historia (Playwright para `frontend`/`multi`, la colección compartida de Postman/Newman para `backend`/`multi`, un checklist manual para `mobile`), los pushea, y espera a que el propio CI del repo target los corra — nunca los ejecuta él mismo. Esto no agrega un nuevo valor de status en el frontmatter de la historia; agrega un tercer **veredicto**, junto a `passed` y `blocked`:
+
+```
+review ──/conclave-qa──→ pending_uat (se queda en review, "## QA pending")
+review ──/conclave-qa──→ blocked (se queda en review, "## QA blockers" — CI falló o expiró el tiempo de espera)
+review ──/conclave-qa──→ passed  → verified/done como arriba
+```
+
+- **`pending_uat`** — solo alcanzable en historias `mobile`, cuyo checklist se acaba de generar o sigue incompleto. La historia se queda en `review`, pero la sección agregada es `## QA pending`, no `## QA blockers` — nada falló realmente, una persona simplemente todavía no terminó. Volvé a correr `/conclave-qa` una vez que el checklist tenga un `Overall result` registrado.
+- **`blocked` vía UAT** — una corrida de CI sobre los tests Playwright/Newman generados falla, o no se encuentra ninguna corrida / la espera expira (`ceremonies.qa_verification.ci_wait_timeout_minutes`, default 20). Ambos casos se tratan exactamente igual que un escenario Gherkin que falla — nunca se pasa silenciosamente.
+- **Todavía no configurado** — un `testing-environments.md` faltante o completamente `TBD` degrada con gracia: `/conclave-qa` se salta UAT por completo y verifica los criterios de aceptación exactamente como lo hacía antes de que este archivo existiera.
+
+## Cuándo se asigna `discipline`
+
+A diferencia de `assignee` (definido al momento de planning), `discipline` sigue una secuencia específica dentro de `/conclave-planning`:
+
+1. **Wave 1** — el Tech Lead revisa la factibilidad de cada historia y le asigna un valor de `discipline` (`frontend | backend | qa | design | devops | mobile | multi`) en el mismo paso, en paralelo con la revisión de alcance del Product Manager.
+2. **Validación de DoR** — una historia sin `discipline` falla la Definition of Ready y no puede entrar al sprint, tanto en `lean` como en `full-scrum`.
+3. **Wave 2** — el Scrum Master asigna cada historia a un miembro del roster cuya `Discipline` coincida (o que tenga Tech Lead, para historias transversales), usando el valor de Wave 1.
+4. Si ningún miembro del roster coincide con la disciplina de una historia, el orquestador le hace directamente al humano una pregunta de brecha de cobertura — el subagente Scrum Master nunca adivina un asignado.
+
+## Manejo de fallas
+
+Una falla en cualquiera de los dos gates devuelve la historia a `review`. El dev arregla el problema, pushea nuevos commits, y el/los gate(s) vuelven a correr:
+
+- **QA encontró criterios que fallan** (Gherkin, DoD, o la corrida de CI de los tests UAT generados) → la historia se queda en `review` con una sección `## QA blockers` agregada al archivo de la historia, incluyendo un extracto de log + URL de la corrida de CI cuando la falla vino de UAT. Arreglar → pushear → volver a correr `/conclave-qa`.
+- **TL encontró bloqueos de código** → la historia vuelve a `review` con una sección `## TL findings`. Arreglar → pushear → volver a correr `/conclave-qa` (los criterios pueden haber cambiado) → `/conclave-pr-review`.
+
+Un solo bloqueo alcanza para mantener a la historia fuera de `done`. No hay "aprobar con observaciones" cuando existe un bloqueo.
+
+## Registro de auditoría
+
+Cada transición se commitea a git. El reporte de verificación en `acceptance/AC-US-NNN.md` es append-only — cada corrida de `/conclave-qa` agrega una nueva sección `## Verification — <fecha>`, nunca borra corridas previas. Lo mismo aplica a los findings del TL.
+
+Podés reconstruir el historial completo de cualquier historia con:
+
+```bash
+git log -- conclave/sprints/SPRINT-NNN/stories/US-NNN-*.md
+```

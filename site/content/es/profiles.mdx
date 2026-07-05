@@ -1,0 +1,56 @@
+---
+title: Perfiles de equipo
+description: Cómo los perfiles de equipo controlan qué ceremonias de Scrum se hacen cumplir.
+---
+
+# Perfiles de equipo
+
+Conclave separa **invariantes estructurales** (no podés hacer Scrum sin ellos) de **ceremonias** (gates de proceso que el equipo elige asumir). La separación la controla el campo `team_profile` en `conclave/config.md`.
+
+## Siempre requerido (estructural — nunca se puede saltar)
+
+Estos chequeos los hace cumplir todo perfil de equipo. Son el mínimo que Scrum necesita para funcionar:
+
+- **Sprint Planning** — sin un objetivo y una lista de historias bloqueada, no hay sprint. Lo hace cumplir `/conclave-planning` y la existencia de `conclave/sprints/SPRINT-NNN/spec.md`.
+- **Criterios de aceptación en cada historia** — cada archivo de historia debe referenciar un `acceptance/AC-US-NNN.md` no vacío con escenarios Gherkin. Las historias sin ellos fallan la DoR.
+- **Una `discipline` asignada a cada historia** (`frontend | backend | qa | design | devops | multi`) — la asigna el Tech Lead durante `/conclave-planning`, chequeada por el mismo gate de DoR. Sin default; una historia sin disciplina no puede entrar a un sprint.
+- **Verificación de QA de los criterios de aceptación** — cada historia `done` lleva un reporte de verificación agregado a su archivo de aceptación. Lo hace cumplir `/conclave-qa`.
+- **Cumplimiento de la Definition of Done** — la checklist de DoD personalizada por el equipo debe cumplirse para cada historia.
+
+## Saltable según el perfil
+
+El equipo elige un perfil en `conclave/config.md`. Los comandos de ceremonia de Conclave lo leen y saltan silenciosamente los gates que el perfil desactiva.
+
+| Ceremonia | Comando | Default `lean` | Default `full-scrum` | Notas |
+|---|---|---|---|---|
+| Daily Standup | `/conclave-standup` | off | on | Loguea en `sprints/SPRINT-NNN/daily/`. Planeado, aún no lanzado. |
+| Backlog Grooming | `/conclave-groom` | off | on | Cuando está off, el refinamiento pasa dentro de `/conclave-planning`. |
+| Peer / TL PR Review | `/conclave-pr-review` | off | on | Devs solos y equipos chicos suelen saltear esto. |
+| Sprint Review | `/conclave-review` | off | on | Requerido cuando hay stakeholders a quienes demostrar. Planeado, aún no lanzado. |
+| Sprint Retrospective | `/conclave-retro` | off | on | Lo primero que se deja de hacer bajo presión; volvé a activarlo cuando el equipo esté estable. Planeado, aún no lanzado. |
+
+## Semántica de los perfiles
+
+- **`lean`** — solo se hacen cumplir los invariantes estructurales. Para devs solos, equipos muy chicos (2–3), y trabajo interno/de tooling.
+- **`full-scrum`** — cada ceremonia es requerida. Para equipos multidisciplinarios que entregan a stakeholders externos.
+- **`custom`** — el equipo define cada flag `ceremonies.*.required` individualmente. Se registra como `custom` para que nadie asuma un preset.
+
+## Dos gates que no se pueden desactivar
+
+`sprint_planning` y `qa_verification` no se pueden desactivar — intentar poner `required: false` en cualquiera de los dos se rechaza con un error claro. Son estructurales.
+
+## El gate de aprobación de PR
+
+Cuando `peer_pr_review.required: true`, el **Tech Lead** (o quien esté designado como aprobador) es quien corre `gh pr review --approve` vía `/conclave-pr-review US-NNN`. El trabajo de QA termina en el reporte de verificación y un comentario en el PR — nunca una aprobación. Mirá la [máquina de estados](/es/state-machine) para ver cómo transiciona la historia.
+
+Cuando el flag es `false`, el pase de QA es la señal de merge. La historia pasa directo de `review` a `done`.
+
+## `team_mode` es distinto de `team_profile`
+
+`team_mode` (`solo | team`, definido una vez por `/conclave-init`) controla la **forma del roster** — una sola persona cubriendo todas las disciplinas, o un roster real multi-persona. `team_profile` controla **qué ceremonias se hacen cumplir**. Los proyectos solos siempre son `lean` (no hay nadie con quien hacer una peer review o un standup); un equipo puede elegir cualquiera de los tres perfiles independientemente de cuántas disciplinas estén realmente staffeadas.
+
+## Cambiando tu perfil
+
+Editá `team_profile` en `conclave/config.md`. Para anular una sola ceremonia sin cambiar todo el perfil, poné `team_profile: custom` y editá los flags `ceremonies.*.required` individuales.
+
+Los cambios de perfil toman efecto en la próxima corrida de un slash command. El sprint actual no se ve afectado — los flags se leen al momento de invocar el comando.

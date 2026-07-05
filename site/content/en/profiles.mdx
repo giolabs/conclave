@@ -41,7 +41,7 @@ The team picks a profile in `conclave/config.md`. Conclave's ceremony commands r
 
 ## The PR-approval gate
 
-When `peer_pr_review.required: true`, the **Tech Lead** (or designated approver) is the one who runs `gh pr review --approve` via `/conclave-pr-review US-NNN`. QA's job ends at the verification report and a PR comment — never an approval. See the [state machine](/state-machine) for how the story transitions.
+When `peer_pr_review.required: true`, the **Tech Lead** (or designated approver) is the one who runs `gh pr review --approve` via `/conclave-pr-review US-NNN`. QA's job ends at the verification report and a PR comment — never an approval. See the [state machine](/en/state-machine) for how the story transitions.
 
 When the flag is `false`, QA's pass is the merge signal. Story moves straight from `review` to `done`.
 

@@ -1,0 +1,91 @@
+---
+title: Roles
+description: Los siete charters de rol que trae Conclave y qué comandos invocan a cada uno.
+---
+
+# Roles
+
+Conclave trae **siete charters de rol** — archivos markdown bajo `skills/conclave/agents/` que los slash commands cargan como prefijo del system prompt cuando invocan subagentes.
+
+Seis son **disciplinas**, siempre presentes en el roster tenga o no tenga seis personas distintas: Tech Lead, Frontend, Backend, QA, Designer, DevOps. Product Manager y Scrum Master son **roles de proceso opcionales** que cualquier persona con una disciplina puede además asumir — no son disciplinas en sí mismos.
+
+| Rol | Tipo | Charter | Invocado por |
+|---|---|---|---|
+| Tech Lead | Disciplina | `agents/tech-lead.md` | `/conclave-spec` (arquitectura), `/conclave-planning` (factibilidad + asignación de disciplina, Wave 1), `/conclave-pr-review` (revisión de código) |
+| Frontend / Backend / Mobile | Disciplina | `agents/developer.md` | `/conclave-dev` (historias con `discipline: frontend \| backend \| mobile \| multi`) |
+| QA | Disciplina | `agents/qa.md` | `/conclave-qa` |
+| Designer | Disciplina | `agents/designer.md` | `/conclave-dev` (historias con `discipline: design`) |
+| DevOps | Disciplina | `agents/devops.md` | `/conclave-dev` (historias con `discipline: devops`) |
+| Product Manager | Rol de proceso (opcional) | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (revisión de alcance, Wave 1) |
+| Scrum Master | Rol de proceso (opcional) | `agents/scrum-master.md` | `/conclave-planning` (facilitador + asignación, Wave 2 — corre después de Product Manager y Tech Lead) |
+
+## Product Manager
+
+Funcionalmente el **Product Owner** en términos de Scrum, cuando alguien ocupa este rol de proceso opcional. Dueño del Product Backlog, prioriza, define criterios de aceptación.
+
+- **Input**: idea + contexto + aclaraciones + (opcionalmente) el borrador arquitectónico del Tech Lead.
+- **Output**: Product Backlog ordenado como historias INVEST con prioridad MoSCoW, estimación en talles de remera, criterios de aceptación en Gherkin.
+- **Checklist de calidad**: cada historia testeable, cada criterio verificable, backlog ordenado por valor, criterios de aceptación escritos antes de la estimación.
+
+## Tech Lead
+
+Dueño de las decisiones arquitectónicas, los riesgos técnicos, la asignación de disciplina por historia, y el gate de aprobación de PR a nivel de código.
+
+- **Input**: idea + contexto + aclaraciones (para spec); borrador de sprint + arquitectura (para planning); diff del PR + arquitectura + ADRs (para pr-review).
+- **Output**:
+  - `/conclave-spec` → Architectural Foundation: overview + ADRs + riesgos + preocupaciones transversales + diagrama mermaid.
+  - `/conclave-planning` (Wave 1, en paralelo con Product Manager) → findings de factibilidad por historia, más un valor de `discipline` (`frontend | backend | qa | design | devops | mobile | multi`) por historia.
+  - `/conclave-pr-review` → veredicto estructurado (aprobado / pedir cambios) + findings por archivo (bloqueante / no bloqueante) + evaluación de propuesta de ADR.
+
+## Scrum Master
+
+Facilita ceremonias, asigna historias, saca a la luz bloqueos, protege el proceso del equipo. No escribe código, no es dueño del backlog ni de la arquitectura.
+
+- **Input**: borrador del sprint + roster + backlog + DoR + los findings de Wave 1 del Product Manager y el Tech Lead (incluyendo la disciplina asignada a cada historia) + (opcionalmente) la retro anterior.
+- **Output**: acta de la ceremonia actual (sprint planning hoy; standup / review / retro en futuras iteraciones). Corre en Wave 2 — después de que Product Manager y Tech Lead retornan — porque la asignación necesita saber la disciplina de cada historia primero.
+
+**Regla dura**: solo asigna una historia a un miembro del roster cuya `Discipline` coincida (o que tenga Tech Lead, para historias transversales). Si no existe ningún match, marca una brecha de cobertura sin resolver para que el orquestador se la plantee al humano — nunca adivina.
+
+## Developer
+
+Toma una historia etiquetada `discipline: frontend`, `backend`, `mobile`, o `multi` (también el fallback para historias sin disciplina definida), la parte en tareas técnicas, implementa con tests, prepara un PR. Todavía no hay un charter dedicado para mobile — las historias `mobile` se rutean acá igual que `frontend`/`backend`; solo QA ramifica en `mobile` para una estrategia distinta de UAT.
+
+- **Input**: archivo de historia + archivo de aceptación + arquitectura + DoD + branch actual.
+- **Output**: código + tests + commits + cuerpo de PR (renderizado desde `templates/pr-body.template.md`) + actualización de status en el frontmatter de la historia.
+
+**Reglas duras**: cada escenario Gherkin mapea a al menos un test; ninguna desviación arquitectónica sin una propuesta de ADR en el cuerpo del PR; nunca modifica los criterios de aceptación; nunca mergea su propio PR.
+
+## Designer
+
+Toma una historia etiquetada `discipline: design`. Produce decisiones de UI/UX y un handoff listo para Frontend — nunca código de aplicación.
+
+- **Input**: archivo de historia + archivo de aceptación + arquitectura (para convenciones existentes del design system) + DoD.
+- **Output**: notas de diseño / spec de handoff (markdown) + cuerpo de PR mapeando cada escenario Gherkin a una decisión de diseño + actualización de status en el frontmatter de la historia.
+
+**Reglas duras**: cada escenario Gherkin mapea a al menos una decisión de diseño; nunca escribe código de implementación de frontend; nunca modifica los criterios de aceptación; nunca mergea su propio PR.
+
+## DevOps
+
+Toma una historia etiquetada `discipline: devops`. Implementa cambios de pipeline de CI/CD e infraestructura como código, mismo loop de operación que Developer.
+
+- **Input**: archivo de historia + archivo de aceptación + arquitectura (para el stack de infra confirmado) + DoD + branch actual.
+- **Output**: cambios de pipeline/infra + evidencia de verificación (dry-run, corrida de CI, o diff de plan) + cuerpo de PR + actualización de status en el frontmatter de la historia.
+
+**Reglas duras**: cada escenario Gherkin mapea a al menos una pieza de evidencia de verificación; nunca hardcodea secretos; nunca modifica lógica de negocio de la aplicación; nunca mergea su propio PR.
+
+## QA
+
+Verificación adversarial contra los criterios de aceptación. Consciente de la disciplina solo para su estrategia de UAT — por lo demás, verifica cada historia de la misma forma sin importar cuál de los roles de arriba la produjo.
+
+- **Input**: archivo de historia (incl. `discipline`) + archivo de aceptación + DoD + diff del PR + status del CI + `conclave/team/testing-environments.md`.
+- **Output**: reporte de verificación (agregado a `acceptance/AC-US-NNN.md`, incluyendo una subsección de ejecución de UAT) + artefactos UAT generados bajo `tests/uat/` + actualización de status (`verified`/`done`, `pending_uat`, o `review` con bloqueos).
+
+Cuando `testing-environments.md` está configurado, QA genera artefactos de test UAT a partir de los escenarios Gherkin de la historia en vez de solo razonar sobre ellos:
+
+- `frontend` / `multi` → un spec de Playwright, corrido en modo headless por el propio CI del repo target.
+- `backend` / `multi` → los endpoints de esta historia se mergean en una única colección de Postman, compartida y en evolución para todo el proyecto, corrida vía Newman por el CI.
+- `mobile` → un checklist funcional manual que una persona tester ejecuta y en el que registra un veredicto — todavía no existe un runner automatizado para mobile.
+
+QA nunca ejecuta estos tests él mismo — los genera y los pushea, y después espera la conclusión del CI (acotada por `ceremonies.qa_verification.ci_wait_timeout_minutes`) antes de incorporar el resultado a su veredicto. Una falla o timeout de CI cuenta contra el veredicto exactamente igual que un escenario Gherkin que falla. Un checklist de mobile que recién se generó, o que sigue incompleto, produce un resultado distinto, `pending_uat` — no una falla.
+
+**Reglas duras**: verifica los criterios, no el código; nunca aprueba ni pide cambios en el PR (eso es trabajo del TL); nunca aprueba una historia cuya DoD no se cumple; nunca borra secciones de verificación previas; nunca ejecuta los tests de UAT él mismo (lo hace el CI); nunca resuelve, lee, ni escribe un valor de secreto; nunca sobreescribe los requests de otra historia en la colección compartida de Postman; nunca confunde `pending_uat` con `blocked`.

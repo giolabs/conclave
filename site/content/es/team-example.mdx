@@ -1,0 +1,135 @@
+---
+title: Ejemplo de equipo
+description: Un ejemplo trabajado de cuatro desarrolladores, cada uno corriendo su propia sesión local de Claude Code, entregando un sprint juntos a través de Conclave.
+---
+
+# Ejemplo de equipo
+
+El [mapa de flujo](/es/workflow) muestra la forma del modo solo vs. equipo. Esta página recorre cómo se ve realmente el día a día cuando **varios desarrolladores corren Claude Code localmente cada uno** y coordinan enteramente a través de git — sin servidor compartido, sin sesión de Claude compartida, nadie esperando la terminal de otro.
+
+## El equipo
+
+Un equipo chico multidisciplinario, `team_mode: team`, perfil `full-scrum` (peer PR review y todas las ceremonias activas):
+
+| Persona | Disciplina | Rol de proceso |
+|---|---|---|
+| Ada | Tech Lead | |
+| Bea | Frontend | |
+| Cy | Backend | |
+| Dee | QA | |
+| Fen | DevOps | PM, SM |
+
+Designer está `TBD` — todavía nadie la cubre, y está bien así; la fila del roster se mantiene y las historias etiquetadas como design van a chocar con una brecha de cobertura hasta que alguien la cubra.
+
+Cada persona tiene su propio clone del repo y su propia sesión local de Claude Code. **Lo único que comparten es el remoto de git.** Conclave no tiene servidor, ni daemon, ni sesión compartida entre máquinas — cada comando `/conclave-*` lee y escribe archivos en el árbol de trabajo actual, igual que cualquier otra herramienta de CLI.
+
+## Día 0 — una persona hace el bootstrap, todos revisan
+
+Ada (Tech Lead) corre el flujo de artefactos fundacionales una vez, en su máquina:
+
+```bash
+# Terminal de Ada
+/conclave-init
+# → "¿Sos solo vos, o un equipo?" → Equipo
+# → tamaño del equipo, largo del sprint, timezone
+# → una pregunta por disciplina: "¿Quién cubre Frontend?" etc.
+
+/conclave-spec "REST API de gestión de tareas con auth JWT, dashboard en React"
+# → los subagentes Tech Lead + Product Manager corren en paralelo
+# → se crean conclave/product/backlog.md, architecture.md, sprints/SPRINT-001/
+
+git add conclave/
+git commit -m "conclave: bootstrap del workspace Scrum + borrador del Sprint 1"
+git push -u origin conclave/bootstrap
+gh pr create --title "Conclave: bootstrap + borrador Sprint 1" --body "..."
+```
+
+Esto es un PR normal. Bea, Cy, Dee y Fen lo revisan en GitHub como cualquier otro diff — leyendo `conclave/product/backlog.md` y `architecture.md` como prosa, sin pasar por Claude Code para nada. Una vez aprobado y mergeado, todos los demás hacen:
+
+```bash
+# Terminales de Bea, Cy, Dee y Fen — después de que el PR mergea
+git checkout main
+git pull
+```
+
+Ahora cada clone local tiene el mismo directorio `conclave/`. Nadie necesitó estar online al mismo tiempo.
+
+## Sprint Planning — un facilitador, todos los demás esperan al PR
+
+Fen (que tiene el rol de Scrum Master) corre la ceremonia:
+
+```bash
+# Terminal de Fen
+/conclave-planning
+# → Wave 1: los subagentes Product Manager + Tech Lead corren en paralelo
+#     (el Tech Lead asigna una `discipline` a cada historia)
+# → Wave 2: el Scrum Master asigna cada historia a un miembro del roster
+#     cuya Discipline coincida
+# → chequeo de capacidad, validación de DoR, sprint bloqueado a `active`
+
+git add conclave/
+git commit -m "conclave: bloquear SPRINT-001 — entregar el CRUD de tareas + flujo de auth"
+git push -u origin conclave/planning-sprint-001
+gh pr create --title "Sprint Planning: SPRINT-001" --body "Objetivo, asignaciones, validación de DoR."
+```
+
+El cuerpo del PR lista quién se quedó con qué: `US-001 → Bea (frontend)`, `US-002 → Cy (backend)`, `US-003 → Dee (qa)`, etc. Una vez mergeado, todos vuelven a hacer pull de `main` y pueden ver su propia asignación en `conclave/sprints/SPRINT-001/stories/`.
+
+## El loop por historia — totalmente en paralelo, totalmente independiente
+
+Acá es donde tener a cada uno en su propia máquina realmente rinde: **Bea y Cy trabajan historias distintas al mismo tiempo, en branches distintas, en sesiones de Claude Code distintas, y nunca se bloquean entre sí.**
+
+```bash
+# Terminal de Bea, en cualquier momento después de que el sprint está bloqueado
+git checkout main && git pull
+/conclave-dev US-001
+# → crea feat/US-001-task-list-ui, implementa, testea, abre un PR
+```
+
+```bash
+# Terminal de Cy, independientemente, posiblemente en el mismo momento
+git checkout main && git pull
+/conclave-dev US-002
+# → crea feat/US-002-jwt-auth-endpoint, implementa, testea, abre un PR
+```
+
+Cada corrida de `/conclave-dev` solo toca su propia feature branch y el frontmatter de su propio archivo de historia — nunca edita `backlog.md`, `roster.md`, ni otra historia. Dos devs corriéndolo simultáneamente sobre dos historias distintas no pueden chocar.
+
+Cuando el PR de Bea está abierto, Dee lo verifica:
+
+```bash
+# Terminal de Dee
+git fetch origin feat/US-001-task-list-ui:feat/US-001-task-list-ui
+/conclave-qa US-001
+# → cambia a la branch, re-deriva PASS/FAIL por cada escenario Gherkin,
+#   agrega un reporte de verificación, comenta en el PR, mueve el status a
+#   `verified` (peer_pr_review está activo en full-scrum)
+```
+
+Después Ada, como Tech Lead, hace la aprobación a nivel de código:
+
+```bash
+# Terminal de Ada
+/conclave-pr-review US-001
+# → revisa el diff contra architecture.md y los ADRs, corre
+#   gh pr review --approve, la historia pasa a `done`
+```
+
+Mientras tanto, la US-002 de Cy está pasando por exactamente el mismo loop en su propia branch, en la máquina de Cy, con el horario que Cy quiera trabajar — nadie tuvo que esperar a que la historia de Bea terminara primero.
+
+## Dónde la coordinación sí tiene que ser secuencial
+
+No todo es paralelizable de forma trivial. Algunos archivos son compartidos, y son las propias salvaguardas de Conclave las que mantienen esto seguro, no ningún mecanismo de locking:
+
+- **`conclave/product/backlog.md` y `conclave/team/roster.md`** solo los escriben `/conclave-spec` y `/conclave-planning` — comandos que una persona facilitadora corre en checkpoints definidos, no algo que cada dev toca a mitad de sprint. Hacé pull antes de planificar; la resolución habitual de conflictos de git ("alguien más mergeó primero") aplica si dos personas intentan correr comandos de tipo planning contra un `main` desactualizado.
+- **Sprint Planning es una ceremonia única**, corrida una vez por sprint por quien facilite — no se paraleliza entre devs, porque Wave 2 (asignación) necesita ver la disciplina de cada historia de Wave 1 antes de poder asignar a alguien.
+- **Los archivos propios de una historia** (`stories/US-NNN-*.md`, `acceptance/AC-US-NNN.md`) los escribe exactamente un comando a la vez en su ciclo de vida — `/conclave-dev` mientras está `in-progress`, `/conclave-qa` en `review`, `/conclave-pr-review` en `verified` — así que dos personas nunca escriben el mismo archivo de historia al mismo tiempo, salvo que alguien corra el comando equivocado fuera de turno (cosa que los propios chequeos de estado de Conclave rechazan).
+
+En la práctica: **planificá en conjunto, construí en paralelo, mergeá cuando tu PR esté listo.** El remoto de git es el único punto de sincronización que importa.
+
+## Próximos pasos
+
+- [Mapa de flujo](/es/workflow) — el mismo loop dibujado como diagramas, solo vs. equipo lado a lado.
+- [Máquina de estados de la historia](/es/state-machine) — exactamente qué transiciones de estado ejecuta cada comando.
+- [Roles](/es/roles) — qué hace realmente el subagente de cada disciplina.
+- [Comandos](/es/commands/init) — referencia completa de cada slash command disponible.

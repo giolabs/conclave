@@ -1,0 +1,74 @@
+---
+title: /conclave-dev
+description: Tomá una historia, implementala con tests, abrí un PR — ruteado por disciplina.
+---
+
+# /conclave-dev US-NNN
+
+Toma una sola historia de usuario del sprint activo y la lleva a través de la implementación. Cuando termina, la historia queda en `status: review` con una feature branch y un PR listo para la verificación de QA vía `/conclave-qa US-NNN`.
+
+```
+/conclave-dev US-001
+```
+
+El argumento es requerido y debe coincidir con un archivo de historia bajo el sprint activo.
+
+## Qué hace
+
+1. Verifica que el árbol de trabajo esté limpio (se rehúsa si está sucio).
+2. Ubica el sprint activo y el archivo de la historia. Se rehúsa si la historia ya pasó el gate de dev.
+3. Chequea el asignado — si no coincide con vos, pregunta si querés tomar la historia.
+4. Carga contexto: `config.md` (perfil + flag de peer-review), arquitectura, DoD, roster (con un aviso de compatibilidad único si es anterior a la columna `Discipline`), historia, aceptación.
+5. Crea la branch `feat/US-NNN-<slug>` desde la branch de integración.
+6. Marca la historia `in-progress` en su propio commit (visible para el equipo de inmediato).
+7. **Lee la `discipline` de la historia y delega al subagente que corresponda.** El agente:
+   - Lee historia, aceptación, arquitectura, DoD.
+   - Planea un desglose técnico (solo borrador — no se commitea).
+   - Detecta o bootstrapea el setup de test/verificación.
+   - Implementa historia-y-verifica, escenario por escenario. Cada escenario Gherkin obtiene al menos una forma de verificación (un test que pasa para Developer/DevOps, una decisión de diseño para Designer).
+   - Corre la suite completa de tests / chequeo final una vez al terminar.
+   - Corre linter / typecheck (cuando aplica).
+   - Commitea en pedazos acotados (`feat(US-NNN): ...`).
+   - Renderiza el cuerpo del PR desde `templates/pr-body.template.md`.
+8. Pushea la branch.
+9. Abre el PR vía `gh pr create` (o imprime el comando preparado si `gh` no está disponible).
+10. Etiqueta a un peer reviewer si `peer_pr_review.required: true` — elige a alguien del roster, excluyendo al asignado.
+11. Marca la historia `status: review`.
+
+## Ruteo por disciplina
+
+| `discipline` de la historia | Charter |
+|---|---|
+| `frontend`, `backend`, `multi`, o sin definir (historias pre-0.2.0) | `developer.md` |
+| `design` | `designer.md` — solo artefactos de diseño y notas de handoff a Frontend, nunca código de aplicación |
+| `devops` | `devops.md` — pipelines de CI/CD e infraestructura como código, el mismo loop de implementar → verificar → PR que Developer |
+
+Los tres charters comparten los mismos inputs, la misma forma de outputs, y la misma plantilla de cuerpo de PR — solo difiere el dominio de lo que se construye.
+
+## Qué produce
+
+- Código (o, para `design`, notas de handoff) + evidencia de verificación en el repo.
+- Una feature branch `feat/US-NNN-<slug>` pusheada a `origin`.
+- Un PR (o el comando `gh pr create` preparado).
+- Frontmatter de la historia actualizado: `assignee`, `status: review`.
+
+## Reglas duras que sigue el subagente de ejecución
+
+- Cada escenario Gherkin mapea a al menos una forma de verificación.
+- Ninguna desviación arquitectónica sin una propuesta de ADR en el cuerpo del PR.
+- Nunca modifica los criterios de aceptación. Si parecen incorrectos, lo marca vía un comentario, no lo arregla silenciosamente.
+- No toca ningún archivo bajo `conclave/` excepto el frontmatter de su propio archivo de historia.
+- Nunca mergea su propio PR.
+
+## Consciencia del perfil
+
+- `peer_pr_review.required: true` → etiqueta a un par (típicamente el Tech Lead) como reviewer, la checklist condicional del cuerpo del PR incluye el ítem de aprobación del TL.
+- `peer_pr_review.required: false` → no se requiere un reviewer separado. El Dev igual se auto-revisa.
+
+## Resumir en una branch existente
+
+Si `feat/US-NNN-<slug>` ya existe localmente (la historia está `in-progress` de una corrida anterior), el comando ofrece tres opciones: cambiar a esa branch y resumir, borrar y recrear, o abortar. Al resumir, el subagente de ejecución lee lo que ya existe en la branch antes de agregar código nuevo.
+
+## Después de que corre
+
+- QA verifica: [`/conclave-qa US-NNN`](/es/commands/qa).

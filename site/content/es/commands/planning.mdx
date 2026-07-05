@@ -1,0 +1,60 @@
+---
+title: /conclave-planning
+description: Ceremonia de Sprint Planning consciente del perfil. Dos waves — PM+TL primero, SM después.
+---
+
+# /conclave-planning
+
+Corre **Sprint Planning** para el sprint en borrador actual. Cuando termina, el sprint pasa de `draft` a `active` y el equipo queda comprometido con las historias seleccionadas.
+
+```
+/conclave-planning
+```
+
+Este es uno de los dos gates **estructurales** de Scrum que Conclave hace cumplir — requerido en todo perfil, no se puede saltar.
+
+## Qué hace
+
+1. Ubica el sprint en borrador (el `SPRINT-NNN` de número más alto con `status: draft`).
+2. Carga contexto: `config.md`, roster, backlog, DoR, arquitectura, archivos del sprint actual, opcionalmente la retro del sprint anterior. Si el roster es anterior a la columna `Discipline`, cada miembro se trata como multi-disciplina con un aviso de compatibilidad único.
+3. Le pide inputs al equipo — la profundidad escala con el perfil:
+   - Siempre: fechas del sprint, nombre del facilitador.
+   - Full-scrum: ajustes de capacidad por dev, compromisos de carryover.
+   - Cuando el grooming está apagado: si refinar el top del backlog dentro de planning.
+4. **Delega en dos waves — PM + TL en paralelo primero (Wave 1), después SM solo (Wave 2).** La asignación necesita saber la disciplina de cada historia antes de poder elegir un asignado válido, así que SM espera la salida del TL en vez de adivinar por adelantado:
+   - **Wave 1** — el TL valida factibilidad **y asigna una `discipline`** (`frontend | backend | qa | design | devops | multi`) a cada historia; el PM valida el alcance.
+   - **Wave 2** — el SM asigna cada historia a un miembro del roster cuya `Discipline` coincida (o que tenga Tech Lead, para historias transversales). Si nadie coincide, marca una **brecha de cobertura** sin resolver en vez de adivinar.
+5. Reconcilia las salidas:
+   - Swaps de alcance del PM → se muestran al usuario para aceptar/rechazar.
+   - Findings de factibilidad del TL → se registran como recomendaciones.
+   - Validación de DoR → descarta historias que fallan (o se rehúsa a bloquear en full-scrum). Ahora incluye chequear que cada historia tenga una `discipline` asignada.
+   - Brechas de cobertura → se muestran vía `AskUserQuestion`: asignar al Tech Lead como fallback temporal, o elegir a alguien más. Cada brecha debe resolverse antes de que el sprint se bloquee.
+   - Chequeo de capacidad → avisa en caso de sobre-compromiso > 20%.
+6. Escribe las salidas (ver abajo).
+
+## Qué produce
+
+- `conclave/sprints/SPRINT-NNN/meta.md` actualizado con `status: active`, fechas objetivo.
+- `conclave/sprints/SPRINT-NNN/spec.md` actualizado con asignados, `status: active`.
+- El frontmatter de cada `stories/US-NNN-*.md` actualizado: `assignee` y `discipline` definidos, `status: ready`.
+- `conclave/sprints/SPRINT-NNN/planning.md` — el acta de la reunión (objetivo, capacidad, asignaciones, asignaciones de disciplina y brechas de cobertura, findings de DoR, experimentos importados de la retro anterior).
+- `conclave/product/backlog.md` actualizado mostrando las historias seleccionadas como `in-progress` en el sprint activo.
+
+## Consciencia del perfil
+
+| Perfil | Preguntas de capacidad | Backlog grooming | Preguntas de carryover |
+|---|---|---|---|
+| `lean` | se saltean | absorbido en planning | se saltean |
+| `full-scrum` | se pregunta por dev | separado (se asume ya hecho) | se pregunta |
+| `custom` | depende de los flags | depende de los flags | depende de los flags |
+
+## Salvaguardas
+
+- Se rehúsa a correr si no existe ningún sprint en `draft`.
+- Se rehúsa a correr si `sprint_planning.required` es de algún modo `false` en `config.md` — es estructural.
+- No puede volver a correr sobre el mismo sprint después de que pasa a `active` — una segunda invocación se rechaza.
+- Nunca commitea.
+
+## Después de que corre
+
+Cada dev asignado corre [`/conclave-dev US-NNN`](/es/commands/dev) para su historia.

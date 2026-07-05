@@ -1,0 +1,44 @@
+---
+title: /conclave-pr-review
+description: El Tech Lead revisa el código, aprueba el PR, mueve la historia a done.
+---
+
+# /conclave-pr-review US-NNN
+
+Gate de aprobación de PR del Tech Lead. Revisa el código de una historia que QA ya verificó a nivel de comportamiento. Al aprobar, el PR se aprueba y la historia pasa a `status: done`. Al pedir cambios, la historia vuelve a `review` y el dev arregla.
+
+```
+/conclave-pr-review US-001
+```
+
+Este comando solo corre cuando `ceremonies.peer_pr_review.required: true` en `conclave/config.md`. En el perfil `lean` (flag apagado), el pase de QA es la señal de merge y no hay un gate separado del TL.
+
+## Qué hace
+
+1. Resuelve el workspace y chequea el gate del perfil — se rehúsa de inmediato si `peer_pr_review.required: false`.
+2. Resuelve la historia — debe estar en `status: verified` (QA ya pasó).
+3. Cambia a la branch de dev y calcula el diff contra la branch de integración.
+4. Carga contexto en paralelo: config, arquitectura, DoD, los archivos de historia y aceptación (incluyendo el último bloque de verificación de QA), el diff completo, y metadata del PR.
+5. **Delega al subagente Tech Lead**, que chequea el cumplimiento de ADRs, ítems de DoD a nivel de código (linter, cobertura, docs), y calidad de código — condiciones de carrera, olores de seguridad, errores de abstracción — cosas que la verificación de comportamiento de QA no puede detectar.
+6. Escribe las salidas (abajo).
+
+## Qué produce
+
+- Actualización del frontmatter de la historia:
+  - Veredicto `approved` → `status: done`.
+  - Veredicto `request_changes` → `status: review`, con una sección `## TL findings` (un bullet por finding, etiquetado `blocker` o `non-blocking`).
+- `gh pr review --approve` o `--request-changes` con el cuerpo de review renderizado.
+
+## Salvaguardas
+
+- Nunca aprueba una historia cuyo status no sea `verified` — el gate de QA siempre va primero.
+- Nunca corre en un workspace donde `peer_pr_review.required: false` — se rehúsa en el primer paso.
+- No mergea el PR. La aprobación alcanza; mergear es una decisión humana separada (ventanas de release, agrupamiento).
+- No modifica código en la branch de dev — los findings van en el cuerpo de la review, el dev los atiende.
+- Un solo finding de severidad `blocker` alcanza para retener la aprobación. No hay "aprobar con observaciones" cuando existe uno.
+- Las corridas posteriores son solo-agregar en el archivo de la historia: después de que el dev arregla, una segunda corrida agrega una nueva sección `## TL findings` si quedan issues, o la quita y pasa a `done` al aprobar.
+
+## Después de que corre
+
+- **Aprobado** — el PR está listo para mergear (una acción humana separada).
+- **Pide cambios** — el dev pushea arreglos, después se vuelve a correr [`/conclave-qa US-NNN`](/es/commands/qa) (los criterios pueden haber cambiado) seguido de `/conclave-pr-review US-NNN` de nuevo.

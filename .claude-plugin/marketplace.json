@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Conclave — Scrum for Claude Code teams. Specialized AI subagents for every discipline (Tech Lead, Frontend, Backend, QA, Designer, DevOps) plus optional PM/SM process roles. All artifacts are plain markdown committed to git in a visible conclave/ directory.",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "plugins": [
     {
       "name": "conclave",
       "source": "./",
       "description": "Scrum methodology for distributed engineering teams using Claude Code. Six shipped slash commands (/conclave-init, /conclave-spec, /conclave-planning, /conclave-dev, /conclave-qa, /conclave-pr-review) cover the Day-0 founding-artifacts flow and the per-story delivery loop. Discipline-first roster (Tech Lead, Frontend, Backend, QA, Designer, DevOps) with an explicit solo/team setup. Profile-aware (lean / full-scrum / custom). QA generates CI-run UAT test suites (Playwright, shared Postman/Newman collection, manual mobile checklists) from Gherkin acceptance criteria.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "author": {
         "name": "Conclave"
       },

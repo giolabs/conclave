@@ -60,7 +60,7 @@ QA never executes the generated tests itself — the target repo's own CI does, 
 
 ## After it runs
 
-- **Verdict `passed`, `peer_pr_review.required: true`** — Tech Lead runs [`/conclave-pr-review US-NNN`](/commands/pr-review) to approve and merge.
+- **Verdict `passed`, `peer_pr_review.required: true`** — Tech Lead runs [`/conclave-pr-review US-NNN`](/en/commands/pr-review) to approve and merge.
 - **Verdict `passed`, `peer_pr_review.required: false`** — no separate gate; the PR is ready to merge.
 - **Verdict `pending_uat`** — a human completes `tests/uat/US-NNN-UAT.md` (mobile checklist), then re-run `/conclave-qa US-NNN`.
 - **Verdict `blocked`** — dev fixes and pushes (or a mobile tester records a FAIL with notes), then re-run `/conclave-qa US-NNN`.

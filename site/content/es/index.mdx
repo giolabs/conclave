@@ -1,0 +1,40 @@
+---
+title: Conclave
+description: Scrum para equipos de Claude Code — cada rol como un subagente de IA especializado, coordinado mediante markdown plano en git.
+---
+
+# Conclave
+
+**Scrum para equipos de Claude Code.**
+
+Conclave es un plugin de Claude Code que trae la metodología Scrum a equipos de ingeniería distribuidos. Cada disciplina — Tech Lead, Frontend, Backend, QA, Diseño, DevOps — tiene un subagente de IA especializado que ayuda a quien ocupe esa disciplina a ejecutar sus responsabilidades. Product Manager y Scrum Master son roles de proceso opcionales que cualquier persona con una disciplina puede además asumir.
+
+La fuente de verdad compartida es markdown plano commiteado a git, dentro de un directorio `conclave/` visible en la raíz de tu proyecto.
+
+Sin servidor central, sin formato propietario, sin estado oculto. El equipo coordina a través de pull requests.
+
+## Por qué existe Conclave
+
+La mayoría de las herramientas de "IA hace Scrum" inventan un formato de datos propietario o requieren un servicio hosteado. Conclave no hace ninguna de las dos cosas:
+
+- **Todo es markdown.** Backlog, arquitectura, planes de sprint, historias, criterios de aceptación, reportes de verificación — todos archivos `.md` planos con frontmatter YAML para los campos estructurados.
+- **Git es el único mecanismo de coordinación.** Cada integrante del equipo corre su propia sesión local de Claude Code. No hay servidor compartido, ni base de datos, ni API. Los equipos sincronizan a través de pull requests normales, igual que con el código.
+- **La metodología se hace cumplir por estructura, no por confianza.** Una historia no puede llegar a `done` sin criterios de aceptación, sin verificación de QA, sin cumplir la Definición de Terminado — porque los comandos que mueven una historia a través de su ciclo de vida chequean estas cosas antes de escribir el siguiente estado.
+
+## Qué obtenés
+
+- **Siete charters de rol** (`skills/conclave/agents/*.md`) — Tech Lead, Developer (cubre Frontend y Backend), QA, Designer, DevOps, Product Manager, Scrum Master — cada uno un "system prompt" en markdown que un slash command carga al invocar un subagente para esa disciplina.
+- **Seis slash commands** que cubren todo el ciclo desde el Día 0 hasta terminado: `/conclave-init`, `/conclave-spec`, `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`.
+- **Ceremonias conscientes del perfil.** Los equipos lean se saltan el daily standup, la revisión de pares y la retro. Los equipos full-scrum exigen todo. Dos gates estructurales — Sprint Planning y Verificación de QA — están siempre activos, sin importar el perfil.
+- **Amigable para solistas.** `/conclave-init` pregunta de entrada si sos vos solo o un equipo, y escala toda la configuración en consecuencia.
+
+## Hacia dónde ir ahora
+
+- [Primeros pasos](/es/getting-started) — instalá el plugin y corré el flujo del Día 0 en unos minutos.
+- [Ejemplo de equipo](/es/team-example) — un ejemplo trabajado con varios desarrolladores, cada uno con su propia sesión de Claude Code, entregando un sprint juntos.
+- [Metodología](/es/methodology) — el modelo de Scrum que asume Conclave y las adaptaciones que hace para equipos de ingeniería reales.
+- [Roles](/es/roles) — los siete charters de rol y qué comandos invocan a cada uno.
+- [Perfiles de equipo](/es/profiles) — cómo escalar la sobrecarga de ceremonias al tamaño de tu equipo.
+- [Referencia de configuración](/es/configuration) — cada campo de `conclave/config.md` explicado.
+- [Máquina de estados de la historia](/es/state-machine) — cómo una historia pasa de `backlog` a `done`, según el perfil.
+- [Comandos](/es/commands/init) — referencia completa de cada uno de los seis slash commands.

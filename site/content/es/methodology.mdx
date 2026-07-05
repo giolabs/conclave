@@ -1,0 +1,82 @@
+---
+title: Metodología
+description: El modelo de Scrum que asume Conclave, con las adaptaciones que necesitan los equipos de ingeniería reales.
+---
+
+# Metodología
+
+Conclave asume **Scrum** estándar con adaptaciones prácticas que hacen los equipos de ingeniería reales: un **roster centrado en disciplinas** (todo proyecto tiene trabajo de Tech Lead, Frontend, Backend, QA, Designer y DevOps, tenga o no un Product Manager o Scrum Master dedicado), y **git** como el sustrato de coordinación del equipo.
+
+## El mapeo a Scrum
+
+| Concepto de Scrum | Término en Conclave | Notas |
+|---|---|---|
+| Development Team | **Disciplinas: Tech Lead, Frontend, Backend, QA, Designer, DevOps** | Siempre presentes en el roster, incluso en un proyecto solo donde una persona cubre las seis. Este es el eje primario del roster. |
+| Product Owner | **Product Manager (PM)** | Un rol de proceso opcional que cualquier persona con una disciplina puede además asumir — dueño del backlog, prioriza, define la aceptación, cuando alguien lo ocupa. La mayoría de los equipos lo llama PM en la práctica. |
+| Scrum Master | **Scrum Master (SM)** | Un rol de proceso opcional. Facilita ceremonias, saca a la luz bloqueos, cuando alguien lo ocupa. Si nadie lo hace, el Tech Lead y el equipo deciden el proceso por consenso. |
+| Product Backlog | `conclave/product/backlog.md` | Lista ordenada de historias de usuario. |
+| Sprint Backlog | Tabla de historias seleccionadas en `conclave/sprints/SPRINT-NNN/spec.md` | Snapshot al momento de planning. |
+| Increment | Los PRs mergeados que cierran historias | Conclave no lo trackea directamente — lo hace git. |
+| Sprint Planning | `/conclave-planning` | Bloquea el sprint. Uno de los dos gates estructurales. |
+| Definition of Ready | `conclave/product/definition-of-ready.md` | Checklist personalizada por el equipo que una historia debe pasar antes de entrar a un sprint. |
+| Definition of Done | `conclave/product/definition-of-done.md` | Checklist personalizada por el equipo que una historia debe cumplir para llegar a `done`. |
+| Historia de usuario | Un archivo bajo `sprints/SPRINT-NNN/stories/` | Formato INVEST. |
+| Criterios de aceptación | Un archivo bajo `sprints/SPRINT-NNN/acceptance/` | Gherkin Given/When/Then. |
+
+Los desarrolladores solos tienen su propio camino de setup: `/conclave-init` pregunta de entrada si el proyecto es solo o de equipo. El modo solo fuerza el perfil `lean` y renderiza un roster de una sola persona cubriendo todas las disciplinas; el modo equipo pregunta quién cubre cada una de las seis disciplinas (nombre + handle de GitHub, o `TBD`) más quién — si alguien — ocupa los roles de proceso PM/SM.
+
+## El árbol de artefactos
+
+En la raíz del repo del equipo, Conclave mantiene un directorio `conclave/` visible. Todo es markdown.
+
+```
+conclave/
+├── README.md                         # explica el directorio en GitHub
+├── config.md                         # tipo de proyecto, stack, team_mode, team_profile
+├── team/
+│   ├── roster.md                     # quién cubre cada disciplina, más PM/SM opcionales
+│   └── ceremonies.md                 # cadencia
+├── product/                          # persiste entre sprints
+│   ├── backlog.md
+│   ├── architecture.md               # ADRs vivos
+│   ├── definition-of-ready.md
+│   └── definition-of-done.md
+├── context/                          # snapshots congelados de los inputs
+└── sprints/
+    └── SPRINT-NNN/
+        ├── meta.md                   # nombre, fechas, status
+        ├── spec.md                   # plan del sprint
+        ├── stories/
+        │   └── US-NNN-<slug>.md
+        └── acceptance/
+            └── AC-US-NNN.md
+```
+
+## Invariantes que respeta cada comando de Conclave
+
+- **Solo markdown.** Los campos estructurados viven en frontmatter YAML. El cuerpo es prosa legible por humanos.
+- **Directorio visible.** `conclave/` no está oculto — se renderiza en GitHub y es descubrible.
+- **Agregar, no pisar.** Una segunda corrida de `/conclave-spec` crea `SPRINT-002/` y actualiza `product/backlog.md` de forma aditiva; nunca sobreescribe trabajo previo.
+- **Snapshot del contexto.** Cada comando que genera artefactos escribe un snapshot fresco bajo `conclave/context/` para que el artefacto sea auditable contra los inputs que lo produjeron.
+- **Referenciar, no duplicar.** Las historias referencian su archivo de aceptación; el spec del sprint referencia `product/definition-of-done.md` en vez de copiarlo.
+- **La numeración es fija.** Los IDs `SPRINT-NNN` y `US-NNN` incrementan monótonamente y nunca se reusan.
+- **El schema del roster degrada con gracia.** Un `roster.md` escrito antes de que el modelo de disciplinas existiera (sin columna `Discipline`) no se rechaza — los comandos tratan a cada miembro como multi-disciplina y muestran un aviso de compatibilidad una sola vez.
+
+## Cómo los slash commands invocan subagentes de rol
+
+Cada slash command es un orquestador en markdown. Su cuerpo dice, en prosa: *"Invocá un subagente cargado con `skills/conclave/agents/<rol>.md` para producir X."*
+
+Claude lee el archivo del charter de rol, dispara una llamada a la herramienta `Agent` con ese contenido como prefijo del system prompt, y continúa cuando el subagente retorna. Roles independientes corren en paralelo emitiendo ambas llamadas `Agent` en un solo mensaje (PM + TL en `/conclave-spec`). `/conclave-planning` corre en dos waves en vez de una: PM + TL en paralelo primero, después SM solo — la asignación necesita saber la disciplina que el Tech Lead recién asignó a cada historia antes de poder elegir un asignado válido.
+
+No hay un DSL. Es el mismo patrón que usa el propio plugin `code-review` de Anthropic para sus agentes de revisión en paralelo.
+
+## Cómo coordinan los equipos
+
+Cada integrante del equipo corre su propio Claude Code local. El estado compartido vive en `conclave/` y se commitea a git. La coordinación pasa por pull requests:
+
+- El PM refina el backlog → abre un PR a `conclave/product/backlog.md`.
+- Dev, Designer, o DevOps toma una historia (el que coincida con su `discipline`) → crea la branch `feat/US-NNN-<slug>` → implementa → abre un PR.
+- QA verifica → agrega un reporte de verificación al archivo de aceptación → comentario en el PR.
+- El TL aprueba el código (cuando `peer_pr_review.required: true`) → corre `gh pr review --approve`.
+
+No hay servidor central, ni estado propietario, ni superficie para el vendor lock-in. El equipo es dueño del workflow porque el workflow son solo archivos en su propio repo.

@@ -1,0 +1,154 @@
+---
+title: Referencia de configuración
+description: Cada campo en conclave/config.md y conclave/team/roster.md explicado.
+---
+
+# Referencia de configuración
+
+Cada comando `/conclave-*` lee `conclave/config.md`. Esta página documenta cada campo, más el schema del roster con el que trabaja junto.
+
+## `conclave/config.md`
+
+```yaml
+project_name: "mi-proyecto"
+project_type: "backend"          # backend | frontend | mobile | devops | multi
+stack:
+  language: "TypeScript"
+  framework: "NestJS"
+  datastore: "PostgreSQL"
+  infrastructure: "Docker + AWS ECS"
+repo_url: "https://github.com/org/mi-proyecto"
+claude_md_path: "CLAUDE.md"
+initialized_at: "2026-01-01T00:00:00Z"
+conclave_version: "0.3.0"
+
+team_mode: "solo"                # solo | team
+team_profile: "lean"             # lean | full-scrum | custom
+
+ceremonies:
+  sprint_planning:
+    required: true               # siempre true — estructural
+  qa_verification:
+    required: true               # siempre true — estructural
+    ci_wait_timeout_minutes: 20  # cuánto tiempo espera /conclave-qa la conclusión de la corrida de CI
+  daily_standup:
+    required: false
+  backlog_grooming:
+    required: false
+  peer_pr_review:
+    required: false
+  sprint_review:
+    required: false
+  sprint_retrospective:
+    required: false
+```
+
+### Referencia de campos
+
+| Campo | Valores | Notas |
+|---|---|---|
+| `project_name` | texto libre | Por default, el nombre base del repo. |
+| `project_type` | `backend \| frontend \| mobile \| devops \| multi` | Definido durante `/conclave-init`; refinado por `/conclave-spec`. |
+| `stack.*` | texto libre | Confirmado por `/conclave-spec`, no se pregunta durante `/conclave-init`. |
+| `repo_url` | URL | Usado para construir links (editar en GitHub, plantillas de PR). |
+| `claude_md_path` | ruta | Dónde busca Conclave el contexto del proyecto al generar artefactos fundacionales. |
+| `conclave_version` | string tipo semver | Versión del schema. Los comandos la chequean para decidir si degradar con gracia contra artefactos más viejos. |
+| `team_mode` | `solo \| team` | Definido una vez por `/conclave-init`. Controla la forma del roster — ver abajo. No pensado para editar a mano; crecer de solo a equipo es un edit manual de `roster.md` más cambiar este campo. |
+| `team_profile` | `lean \| full-scrum \| custom` | Controla qué ceremonias se hacen cumplir. Ver [perfiles de equipo](/es/profiles). |
+| `ceremonies.sprint_planning.required` | siempre `true` | Estructural. Rechazar un edit a `false` lo hace cumplir `/conclave-planning`. |
+| `ceremonies.qa_verification.required` | siempre `true` | Estructural. Lo hace cumplir `/conclave-qa`. |
+| `ceremonies.qa_verification.ci_wait_timeout_minutes` | entero, default `20` | Cuánto tiempo espera una corrida de `/conclave-qa` a que el CI del repo target termine con los tests UAT que generó, antes de tratar "todavía sin conclusión" como bloqueado. |
+| `ceremonies.daily_standup.required` | `true \| false` | Off por default en `lean`, on en `full-scrum`. |
+| `ceremonies.backlog_grooming.required` | `true \| false` | Cuando está off, el refinamiento pasa dentro de `/conclave-planning` en vez de una ceremonia separada. |
+| `ceremonies.peer_pr_review.required` | `true \| false` | Controla si `/conclave-pr-review` corre — el paso de aprobación de PR del Tech Lead. |
+| `ceremonies.sprint_review.required` | `true \| false` | Ceremonia de cierre de sprint. Comando planeado, aún no lanzado. |
+| `ceremonies.sprint_retrospective.required` | `true \| false` | Ceremonia de cierre de sprint. Comando planeado, aún no lanzado. |
+
+### Bloque de convenciones
+
+El cuerpo de `config.md` (debajo del frontmatter) también documenta las convenciones del equipo que cada comando respeta:
+
+- **Nombres de branch**: `feat/US-NNN-<slug>` para historias, `fix/<slug-corto>` para bugs, `chore/<slug-corto>` para mantenimiento.
+- **Mensajes de commit**: referencian el ID de la historia, ej. `feat(US-001): agregar middleware JWT`.
+- **Títulos de PR**: reflejan el título de la historia, ej. `US-001: Agregar middleware JWT`.
+
+Editá este archivo directamente para cambiar cualquiera de estas cosas — el próximo comando `/conclave-*` recoge el cambio. Commiteá el edit para que el resto del equipo lo vea.
+
+## `conclave/team/roster.md`
+
+El eje primario del roster es **Discipline**, no un rol de Scrum. Su forma depende de `team_mode`:
+
+### `team_mode: team`
+
+| Miembro | Handle de GitHub | Discipline | Rol(es) de proceso | Notas |
+|---|---|---|---|---|
+| Ada | @ada | Tech Lead | | |
+| Bea | @bea | Frontend | PM | |
+| Cy | @cy | Backend | | |
+| Dee | @dee | QA | | |
+| TBD | | Designer | | Sin staffear |
+| Fen | @fen | DevOps | SM | |
+
+- La columna `Discipline` puede tener más de un valor (separados por coma) cuando una persona cubre varias.
+- Una disciplina sin staffear mantiene su fila con `TBD` en lugar del nombre/handle — la disciplina sigue existiendo, solo que todavía no está cubierta.
+- `Process role(s)` es opcional: `PM`, `SM`, ambos, o vacío.
+
+### `team_mode: solo`
+
+| Miembro | Handle de GitHub | Discipline | Rol(es) de proceso | Notas |
+|---|---|---|---|---|
+| Ada | @ada | Tech Lead, Frontend, Backend, QA, Designer, DevOps | PM, SM | Proyecto solo — una persona cubre todas las disciplinas. |
+
+### Reglas de rol
+
+- Una persona puede tener múltiples disciplinas y roles de proceso a la vez.
+- El Tech Lead tiene la última palabra en decisiones arquitectónicas y ADRs.
+- Quien tenga el rol de proceso Product Manager tiene la última palabra en prioridad y aceptación.
+- Quien tenga el rol de proceso Scrum Master tiene la última palabra en proceso y cadencia de ceremonias.
+- Si nadie tiene PM o SM, el Tech Lead y el equipo deciden prioridad y proceso por consenso.
+- Un roster escrito antes de que existiera el modelo de disciplinas (sin columna `Discipline`) no se rechaza — los comandos tratan a cada miembro como multi-disciplina y muestran un aviso de compatibilidad una sola vez.
+
+## Frontmatter de la historia
+
+Cada archivo de historia (`conclave/sprints/SPRINT-NNN/stories/US-NNN-<slug>.md`) lleva:
+
+```yaml
+id: "US-042"
+title: "Agregar middleware JWT"
+priority: "must"                # must | should | could | wont
+estimate: "M"                   # XS | S | M | L | XL
+status: backlog                 # backlog | ready | in-progress | review | verified | done
+dependencies: []
+assignee: ""
+discipline: ""                  # frontend | backend | qa | design | devops | mobile | multi
+sprint: "SPRINT-003"
+created_at: "2026-01-01T00:00:00Z"
+```
+
+`discipline` arranca vacío y lo define el Tech Lead durante `/conclave-planning` — mirá la [máquina de estados de la historia](/es/state-machine) para saber exactamente cuándo cada campo se vuelve requerido.
+
+## `conclave/team/testing-environments.md`
+
+Renderizado por `/conclave-init` como un placeholder. Declara los **nombres** de las variables de entorno y secretos de CI que los tests UAT generados por QA leen en tiempo de ejecución — nunca valores reales. QA nunca resuelve, lee, ni escribe un secreto — lo hace el propio CI del repo target, desde su propio almacén de secretos.
+
+```markdown
+## Environments
+
+| Name | Playwright base URL env var | API base URL env var | Notes |
+|---|---|---|---|
+| TBD | TBD | TBD | Completar antes de habilitar UAT. |
+
+## Postman variables
+
+| Postman variable | Populated from CI secret/env var |
+|---|---|
+| TBD | TBD |
+
+## Test users
+
+| Label | Represents | CI secret/env var holding the credential |
+|---|---|---|
+| TBD | ej. standard-user, admin | TBD |
+```
+
+Hasta que cada `TBD` se reemplace con un nombre real de variable/secreto, `/conclave-qa` se salta la generación de UAT por completo y verifica los criterios de aceptación exactamente como lo hacía antes de que este archivo existiera — un `testing-environments.md` faltante o sin completar nunca es un fallo duro.

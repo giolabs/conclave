@@ -1,0 +1,44 @@
+---
+title: /conclave-spec
+description: Generá los artefactos fundacionales — Product Backlog, Architectural Foundation, plan del Sprint 1 — a partir de una idea de producto en una línea.
+---
+
+# /conclave-spec &lt;idea&gt;
+
+Produce los **artefactos fundacionales de Scrum** para el repo actual, a partir de una idea de producto en una línea más todo el contexto disponible del proyecto. Este es el comando principal del MVP.
+
+```
+/conclave-spec "REST API para gestión de tareas con auth JWT"
+```
+
+Si `conclave/config.md` todavía no existe, este comando corre el flujo de `/conclave-init` en línea en vez de fallar.
+
+## Qué hace
+
+1. Resuelve el workspace y determina el próximo ID `SPRINT-NNN`.
+2. Ingiere el contexto del proyecto en paralelo: `CLAUDE.md` (del proyecto y global), la lista de skills disponibles en la sesión, y archivos señal del stack detectados (`package.json`, `pubspec.yaml`, `go.mod`, etc.) — cada uno con un snapshot bajo `conclave/context/` para auditabilidad.
+3. Le pide al usuario que confirme el stack detectado, el tipo de proyecto, cuántas historias traer al Sprint 1 (default 3–5), y cualquier restricción dura (deadlines, compliance, dependencias prohibidas).
+4. **Delega al Tech Lead y al Product Manager en paralelo** — dos llamadas `Agent` concurrentes, ninguna espera a la otra:
+   - **Tech Lead** produce la Architectural Foundation: overview, stack confirmado, diagrama de componentes, 3–7 ADRs, preocupaciones transversales, y una tabla de riesgo técnico.
+   - **Product Manager** produce el Product Backlog como historias INVEST con prioridad MoSCoW, estimaciones en talles de remera, y criterios de aceptación en Gherkin.
+5. Sintetiza ambas salidas: escribe `architecture.md`, arma la tabla del backlog, elige las N historias top para el Sprint 1, y las parte en un archivo de historia más un archivo de aceptación.
+6. En corridas posteriores, actualiza el backlog **de forma aditiva** — nunca lo sobreescribe.
+
+## Qué produce
+
+- `conclave/product/backlog.md` — el Product Backlog ordenado.
+- `conclave/product/architecture.md` — la Architectural Foundation con ADRs.
+- `conclave/sprints/SPRINT-NNN/` — el borrador del sprint: `meta.md`, `spec.md`, un `stories/US-NNN-<slug>.md` y un `acceptance/AC-US-NNN.md` por historia seleccionada.
+
+Cada historia se crea con `discipline: ""` (vacío) — el Tech Lead la asigna después, durante `/conclave-planning`, no acá. Mirá la [máquina de estados de la historia](/es/state-machine) para entender por qué.
+
+## Salvaguardas
+
+- No modifica ningún archivo fuera de `conclave/` (y solo lee `CLAUDE.md`, nunca lo edita).
+- No commitea — el equipo revisa los artefactos como un PR.
+- El Product Backlog es solo-agregar; los directorios por sprint siempre son nuevos, así que nunca colisionan.
+- Si la salida del PM o del TL falla un chequeo de calidad de su propio charter de rol, la falla se le muestra al usuario con el chequeo específico que falló — nada se parchea silenciosamente.
+
+## Después de que corre
+
+- `/conclave-planning` bloquea el sprint y asigna la disciplina y el dueño de cada historia.
