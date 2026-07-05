@@ -5,4 +5,5 @@ export default {
   dev: "/conclave-dev",
   qa: "/conclave-qa",
   "pr-review": "/conclave-pr-review",
+  board: "/conclave-board",
 };

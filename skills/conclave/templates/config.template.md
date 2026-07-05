@@ -9,7 +9,7 @@ stack:
 repo_url: "{{repo_url}}"
 claude_md_path: "CLAUDE.md"
 initialized_at: "{{iso_date}}"
-conclave_version: "0.3.0"
+conclave_version: "0.5.0"
 
 # Whether this is a solo developer or a real team. Set once by /conclave-init.
 # solo forces team_profile to lean and renders a single-person roster.

@@ -1,0 +1,55 @@
+---
+title: /conclave-board
+description: Andamiá un board Kanban local y con marca propia del estado actual de conclave/.
+---
+
+# /conclave-board
+
+Andamia un board Kanban local para el estado de `conclave/` del repo actual — una app Next.js + shadcn/ui, con marca de la empresa, que renderiza una columna por status de historia y una tarjeta por historia.
+
+```
+/conclave-board
+```
+
+Este comando es **setup de una sola vez**. Después de que corre, el board se mantiene actualizado solo: un hook de Claude Code que trae este plugin regenera los datos del board cada vez que cambia `conclave/`, y el propio dev server del board hace hot-reload para mostrarlo. No hay pipeline de CI, no hay servidor que Conclave corra, y no hay ningún LLM involucrado en mantenerlo al día.
+
+## Qué hace
+
+1. Resuelve el workspace; confirma que `conclave/config.md` existe (sugiere `/conclave-init` si no).
+2. Se rehúsa si `conclave-board/` ya existe — es un scaffold de una sola vez, no algo para volver a correr.
+3. Copia el boilerplate de la app del board a `conclave-board/`, un **sibling** de `conclave/` (código de aplicación no pertenece dentro del directorio markdown-only de Conclave).
+4. Renderiza `conclave/team/board.md` (placeholders de marca) si todavía no existe — nunca sobreescribe los edits de un equipo en una segunda corrida.
+5. Corre el script de generación de datos una vez, para que el board tenga datos reales la primera vez que alguien lo abre.
+
+## Qué produce
+
+- `conclave-board/` — una app Next.js: `app/`, `components/`, `lib/`, `scripts/generate-data.mjs`.
+- `conclave/team/board.md` — nombre de la empresa, path del logo, colores primario/de acento. Sin secretos; la fuente del board está fija en Poppins.
+- `conclave-board/data/board-data.generated.json` — un snapshot derivado (ignorado por git), nunca editado a mano.
+
+## Ver el board
+
+```bash
+cd conclave-board
+npm install
+npm run dev
+```
+
+## Cómo se mantiene actualizado
+
+Este plugin trae un hook `PostToolUse` que se dispara en cada llamada a la herramienta `Write`/`Edit`. Cuando el path tocado está bajo `conclave/` **y** el repo actual tiene un board ya andamiado, vuelve a correr `conclave-board/scripts/generate-data.mjs` — un script de Node plano y determinístico, sin ninguna llamada a un LLM — que re-parsea cada historia, sprint, y el roster hacia el snapshot JSON que lee el board. En cualquier otro repo, o para edits fuera de `conclave/`, el hook es un no-op rápido y nunca hace fallar la llamada a la herramienta a la que está enganchado.
+
+Si el board alguna vez se ve desactualizado (ej. editaste un archivo de historia fuera de Claude Code), regeneralo a mano: `npm run generate-data` dentro de `conclave-board/`.
+
+## Salvaguardas
+
+- Nunca modifica ningún archivo bajo `conclave/` más que crear `conclave/team/board.md` — y nunca lo sobreescribe una vez que existe.
+- Nunca toca el status o el contenido de una historia. El board es de solo lectura; los cambios de status siguen pasando por [`/conclave-dev`](/es/commands/dev), [`/conclave-qa`](/es/commands/qa), y [`/conclave-pr-review`](/es/commands/pr-review).
+- No commitea — igual que `/conclave-init`, el equipo revisa la app andamiada primero.
+- Idempotente — una segunda corrida se rehúsa en vez de sobreescribir o duplicar la app.
+
+## Qué NO es esto
+
+- No es un camino de escritura de vuelta hacia `conclave/` — sin drag-and-drop de cambios de status.
+- No se despliega en ningún lado — un dev server local en tu propia máquina.
+- No se sincroniza en tiempo real entre máquinas — el board de cada persona del equipo refleja su propio checkout local de `conclave/`.

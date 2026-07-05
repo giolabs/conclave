@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+
+  /* Overridden per-request by lib/theme.ts via inline CSS variables on <html> —
+     these are just the neutral fallback when conclave/team/board.md has no
+     valid primary_color/accent_color yet. */
+  --color-brand-primary: #4f46e5;
+  --color-brand-accent: #14b8a6;
+}
+
+body {
+  font-family: var(--font-sans);
+  /* Jira's own board background tone — light neutral, not pure white, so
+     the white cards and their shadows read clearly against it. */
+  background-color: #f7f8f9;
+}

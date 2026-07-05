@@ -51,7 +51,8 @@ conclave/                             # VISIBLE top-level directory, all markdow
 ├── team/
 │   ├── roster.md                     # team members, discipline(s), optional PM/SM process role(s)
 │   ├── ceremonies.md                 # sprint length, planning day, standup time, retro day
-│   └── testing-environments.md       # CI env-var/secret NAMES the generated UAT tests read — never real values
+│   ├── testing-environments.md       # CI env-var/secret NAMES the generated UAT tests read — never real values
+│   └── board.md                      # branding for conclave-board/ (company name, logo, colors) — no secrets
 ├── product/                          # persists across sprints
 │   ├── backlog.md                    # ordered Product Backlog
 │   ├── architecture.md               # living architectural doc (ADRs)
@@ -81,6 +82,7 @@ conclave/                             # VISIBLE top-level directory, all markdow
 - **Numbering is sticky.** `SPRINT-NNN` and `US-NNN` IDs increment monotonically and are never reused.
 - **Roster schema degrades gracefully.** A `roster.md` written before v0.2.0 (no `Discipline` column) is not rejected — commands that read it treat every member as `multi`-discipline and print a one-time compatibility hint. No auto-migration is provided; a team opts into discipline-based assignment by re-running `/conclave-init` or hand-editing the roster.
 - **UAT config degrades gracefully.** A `testing-environments.md` that doesn't exist yet, or still has every row `TBD` (v0.2.0 installs, or a fresh `/conclave-init` before the team fills it in), is not a hard failure — `/conclave-qa` skips UAT generation entirely and verifies acceptance criteria exactly as it did before v0.3.0.
+- **`conclave-board/` (v0.5.0+) is application code, not part of this contract.** `/conclave-board` scaffolds a Next.js app as a *sibling* of `conclave/`, not inside it — the markdown-only invariant above applies only to `conclave/` itself. The board reads `conclave/` but never writes to it.
 
 ---
 
@@ -132,6 +134,7 @@ Templates available:
 - `verification-report.template.md`
 - `testing-environments.template.md`
 - `uat-report.template.md`
+- `board.template.md`
 
 ---
 
@@ -194,6 +197,19 @@ When a future ceremony command runs (e.g. `/conclave-standup`), the first thing 
 - If `required: false` and the command is triggered indirectly (e.g. as a step inside `/conclave-close-sprint`), it is skipped silently.
 
 The two always-required gates (`sprint_planning`, `qa_verification`) cannot be flagged off — attempting to set `required: false` for them is rejected with a clear error.
+
+---
+
+## 7. The visual board (v0.5.0+)
+
+`/conclave-board` is the one Conclave capability that is **not** a prose-orchestrated subagent — it's a one-time scaffold plus a deterministic background sync, with no `Agent` call anywhere in its update loop:
+
+- **Scaffold, once**: `/conclave-board` copies a Next.js + shadcn/ui boilerplate into `conclave-board/` (a sibling of `conclave/`, not inside it — see the directory-layout invariants above) and renders `conclave/team/board.md` for branding. A second run refuses, same idempotency posture as `/conclave-init`.
+- **Stay current, automatically**: this plugin ships a `PostToolUse` hook (`hooks/hooks.json` + `hooks/regenerate-board-data.sh`) that fires on every `Write`/`Edit` tool call. If the touched path is under `conclave/` **and** the current repo has a scaffolded board, it re-runs `conclave-board/scripts/generate-data.mjs` — a plain Node script, no LLM involved — which re-parses every story/sprint/roster file into `conclave-board/data/board-data.generated.json`. The board's own dev server (`npm run dev`) hot-reloads to show it. In every other repo (no board scaffolded, or the touched path isn't under `conclave/`), the hook is a fast no-op and never fails the underlying tool call.
+- **Read-only**: the board never writes back to `conclave/`. Story-status changes still only happen through `/conclave-dev`, `/conclave-qa`, and `/conclave-pr-review`.
+- **Local only**: no CI pipeline, no hosting, no cross-machine sync. Each teammate's board reflects their own local `conclave/` checkout.
+
+See `docs/specs/conclave-board/spec.md` for the full design.
 
 ## Glossary
 

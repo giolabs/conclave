@@ -1,0 +1,55 @@
+---
+title: /conclave-board
+description: Scaffold a local, branded Kanban board of the current conclave/ sprint state.
+---
+
+# /conclave-board
+
+Scaffold a local Kanban board for the current repo's `conclave/` state — a Next.js + shadcn/ui app, branded per company, that renders one column per story status and one card per story.
+
+```
+/conclave-board
+```
+
+This command is **one-time setup**. After it runs, the board stays current on its own: a Claude Code hook this plugin ships regenerates the board's data every time `conclave/` changes, and the board's own dev server hot-reloads to show it. There is no CI pipeline, no server Conclave runs, and no LLM involved in keeping the board up to date.
+
+## What it does
+
+1. Resolves the workspace; confirms `conclave/config.md` exists (suggests `/conclave-init` if not).
+2. Refuses if `conclave-board/` already exists — this is a one-shot scaffold, not something to re-run.
+3. Copies the board-app boilerplate into `conclave-board/`, a **sibling** of `conclave/` (application code doesn't belong inside Conclave's markdown-only directory).
+4. Renders `conclave/team/board.md` (branding placeholders) if it doesn't already exist — never overwrites a team's edits on a re-run.
+5. Runs the data-generation script once, so the board has real data the first time someone opens it.
+
+## What it produces
+
+- `conclave-board/` — a Next.js app: `app/`, `components/`, `lib/`, `scripts/generate-data.mjs`.
+- `conclave/team/board.md` — company name, logo path, primary/accent colors. No secrets; the board's font is fixed to Poppins.
+- `conclave-board/data/board-data.generated.json` — a derived snapshot (git-ignored), never hand-edited.
+
+## Seeing the board
+
+```bash
+cd conclave-board
+npm install
+npm run dev
+```
+
+## Staying current
+
+This plugin ships a `PostToolUse` hook that fires on every `Write`/`Edit` tool call. When the touched path is under `conclave/` **and** the current repo has a scaffolded board, it re-runs `conclave-board/scripts/generate-data.mjs` — a plain, deterministic Node script, no LLM call — which re-parses every story, sprint, and roster file into the JSON snapshot the board reads. In every other repo, or for edits outside `conclave/`, the hook is a fast no-op and never fails the tool call it's attached to.
+
+If the board ever looks stale (e.g. you edited a story file outside Claude Code), regenerate it by hand: `npm run generate-data` inside `conclave-board/`.
+
+## Guardrails
+
+- Never modifies any file under `conclave/` other than creating `conclave/team/board.md` — and never overwrites it once it exists.
+- Never touches a story's status or content. The board is read-only; status changes still go through [`/conclave-dev`](/en/commands/dev), [`/conclave-qa`](/en/commands/qa), and [`/conclave-pr-review`](/en/commands/pr-review).
+- Does not commit — same as `/conclave-init`, the team reviews the scaffolded app first.
+- Idempotent — a second run refuses rather than overwriting or duplicating the app.
+
+## What this is not
+
+- Not a write path back into `conclave/` — no drag-and-drop status changes.
+- Not deployed anywhere — a local dev server on your own machine.
+- Not synced in real time across machines — each teammate's board reflects their own local `conclave/` checkout.
