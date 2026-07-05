@@ -1,0 +1,135 @@
+---
+title: Team example
+description: A worked example of four developers, each running their own local Claude Code session, delivering a sprint together through Conclave.
+---
+
+# Team example
+
+The [workflow map](/workflow) shows the shape of solo vs. team mode. This page walks through what it actually looks like day to day when **several developers each run Claude Code locally** and coordinate entirely through git — no shared server, no shared Claude session, nobody waiting on anybody else's terminal.
+
+## The team
+
+A small cross-functional team, `team_mode: team`, profile `full-scrum` (peer PR review and every ceremony on):
+
+| Person | Discipline | Process role |
+|---|---|---|
+| Ada | Tech Lead | |
+| Bea | Frontend | |
+| Cy | Backend | |
+| Dee | QA | |
+| Fen | DevOps | PM, SM |
+
+Designer is `TBD` — nobody covers it yet, which is fine; the roster row stays and design-tagged stories will hit a coverage gap until someone is staffed.
+
+Each person has their own clone of the repo and their own local Claude Code session. **The only thing they share is the git remote.** Conclave has no server, no daemon, no cross-machine session — every `/conclave-*` command reads and writes files in the current working tree, same as any other CLI tool.
+
+## Day 0 — one person bootstraps, everyone reviews
+
+Ada (Tech Lead) runs the founding-artifacts flow once, on her machine:
+
+```bash
+# Ada's terminal
+/conclave-init
+# → "Is this just you, or a team?" → Team
+# → team size, sprint length, timezone
+# → one question per discipline: "Who covers Frontend?" etc.
+
+/conclave-spec "Task management REST API with JWT auth, React dashboard"
+# → Tech Lead + Product Manager subagents run in parallel
+# → conclave/product/backlog.md, architecture.md, sprints/SPRINT-001/ created
+
+git add conclave/
+git commit -m "conclave: bootstrap Scrum workspace + Sprint 1 draft"
+git push -u origin conclave/bootstrap
+gh pr create --title "Conclave: bootstrap + Sprint 1 draft" --body "..."
+```
+
+This is a normal PR. Bea, Cy, Dee, and Fen review it in GitHub like any other diff — reading `conclave/product/backlog.md` and `architecture.md` as prose, not through Claude Code at all. Once approved and merged, everyone else does:
+
+```bash
+# Bea's, Cy's, Dee's, Fen's terminals — after the PR merges
+git checkout main
+git pull
+```
+
+Now every local clone has the same `conclave/` directory. Nobody needed to be online at the same time.
+
+## Sprint Planning — one facilitator, everyone else waits on the PR
+
+Fen (holding Scrum Master) runs the ceremony:
+
+```bash
+# Fen's terminal
+/conclave-planning
+# → Wave 1: Product Manager + Tech Lead subagents run in parallel
+#     (Tech Lead assigns a `discipline` to every story)
+# → Wave 2: Scrum Master assigns each story to a roster member
+#     whose Discipline matches
+# → capacity check, DoR validation, sprint locked to `active`
+
+git add conclave/
+git commit -m "conclave: lock SPRINT-001 — ship the task CRUD + auth flow"
+git push -u origin conclave/planning-sprint-001
+gh pr create --title "Sprint Planning: SPRINT-001" --body "Goal, assignments, DoR validation."
+```
+
+The PR body lists who got what: `US-001 → Bea (frontend)`, `US-002 → Cy (backend)`, `US-003 → Dee (qa)`, and so on. Once it's merged, everyone pulls `main` again and can see their own assignment in `conclave/sprints/SPRINT-001/stories/`.
+
+## The per-story loop — fully parallel, fully independent
+
+This is where having everyone on their own machine actually pays off: **Bea and Cy work different stories at the same time, on different branches, in different Claude Code sessions, and never block each other.**
+
+```bash
+# Bea's terminal, any time after the sprint is locked
+git checkout main && git pull
+/conclave-dev US-001
+# → creates feat/US-001-task-list-ui, implements, tests, opens a PR
+```
+
+```bash
+# Cy's terminal, independently, possibly at the same moment
+git checkout main && git pull
+/conclave-dev US-002
+# → creates feat/US-002-jwt-auth-endpoint, implements, tests, opens a PR
+```
+
+Each `/conclave-dev` run only touches its own feature branch and its own story file's frontmatter — it never edits `backlog.md`, `roster.md`, or another story. Two devs running it simultaneously on two different stories cannot conflict.
+
+When Bea's PR is open, Dee verifies it:
+
+```bash
+# Dee's terminal
+git fetch origin feat/US-001-task-list-ui:feat/US-001-task-list-ui
+/conclave-qa US-001
+# → switches to the branch, re-derives PASS/FAIL per Gherkin scenario,
+#   appends a verification report, comments on the PR, moves status to
+#   `verified` (peer_pr_review is on in full-scrum)
+```
+
+Then Ada, as Tech Lead, does the code-level approval:
+
+```bash
+# Ada's terminal
+/conclave-pr-review US-001
+# → reviews the diff against architecture.md and ADRs, runs
+#   gh pr review --approve, story moves to `done`
+```
+
+Meanwhile Cy's US-002 is going through the exact same loop on its own branch, on Cy's machine, on whatever schedule Cy works — nobody had to wait for Bea's story to finish first.
+
+## Where coordination actually has to be sequential
+
+Not everything is embarrassingly parallel. A few files are shared, and Conclave's own guardrails are what keep this safe rather than any locking mechanism:
+
+- **`conclave/product/backlog.md` and `conclave/team/roster.md`** are only written by `/conclave-spec` and `/conclave-planning` — commands one facilitator runs at defined checkpoints, not something every dev touches mid-sprint. Pull before you plan; the usual "someone else merged first" git conflict resolution applies if two people try to run planning-type commands against a stale `main`.
+- **Sprint Planning is a single ceremony**, run once per sprint by whoever facilitates — not parallelized across devs, because Wave 2 (assignment) needs to see every story's discipline from Wave 1 before it can allocate anyone.
+- **A story's own files** (`stories/US-NNN-*.md`, `acceptance/AC-US-NNN.md`) are written by exactly one command at a time in its lifecycle — `/conclave-dev` while `in-progress`, `/conclave-qa` at `review`, `/conclave-pr-review` at `verified` — so two people never write the same story file concurrently unless someone runs the wrong command out of turn (which Conclave's own status checks refuse).
+
+In practice: **plan together, build in parallel, merge whenever your PR is ready.** The git remote is the only synchronization point that matters.
+
+## Next steps
+
+- [Workflow map](/workflow) — the same loop drawn as diagrams, solo vs. team side by side.
+- [Story state machine](/state-machine) — exactly which status transitions each command performs.
+- [Roles](/roles) — what each discipline's subagent actually does.
+- [Commands](/commands/init) — full reference for every shipped slash command.

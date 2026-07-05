@@ -4,6 +4,9 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+### Added
+- Docs site: new "Team example" page walking through a worked, multi-developer scenario — several people, each running Claude Code locally, coordinating a full sprint (bootstrap, planning, and the fully-parallel per-story loop) purely through git, with a note on the few files/ceremonies that still need to be sequential.
+
 ## [0.3.0]
 
 ### Added

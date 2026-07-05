@@ -8,6 +8,7 @@ export default {
   "getting-started": "Getting started",
   installation: "Installation",
   workflow: "Workflow map",
+  "team-example": "Team example",
 
   "methodology-separator": {
     type: "separator",
