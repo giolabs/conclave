@@ -64,7 +64,7 @@ Read the story's `discipline` field and select the charter to load:
 |---|---|
 | `design` | `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/designer.md` |
 | `devops` | `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/devops.md` |
-| `frontend`, `backend`, `multi`, or empty/unset (pre-0.2.0 stories) | `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/developer.md` (today's only path — unchanged) |
+| `frontend`, `backend`, `mobile`, `multi`, or empty/unset (pre-0.2.0 stories) | `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/developer.md` (no dedicated mobile charter yet — `mobile` stories route here same as `frontend`/`backend`) |
 
 Issue a single `Agent` tool call with:
 

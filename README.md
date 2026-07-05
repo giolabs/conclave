@@ -71,7 +71,8 @@ conclave/
 ├── config.md                 # project type, stack, paths
 ├── team/
 │   ├── roster.md             # who covers which discipline, plus optional PM/SM process roles
-│   └── ceremonies.md         # sprint length, planning day, retro day
+│   ├── ceremonies.md         # sprint length, planning day, retro day
+│   └── testing-environments.md # CI env-var/secret NAMES the generated UAT tests read — never real values
 ├── product/                  # persists across sprints
 │   ├── backlog.md            # ordered Product Backlog
 │   ├── architecture.md       # living architecture doc
@@ -125,7 +126,7 @@ You can change the profile any time by editing `conclave/config.md`. The ceremon
 - `/conclave-spec <idea>` — produce the Product Backlog, Architectural Foundation, and Sprint 1 draft from an idea plus the project's `CLAUDE.md`, installed Skills, and detected stack signals.
 - `/conclave-planning` — run Sprint Planning: confirm the goal, assign stories, validate the DoR, compute capacity, lock the sprint. Profile-aware: depth of the ceremony scales with `team_profile`.
 - `/conclave-dev US-NNN` — Developer picks up a story: branches, implements with tests against each Gherkin scenario, opens a PR. Profile-aware peer-review tagging.
-- `/conclave-qa US-NNN` — QA verifies a story in `status: review` adversarially: re-derives PASS/FAIL per scenario, probes edge cases, appends a verification report, leaves a PR comment with the verdict. Moves story to `verified` (when TL gate is on) or `done` (when off). **Structurally required — cannot be skipped by any profile.** QA does NOT approve the PR itself.
+- `/conclave-qa US-NNN` — QA verifies a story in `status: review` adversarially: re-derives PASS/FAIL per scenario, probes edge cases, appends a verification report, leaves a PR comment with the verdict. Moves story to `verified` (when TL gate is on) or `done` (when off). **Structurally required — cannot be skipped by any profile.** QA does NOT approve the PR itself. When `conclave/team/testing-environments.md` is configured, QA also generates UAT test artifacts from the story's Gherkin scenarios — a Playwright spec (`frontend`/`multi`), the shared project-wide Postman collection run via Newman (`backend`/`multi`), or a manual functional checklist (`mobile`) — pushes them, and gates the verdict on the target repo's own CI actually running them (never executed locally by QA). A `mobile` checklist awaiting a human produces a distinct `pending_uat` outcome, not a failure.
 - `/conclave-pr-review US-NNN` — Tech Lead reviews the code against the architecture, ADRs, and code-level DoD items, then runs `gh pr review --approve` or `--request-changes`. Only runs when `ceremonies.peer_pr_review.required: true`. Story moves from `verified` to `done` on approve.
 
 Sprint closeout ceremonies (review, retro) and stack-specific sub-specs are next.

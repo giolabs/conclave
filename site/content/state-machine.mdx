@@ -44,11 +44,25 @@ review ──/conclave-qa──→ done
 
 QA passes → `status: done` directly. No separate Tech Lead gate. QA is the merge signal.
 
+## UAT: a verdict distinction, not a new status (v0.3.0+)
+
+When `conclave/team/testing-environments.md` is configured, `/conclave-qa` generates CI-runnable UAT tests from the story's Gherkin scenarios (Playwright for `frontend`/`multi`, the shared Postman/Newman collection for `backend`/`multi`, a manual checklist for `mobile`), pushes them, and waits for the target repo's own CI to run them — it never executes them itself. This doesn't add a new story-frontmatter status value; it adds a third **verdict**, alongside `passed` and `blocked`:
+
+```
+review ──/conclave-qa──→ pending_uat (stays review, "## QA pending")
+review ──/conclave-qa──→ blocked (stays review, "## QA blockers" — CI failed or timed out)
+review ──/conclave-qa──→ passed  → verified/done as above
+```
+
+- **`pending_uat`** — only reachable for `mobile` stories, whose checklist has just been generated or is still incomplete. The story stays `review`, but the appended section is `## QA pending`, not `## QA blockers` — nothing has actually failed, a human just hasn't finished yet. Re-run `/conclave-qa` once the checklist records an `Overall result`.
+- **`blocked` via UAT** — a CI run on the generated Playwright/Newman tests fails, or no run is found / the wait times out (`ceremonies.qa_verification.ci_wait_timeout_minutes`, default 20). Both are treated exactly like a failing Gherkin scenario — never silently `passed`.
+- **Not configured yet** — a missing or all-`TBD` `testing-environments.md` degrades gracefully: `/conclave-qa` skips UAT entirely and verifies acceptance criteria exactly as it did before this file existed.
+
 ## When `discipline` gets assigned
 
 Unlike `assignee` (set at planning time), `discipline` follows a specific sequence inside `/conclave-planning`:
 
-1. **Wave 1** — the Tech Lead reviews each story's feasibility and assigns a `discipline` value (`frontend | backend | qa | design | devops | multi`) in the same pass, in parallel with the Product Manager's scope review.
+1. **Wave 1** — the Tech Lead reviews each story's feasibility and assigns a `discipline` value (`frontend | backend | qa | design | devops | mobile | multi`) in the same pass, in parallel with the Product Manager's scope review.
 2. **DoR validation** — a story with no `discipline` fails the Definition of Ready and cannot enter the sprint, in either `lean` or `full-scrum`.
 3. **Wave 2** — the Scrum Master assigns each story to a roster member whose `Discipline` matches (or who holds Tech Lead, for cross-cutting stories), using the value from Wave 1.
 4. If no roster member matches a story's discipline, the orchestrator surfaces a coverage-gap question to the human directly — the Scrum Master subagent never guesses an assignee.
@@ -57,7 +71,7 @@ Unlike `assignee` (set at planning time), `discipline` follows a specific sequen
 
 A failure in either gate drops the story back to `review`. The dev fixes the issue, pushes new commits, and the gate(s) re-run:
 
-- **QA found criteria failing** → story stays `review` with a `## QA blockers` section added to the story file. Fix → push → re-run `/conclave-qa`.
+- **QA found criteria failing** (Gherkin, DoD, or the generated UAT tests' CI run) → story stays `review` with a `## QA blockers` section added to the story file, including a log excerpt + CI run URL when the failure came from UAT. Fix → push → re-run `/conclave-qa`.
 - **TL found code blockers** → story moves back to `review` with a `## TL findings` section. Fix → push → re-run `/conclave-qa` (criteria may have shifted) → `/conclave-pr-review`.
 
 A single blocker is enough to keep the story out of `done`. No "approve with notes" when a blocker exists.

@@ -15,6 +15,7 @@ A story is **Done** when all of the following are true. The QA confirms every it
 - [ ] Unit tests cover the new code paths added by this story.
 - [ ] Integration / E2E tests cover the story's end-to-end happy path.
 - [ ] Test coverage on changed files does not decrease.
+- [ ] `tests/uat/US-NNN-UAT.md` exists and reports an overall pass — CI green on the generated Playwright/Newman suites for the story's discipline, or a human-signed-off checklist for `discipline: mobile`. *(Skipped, not failed, when `conclave/team/testing-environments.md` has no environment configured yet.)*
 
 ## Quality gates
 

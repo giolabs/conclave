@@ -50,7 +50,8 @@ conclave/                             # VISIBLE top-level directory, all markdow
 ├── config.md                         # project type, stack, paths (frontmatter + prose)
 ├── team/
 │   ├── roster.md                     # team members, discipline(s), optional PM/SM process role(s)
-│   └── ceremonies.md                 # sprint length, planning day, standup time, retro day
+│   ├── ceremonies.md                 # sprint length, planning day, standup time, retro day
+│   └── testing-environments.md       # CI env-var/secret NAMES the generated UAT tests read — never real values
 ├── product/                          # persists across sprints
 │   ├── backlog.md                    # ordered Product Backlog
 │   ├── architecture.md               # living architectural doc (ADRs)
@@ -79,6 +80,7 @@ conclave/                             # VISIBLE top-level directory, all markdow
 - **Reference, don't duplicate.** Stories reference their acceptance file (`See acceptance/AC-US-NNN.md`); sprint spec references `product/definition-of-done.md` rather than copying it.
 - **Numbering is sticky.** `SPRINT-NNN` and `US-NNN` IDs increment monotonically and are never reused.
 - **Roster schema degrades gracefully.** A `roster.md` written before v0.2.0 (no `Discipline` column) is not rejected — commands that read it treat every member as `multi`-discipline and print a one-time compatibility hint. No auto-migration is provided; a team opts into discipline-based assignment by re-running `/conclave-init` or hand-editing the roster.
+- **UAT config degrades gracefully.** A `testing-environments.md` that doesn't exist yet, or still has every row `TBD` (v0.2.0 installs, or a fresh `/conclave-init` before the team fills it in), is not a hard failure — `/conclave-qa` skips UAT generation entirely and verifies acceptance criteria exactly as it did before v0.3.0.
 
 ---
 
@@ -91,7 +93,7 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review, Wave 1) | `/conclave-groom`, `/conclave-review` |
 | `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review + discipline assignment, Wave 1), `/conclave-pr-review` (code review + approval) | `/conclave-substack` |
 | `agents/scrum-master.md` | `/conclave-planning` (facilitator + assignment, Wave 2 — runs after PM/TL) | `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
-| `agents/developer.md` | `/conclave-dev US-NNN` (stories with `discipline: frontend \| backend \| multi`, or unset) | — |
+| `agents/developer.md` | `/conclave-dev US-NNN` (stories with `discipline: frontend \| backend \| mobile \| multi`, or unset) | — |
 | `agents/designer.md` | `/conclave-dev US-NNN` (stories with `discipline: design`) | — |
 | `agents/devops.md` | `/conclave-dev US-NNN` (stories with `discipline: devops`) | — |
 | `agents/qa.md` | `/conclave-qa US-NNN` | — |
@@ -128,6 +130,8 @@ Templates available:
 - `planning.template.md`
 - `pr-body.template.md`
 - `verification-report.template.md`
+- `testing-environments.template.md`
+- `uat-report.template.md`
 
 ---
 
@@ -161,6 +165,7 @@ backlog → ready → in-progress → review → [verified] → done
 - `review → done`: direct, when `peer_pr_review.required: false`. QA pass and PR approval collapse into the same step.
 - `verified → done`: TL approves the PR via `/conclave-pr-review`.
 - Any failure: back to `review`. The dev fixes, pushes, then QA re-verifies (and TL re-reviews if applicable).
+- **UAT pending (v0.3.0+, no new status value).** When `testing-environments.md` is configured, `/conclave-qa` generates CI-runnable UAT tests (Playwright/Newman for `frontend`/`backend`/`multi`, a manual checklist for `mobile`) and folds the result into its verdict. A `mobile` story whose checklist is awaiting or mid-completion produces `verdict: pending_uat` — the story frontmatter stays `review`, same as a real failure, but the appended section is `## QA pending`, not `## QA blockers`, since nothing has actually failed yet. A failed CI run on the generated tests is treated exactly like a failing Gherkin scenario.
 
 ### Skippable per team profile
 

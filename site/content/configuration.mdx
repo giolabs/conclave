@@ -20,7 +20,7 @@ stack:
 repo_url: "https://github.com/org/my-project"
 claude_md_path: "CLAUDE.md"
 initialized_at: "2026-01-01T00:00:00Z"
-conclave_version: "0.2.0"
+conclave_version: "0.3.0"
 
 team_mode: "solo"                # solo | team
 team_profile: "lean"             # lean | full-scrum | custom
@@ -30,6 +30,7 @@ ceremonies:
     required: true               # always true — structural
   qa_verification:
     required: true               # always true — structural
+    ci_wait_timeout_minutes: 20  # how long /conclave-qa polls CI for the UAT run's conclusion
   daily_standup:
     required: false
   backlog_grooming:
@@ -56,6 +57,7 @@ ceremonies:
 | `team_profile` | `lean \| full-scrum \| custom` | Controls which ceremonies are enforced. See [team profiles](/profiles). |
 | `ceremonies.sprint_planning.required` | always `true` | Structural. Rejecting an edit to `false` is enforced by `/conclave-planning`. |
 | `ceremonies.qa_verification.required` | always `true` | Structural. Enforced by `/conclave-qa`. |
+| `ceremonies.qa_verification.ci_wait_timeout_minutes` | integer, default `20` | How long a single `/conclave-qa` run polls the target repo's CI for the UAT tests it generated before treating "no conclusion yet" as blocked. |
 | `ceremonies.daily_standup.required` | `true \| false` | Off by default in `lean`, on in `full-scrum`. |
 | `ceremonies.backlog_grooming.required` | `true \| false` | When off, grooming happens inside `/conclave-planning` instead of a separate ceremony. |
 | `ceremonies.peer_pr_review.required` | `true \| false` | Gates whether `/conclave-pr-review` runs at all — the Tech Lead PR-approval step. |
@@ -118,9 +120,35 @@ estimate: "M"                   # XS | S | M | L | XL
 status: backlog                 # backlog | ready | in-progress | review | verified | done
 dependencies: []
 assignee: ""
-discipline: ""                  # frontend | backend | qa | design | devops | multi
+discipline: ""                  # frontend | backend | qa | design | devops | mobile | multi
 sprint: "SPRINT-003"
 created_at: "2026-01-01T00:00:00Z"
 ```
 
 `discipline` starts empty and is set by the Tech Lead during `/conclave-planning` — see the [story state machine](/state-machine) for exactly when each field becomes required.
+
+## `conclave/team/testing-environments.md`
+
+Rendered by `/conclave-init` as a placeholder. Declares the **names** of the CI environment variables and secrets the UAT tests QA generates read at run time — never real values. QA never resolves, reads, or writes a secret itself; the target repo's own CI does, from its own secrets store.
+
+```markdown
+## Environments
+
+| Name | Playwright base URL env var | API base URL env var | Notes |
+|---|---|---|---|
+| TBD | TBD | TBD | Fill in before UAT is enabled. |
+
+## Postman variables
+
+| Postman variable | Populated from CI secret/env var |
+|---|---|
+| TBD | TBD |
+
+## Test users
+
+| Label | Represents | CI secret/env var holding the credential |
+|---|---|---|
+| TBD | e.g. standard-user, admin | TBD |
+```
+
+Until every `TBD` is replaced with a real variable/secret name, `/conclave-qa` skips UAT generation entirely and verifies acceptance criteria exactly as it did before this file existed — a missing or unfilled `testing-environments.md` is never a hard failure.

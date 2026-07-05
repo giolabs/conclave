@@ -100,6 +100,7 @@ Mapping:
 | `ceremonies.template.md` | `conclave/team/ceremonies.md` |
 | `definition-of-ready.template.md` | `conclave/product/definition-of-ready.md` |
 | `definition-of-done.template.md` | `conclave/product/definition-of-done.md` |
+| `testing-environments.template.md` | `conclave/team/testing-environments.md` |
 
 Leave `conclave/product/backlog.md`, `conclave/product/architecture.md`, `conclave/context/`, and `conclave/sprints/` empty for now. `/conclave-spec` populates them.
 
@@ -117,7 +118,7 @@ Print a short summary to the user:
 - The resolved `team_mode` (`solo` or `team`).
 - The selected `team_profile` and which ceremonies are required vs optional under it. Tell the user how to change it: edit `team_profile` in `conclave/config.md` to `full-scrum` to opt back into every ceremony, or set it to `custom` and toggle individual `ceremonies.*.required` flags.
 - In `team` mode, which (if any) disciplines came back `TBD` and still need staffing.
-- The files they should still review/edit by hand: `team/ceremonies.md`, `product/definition-of-ready.md`, `product/definition-of-done.md` (`team/roster.md` is fully populated already, but is always worth a glance).
+- The files they should still review/edit by hand: `team/ceremonies.md`, `product/definition-of-ready.md`, `product/definition-of-done.md`, and `team/testing-environments.md` (`team/roster.md` is fully populated already, but is always worth a glance). `testing-environments.md` is written as a placeholder — until its `TBD` values are filled in with real CI environment-variable/secret names, `/conclave-qa` skips UAT generation and verifies acceptance criteria exactly as it always has.
 - Next step: `/conclave-spec "<one-line product idea>"` to generate the Product Backlog, Architectural Foundation, and Sprint 1 plan.
 - Suggested git commands:
 

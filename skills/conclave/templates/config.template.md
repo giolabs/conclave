@@ -9,7 +9,7 @@ stack:
 repo_url: "{{repo_url}}"
 claude_md_path: "CLAUDE.md"
 initialized_at: "{{iso_date}}"
-conclave_version: "0.2.0"
+conclave_version: "0.3.0"
 
 # Whether this is a solo developer or a real team. Set once by /conclave-init.
 # solo forces team_profile to lean and renders a single-person roster.
@@ -24,6 +24,7 @@ ceremonies:
     required: true                      # ALWAYS required (structural — no sprint without a plan)
   qa_verification:
     required: true                      # ALWAYS required (structural — no done without a quality gate)
+    ci_wait_timeout_minutes: 20          # how long /conclave-qa polls CI for a UAT run's conclusion before treating it as blocked
   daily_standup:
     required: {{daily_standup_required}}
   backlog_grooming:
@@ -71,6 +72,10 @@ Two gates are **always required** regardless of profile because they are structu
 Anything Conclave generates (stories with Gherkin acceptance criteria, DoD checklist, ADR-based architecture) is also non-negotiable — it is the structure that makes everything else work.
 
 To change the profile, edit `team_profile` in the frontmatter above. To override a single ceremony without changing the profile, edit its `required:` flag under `ceremonies:` and set `team_profile: custom`. Conclave's ceremony commands (`/conclave-planning`, `/conclave-standup`, `/conclave-review`, `/conclave-retro`) read these flags and skip silently when `required: false`.
+
+## UAT / CI gate
+
+`ceremonies.qa_verification.ci_wait_timeout_minutes` (default `20`) bounds how long a single `/conclave-qa` run polls the target repo's CI for the conclusion of the UAT tests QA generated and pushed. If CI hasn't concluded when the timeout elapses, that run is treated as blocked — see `conclave/team/testing-environments.md` for the environment-variable/secret names the generated tests read (never real values).
 
 ## Conventions
 

@@ -6,7 +6,7 @@ estimate: "{{estimate}}"        # XS | S | M | L | XL
 status: backlog                 # backlog | ready | in-progress | review | verified | done
 dependencies: []
 assignee: ""
-discipline: ""                  # frontend | backend | qa | design | devops | multi — set by the Tech Lead during /conclave-planning
+discipline: ""                  # frontend | backend | qa | design | devops | mobile | multi — set by the Tech Lead during /conclave-planning
 sprint: "{{sprint_id}}"
 created_at: "{{iso_date}}"
 ---

@@ -12,7 +12,7 @@ Six are **disciplines**, always present in the roster whether or not they map to
 | Role | Kind | Charter | Invoked by |
 |---|---|---|---|
 | Tech Lead | Discipline | `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility + discipline assignment, Wave 1), `/conclave-pr-review` (code review) |
-| Frontend / Backend | Discipline | `agents/developer.md` | `/conclave-dev` (stories with `discipline: frontend \| backend \| multi`) |
+| Frontend / Backend / Mobile | Discipline | `agents/developer.md` | `/conclave-dev` (stories with `discipline: frontend \| backend \| mobile \| multi`) |
 | QA | Discipline | `agents/qa.md` | `/conclave-qa` |
 | Designer | Discipline | `agents/designer.md` | `/conclave-dev` (stories with `discipline: design`) |
 | DevOps | Discipline | `agents/devops.md` | `/conclave-dev` (stories with `discipline: devops`) |
@@ -34,7 +34,7 @@ Owns architectural decisions, technical risks, per-story discipline assignment, 
 - **Input**: idea + context + clarifications (for spec); draft sprint + architecture (for planning); PR diff + architecture + ADRs (for pr-review).
 - **Output**:
   - `/conclave-spec` → Architectural Foundation: overview + ADRs + risks + cross-cutting concerns + mermaid diagram.
-  - `/conclave-planning` (Wave 1, in parallel with Product Manager) → feasibility findings per story, plus a `discipline` value (`frontend | backend | qa | design | devops | multi`) per story.
+  - `/conclave-planning` (Wave 1, in parallel with Product Manager) → feasibility findings per story, plus a `discipline` value (`frontend | backend | qa | design | devops | mobile | multi`) per story.
   - `/conclave-pr-review` → structured verdict (approved / request-changes) + per-file findings (blocker / non-blocking) + ADR proposal evaluation.
 
 ## Scrum Master
@@ -48,7 +48,7 @@ Facilitates ceremonies, assigns stories, surfaces blockers, protects the team's 
 
 ## Developer
 
-Picks up a story tagged `discipline: frontend`, `backend`, or `multi` (also the fallback for stories with no discipline set), breaks it into technical tasks, implements with tests, prepares a PR.
+Picks up a story tagged `discipline: frontend`, `backend`, `mobile`, or `multi` (also the fallback for stories with no discipline set), breaks it into technical tasks, implements with tests, prepares a PR. There's no dedicated mobile charter yet — `mobile` stories route here the same way `frontend`/`backend` do; only QA branches on `mobile` for a distinct UAT strategy.
 
 - **Input**: story file + acceptance file + architecture + DoD + current branch.
 - **Output**: code + tests + commits + PR body (rendered from `templates/pr-body.template.md`) + story-frontmatter status update.
@@ -75,9 +75,17 @@ Picks up a story tagged `discipline: devops`. Implements CI/CD pipeline and infr
 
 ## QA
 
-Adversarial verification against acceptance criteria. Discipline-agnostic — verifies every story the same way regardless of which of the above produced it.
+Adversarial verification against acceptance criteria. Discipline-aware only for its UAT strategy — otherwise verifies every story the same way regardless of which of the above produced it.
 
-- **Input**: story file + acceptance file + DoD + PR diff + CI status.
-- **Output**: verification report (appended to `acceptance/AC-US-NNN.md`) + story-status update (`verified` or `done` depending on profile, or `review` with blockers).
+- **Input**: story file (incl. `discipline`) + acceptance file + DoD + PR diff + CI status + `conclave/team/testing-environments.md`.
+- **Output**: verification report (appended to `acceptance/AC-US-NNN.md`, including a UAT execution subsection) + generated UAT artifacts under `tests/uat/` + story-status update (`verified`/`done`, `pending_uat`, or `review` with blockers).
 
-**Hard rules**: verifies the criteria, not the code; never approves or requests changes on the PR (that is the TL's job); never approves a story whose DoD is unmet; never deletes prior verification sections.
+When `testing-environments.md` is configured, QA generates UAT test artifacts from the story's Gherkin scenarios instead of only reasoning about them:
+
+- `frontend` / `multi` → a Playwright spec, run headless by the target repo's own CI.
+- `backend` / `multi` → this story's endpoints merged into one evolving, project-wide Postman collection, run via Newman by CI.
+- `mobile` → a manual functional checklist a human tester executes and records a verdict into — no automated mobile runner ships yet.
+
+QA never executes these tests itself — it generates and pushes them, then waits for CI's conclusion (bounded by `ceremonies.qa_verification.ci_wait_timeout_minutes`) before folding the result into its verdict. A CI failure or timeout counts against the verdict exactly like a failing Gherkin scenario. A mobile checklist that's just been generated, or is still incomplete, produces a distinct `pending_uat` outcome — not a failure.
+
+**Hard rules**: verifies the criteria, not the code; never approves or requests changes on the PR (that is the TL's job); never approves a story whose DoD is unmet; never deletes prior verification sections; never executes UAT tests itself (CI does); never resolves, reads, or writes a secret value; never overwrites another story's requests in the shared Postman collection; never conflates `pending_uat` with `blocked`.

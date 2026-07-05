@@ -5,11 +5,12 @@ description: Adversarially verify a story against its Gherkin acceptance criteri
 
 # /conclave-qa US-NNN
 
-Verify a single user story in `status: review` against its acceptance criteria. When this finishes, the story has moved to one of three states:
+Verify a single user story in `status: review` against its acceptance criteria. When this finishes, the story has moved to one of four states:
 
 - **`verified`** — QA passed, awaiting Tech Lead PR approval. Happens when `peer_pr_review.required: true`.
 - **`done`** — QA passed and there is no separate TL gate. Happens when `peer_pr_review.required: false`.
-- **`review` (with blockers)** — QA found failures. The dev fixes, pushes, and QA re-runs.
+- **`review` (pending UAT)** — UAT artifacts were generated and pushed and nothing has failed, but a mobile checklist is awaiting a human, or was left incomplete. Not a defect.
+- **`review` (with blockers)** — QA found failures — in the Gherkin scenarios, the DoD, or the generated UAT tests' CI run. The dev (or tester) fixes, and QA re-runs.
 
 ```
 /conclave-qa US-001
@@ -22,29 +23,44 @@ This is one of the two **structural** Scrum gates Conclave enforces (along with 
 1. Resolves the workspace and confirms `qa_verification.required: true` (always true — refuses if a malformed config says otherwise).
 2. Resolves the story — must be `status: review`.
 3. Switches to the story's dev branch (`feat/US-NNN-<slug>`) and captures the exact commit SHA the verification is anchored to.
-4. Loads context in parallel: config, DoD, story, acceptance file, the verification-report template, and PR metadata (reviews, CI status) if `gh` is available.
-5. **Delegates to the QA subagent**, which re-derives PASS/FAIL for every Gherkin scenario from first principles — adversarially, not by trusting the dev's own claims.
-6. Writes outputs (below).
+4. Loads context in parallel: config, DoD, story, acceptance file, `conclave/team/testing-environments.md`, the verification-report/UAT-report templates, and PR metadata (reviews, CI status) if `gh` is available. If `testing-environments.md` is missing or every row is still `TBD`, UAT is skipped for this run — QA verifies exactly as it always has.
+5. **Generates UAT test artifacts**, when UAT is enabled, based on the story's `discipline`:
+   - `frontend` / `multi` → a Playwright spec (`tests/uat/US-NNN.spec.ts`), one test case per Gherkin scenario.
+   - `backend` / `multi` → merges this story's endpoints into the single, evolving `tests/uat/api-collection.postman_collection.json`, run via Newman — never overwrites another story's requests.
+   - `mobile` → a manual functional checklist (`tests/uat/US-NNN-UAT.md`) for a human tester to execute and record a verdict into. No CI wait for mobile.
+   - If no CI job runs `tests/uat/` yet, proposes the minimal addition and confirms with the human via `AskUserQuestion` before writing it.
+6. **Pushes and waits for CI** (skipped for `mobile`) — polls the CI run triggered by the pushed commit, up to `ceremonies.qa_verification.ci_wait_timeout_minutes` (default 20). A CI failure, or no run found / a timed-out wait, is treated exactly like a failing Gherkin scenario.
+7. **Delegates to the QA subagent**, which re-derives PASS/FAIL for every Gherkin scenario from first principles — adversarially, not by trusting the dev's own claims — and folds in the UAT/CI outcome (or the current state of a mobile checklist on a later run).
+8. Writes outputs (below).
+
+QA never executes the generated tests itself — the target repo's own CI does, and never resolves, reads, or writes a secret value at any point.
 
 ## What it produces
 
-- A `## Verification — <date>` section **appended** to `acceptance/AC-US-NNN.md` — never overwrites previous verification runs.
+- A `## Verification — <date>` section **appended** to `acceptance/AC-US-NNN.md` — never overwrites previous verification runs, now including a UAT execution subsection (CI run + result, or mobile checklist state).
+- New UAT artifacts committed to the target repo under `tests/uat/` (when UAT is enabled).
 - Story frontmatter update:
   - Verdict `passed` + `peer_pr_review.required: true` → `status: verified`.
   - Verdict `passed` + `peer_pr_review.required: false` → `status: done` directly.
-  - Verdict `blocked` → stays `status: review`, with a `## QA blockers` section listing each failing scenario and its reproduction.
+  - Verdict `pending_uat` → stays `status: review`, with a `## QA pending` section naming what a human needs to complete — worded as awaiting completion, not a defect.
+  - Verdict `blocked` → stays `status: review`, with a `## QA blockers` section listing each failing scenario/DoD item/CI failure and its reproduction or evidence (log excerpt + CI run URL).
 - A PR **comment** with the verdict (never a review/approval — `gh pr review` is never called from here).
 
 ## Guardrails
 
-- Only ever modifies `conclave/` files that belong to this story's acceptance file — QA writes verification reports, QA does not fix code.
+- Only ever modifies `conclave/`, this story's acceptance file, and `tests/uat/US-NNN.spec.ts` / the shared Postman collection+environment files / `tests/uat/US-NNN-UAT.md` — QA writes verification reports and UAT artifacts, QA does not fix code.
+- May propose (with human confirmation) adding the one CI job/step that runs `tests/uat/` — no other pipeline changes.
 - Never deletes prior verification sections — the acceptance file is the story's full audit trail.
+- Never overwrites another story's requests in the shared Postman collection.
+- Never resolves, reads, or writes a secret value, anywhere, at any step.
 - Never runs `gh pr review --approve` or `--request-changes`. That is the Tech Lead's call via `/conclave-pr-review`.
-- Never passes a story when any scenario fails or any required DoD item is unmet.
+- Never passes a story when any scenario fails, any required DoD item is unmet, or the generated UAT tests' CI run failed or timed out.
+- Never conflates `pending_uat` with `blocked`.
 - Does not merge the PR, even when the verdict directly produces `status: done`.
 
 ## After it runs
 
 - **Verdict `passed`, `peer_pr_review.required: true`** — Tech Lead runs [`/conclave-pr-review US-NNN`](/commands/pr-review) to approve and merge.
 - **Verdict `passed`, `peer_pr_review.required: false`** — no separate gate; the PR is ready to merge.
-- **Verdict `blocked`** — dev fixes and pushes, then re-run `/conclave-qa US-NNN`.
+- **Verdict `pending_uat`** — a human completes `tests/uat/US-NNN-UAT.md` (mobile checklist), then re-run `/conclave-qa US-NNN`.
+- **Verdict `blocked`** — dev fixes and pushes (or a mobile tester records a FAIL with notes), then re-run `/conclave-qa US-NNN`.

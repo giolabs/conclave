@@ -85,7 +85,7 @@ Dispatch happens in **two waves**, not one three-way-parallel round: Scrum Maste
   - Confirm the story respects existing ADRs, or flag the deviation it would force.
   - Identify any cross-story technical dependencies (US-002 must merge before US-004).
   - Flag stories that exceed their estimate based on the architecture (e.g. an `S` story that needs a new service is actually `M`+).
-  - **Assign a `discipline` value** (`frontend | backend | qa | design | devops | multi`) based on the nature of the work. Prefer `multi` over a guessed precision if the story text doesn't make it obvious.
+  - **Assign a `discipline` value** (`frontend | backend | qa | design | devops | mobile | multi`) based on the nature of the work. Prefer `multi` over a guessed precision if the story text doesn't make it obvious.
 - Output: a markdown section titled `## Technical feasibility findings` listing per-story verdicts, each including its assigned `discipline`. No re-writes.
 
 Wait for both. If either errors, surface and stop.
