@@ -1,17 +1,34 @@
 ---
 title: /conclave-dev
-description: Pick up a story, implement it with tests, open a PR — routed by discipline.
+description: Pick up one or more stories, implement each with tests, open a PR per story — routed by discipline. Multiple stories run in concurrent batches of ≤ 3.
 ---
 
-# /conclave-dev US-NNN
+# /conclave-dev US-NNN [US-NNN ...]
 
-Pick up a single user story from the active sprint and drive it through implementation. When this finishes, the story is in `status: review` with a feature branch and a PR ready for QA verification via `/conclave-qa US-NNN`.
+Pick up one or more user stories from the active sprint and drive each through implementation. When this finishes, every story is in `status: review` with its own feature branch and PR ready for QA verification.
 
 ```
-/conclave-dev US-001
+/conclave-dev US-001                    # single story — identical to previous behaviour
+/conclave-dev US-001 US-002 US-003      # three stories in parallel, each its own branch + PR
 ```
 
-The argument is required and must match a story file under the active sprint.
+At least one `US-NNN` argument is required; all must match story files under the active sprint. When multiple IDs are given, stories are processed in concurrent batches of ≤ 3 and each gets an independent branch and PR. The single-story path is fully backward-compatible.
+
+## Multi-story behaviour
+
+When more than one story ID is passed:
+
+1. **Upfront validation** — all stories are checked before any work starts. If any story fails (not found, wrong status, already in-progress on a branch), the entire invocation is refused with a per-story error table.
+2. **Concurrent batches** — stories are partitioned into groups of ≤ 3. All stories in a batch run simultaneously; the next batch starts only after the previous one completes.
+3. **Failure isolation** — a failed story is reset to `status: ready`; the rest of the batch continues. A final summary table shows the outcome for every story.
+
+```
+| Story  | Branch                  | PR                           | Outcome           |
+|--------|-------------------------|------------------------------|-------------------|
+| US-001 | feat/US-001-login       | https://github.com/…/pull/42 | ✓ done            |
+| US-002 | feat/US-002-profile     | https://github.com/…/pull/43 | ✓ done            |
+| US-003 | feat/US-003-settings    | —                            | ✗ failed: <error> |
+```
 
 ## What it does
 
@@ -64,6 +81,10 @@ All three charters share the same inputs, outputs shape, and PR-body template �
 
 - `peer_pr_review.required: true` → tags a peer (typically the Tech Lead) as reviewer, PR body's conditional checklist includes the TL-approval item.
 - `peer_pr_review.required: false` → no separate reviewer required. The Dev still self-reviews.
+
+## Guardrail change from v0.5.0
+
+Previously the command refused to start if any story was already `in-progress`. The updated rule: a story is refused only if **that exact `US-NNN`** is already `in-progress` on an existing branch. Other stories being in-progress on their own branches is expected and allowed.
 
 ## Resume on an existing branch
 

@@ -1,22 +1,37 @@
 ---
 title: /conclave-qa
-description: Adversarially verify a story against its Gherkin acceptance criteria. Structurally required.
+description: Adversarially verify one or more stories against their Gherkin acceptance criteria. Structurally required. Multiple stories run in concurrent batches of ≤ 3.
 ---
 
-# /conclave-qa US-NNN
+# /conclave-qa US-NNN [US-NNN ...]
 
-Verify a single user story in `status: review` against its acceptance criteria. When this finishes, the story has moved to one of four states:
+Verify one or more user stories in `status: review` against their acceptance criteria.
+
+```
+/conclave-qa US-001                   # single story — identical to previous behaviour
+/conclave-qa US-001 US-002 US-003     # three stories in parallel, each on its own branch
+```
+
+When this finishes, each story has moved to one of four states:
 
 - **`verified`** — QA passed, awaiting Tech Lead PR approval. Happens when `peer_pr_review.required: true`.
 - **`done`** — QA passed and there is no separate TL gate. Happens when `peer_pr_review.required: false`.
 - **`review` (pending UAT)** — UAT artifacts were generated and pushed and nothing has failed, but a mobile checklist is awaiting a human, or was left incomplete. Not a defect.
 - **`review` (with blockers)** — QA found failures — in the Gherkin scenarios, the DoD, or the generated UAT tests' CI run. The dev (or tester) fixes, and QA re-runs.
 
-```
-/conclave-qa US-001
-```
-
 This is one of the two **structural** Scrum gates Conclave enforces (along with Sprint Planning). It cannot be skipped by any profile. **QA does not approve the PR itself** — code-level approval belongs to the Tech Lead via `/conclave-pr-review`. QA's verdict goes into the verification report and a PR comment.
+
+## Multi-story behaviour
+
+When more than one story ID is passed, the same upfront-validation → concurrent-batches-of-≤-3 → failure-isolation → final-summary-table pattern applies as in `/conclave-dev`. Each QA subagent runs fully independently on its own branch, including UAT generation, CI wait, and PR comment. A final summary table shows the verdict for every story:
+
+```
+| Story  | Branch               | PR                           | Verdict             |
+|--------|----------------------|------------------------------|---------------------|
+| US-001 | feat/US-001-login    | https://github.com/…/pull/42 | ✓ passed            |
+| US-002 | feat/US-002-profile  | https://github.com/…/pull/43 | ✗ blocked (2 items) |
+| US-003 | feat/US-003-mobile   | https://github.com/…/pull/44 | ⏳ pending_uat       |
+```
 
 ## What it does
 

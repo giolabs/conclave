@@ -4,6 +4,18 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+## [0.6.0]
+
+### Added
+- `/conclave-dev` and `/conclave-qa` now accept multiple space-separated `US-NNN` arguments in a single invocation (`/conclave-dev US-001 US-002 US-003`, `/conclave-qa US-004 US-005`). Each story runs on its own independent branch with its own PR; stories are dispatched in concurrent batches of ≤ 3 (all Agent calls within a batch fire in the same message). The single-story path (`/conclave-dev US-001`) is fully backward-compatible — no change in behaviour, output, or syntax.
+- Upfront validation wave before any Agent call is dispatched: all stories are checked for existence, `ready`/`review` status, and branch conflicts at once. A single validation failure refuses the entire invocation with a per-story error table.
+- Failure isolation per story: if one story's subagent fails mid-batch, the other stories in the batch complete normally. The failed story is reset to `status: ready` (dev) and its error is reported in the final summary table.
+- Final summary table printed after all batches complete, showing per-story branch, PR URL (or error), and outcome.
+
+### Changed
+- `/conclave-dev` guardrail updated: now refuses a story only if that exact `US-NNN` is already `in-progress` on an existing branch — not because other stories are concurrently in-progress on other branches. Parallel stories on separate branches are explicitly permitted.
+- `skills/conclave/SKILL.md` §3 role-to-subagent table updated to show the multi-story command signatures (`US-NNN [US-NNN ...]`) and the batch-of-3 concurrency note.
+
 ## [0.5.0]
 
 ### Added

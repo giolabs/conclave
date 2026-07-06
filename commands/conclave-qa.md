@@ -1,22 +1,55 @@
 ---
-description: Verify a story in status review against its Gherkin acceptance criteria. Generates UAT test artifacts (Playwright for frontend/multi, a shared Postman collection for backend/multi, a manual checklist for mobile), pushes them, and waits for the target repo's own CI to run them before spawning the adversarial QA subagent that re-derives pass/fail from first principles. Appends a verification report to the acceptance file, leaves a comment on the PR with the verdict, and either moves the story to verified (when the TL approval gate is on) or directly to done (when it is off). QA does NOT approve the PR itself — that is the Tech Lead's call via /conclave-pr-review. QA verification is structurally required — cannot be skipped.
+description: Verify one or more stories in status review against their Gherkin acceptance criteria. Generates UAT test artifacts (Playwright for frontend/multi, a shared Postman collection for backend/multi, a manual checklist for mobile), pushes them, and waits for the target repo's own CI to run them before spawning the adversarial QA subagent. Multiple stories run in concurrent batches of ≤ 3. QA does NOT approve the PR — that is the Tech Lead's call via /conclave-pr-review. QA verification is structurally required — cannot be skipped.
 allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git rev-parse HEAD:*), Bash(git log:*), Bash(git switch:*), Bash(git checkout:*), Bash(git fetch:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(ls:*), Bash(cat:*), Bash(date:*), Bash(gh pr view:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh run list:*), Bash(gh run view:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
-# /conclave-qa US-NNN
+# /conclave-qa US-NNN [US-NNN ...]
 
-Verify a single user story in `status: review` against its acceptance criteria. When this finishes, the story has moved to one of four states:
+Verify one or more user stories in `status: review` against their acceptance criteria.
+
+- **Single story** (`/conclave-qa US-001`): identical to the previous behaviour — no change in output or flow.
+- **Multiple stories** (`/conclave-qa US-001 US-002`): each story is verified on its own branch, concurrently in batches of ≤ 3.
+
+When this finishes, each story has moved to one of four states:
 
 - **`verified`** — QA passed, awaiting Tech Lead PR approval. Happens when `peer_pr_review.required: true`.
 - **`done`** — QA passed and there is no separate TL gate. Happens when `peer_pr_review.required: false`.
 - **`review` (pending UAT)** — UAT artifacts were generated/pushed and nothing has failed, but a mobile checklist is awaiting a human, or was left incomplete. Not a defect — re-run once it's filled in.
 - **`review` (with blockers)** — QA found failures, in the Gherkin scenarios, the DoD, or the generated UAT tests' CI run. The dev (or tester) fixes, pushes, and QA re-runs.
 
-The argument `US-NNN` is required and must match a story file under the active sprint.
+At least one `US-NNN` argument is required; all must match story files in `status: review` under the active sprint.
 
 This is one of the two **structural** Scrum gates Conclave enforces (along with Sprint Planning). It cannot be skipped by any profile. QA does NOT approve the PR itself — code-level approval belongs to the Tech Lead via `/conclave-pr-review`. QA's verdict goes into the verification report and a PR comment.
 
 Follow these steps in order.
+
+---
+
+## Step 0 — Multi-story dispatch (skip entirely if only one story ID is provided)
+
+1. Parse all `US-NNN` arguments from the command invocation. If exactly one is present, skip this step entirely and continue with Step 1 as today.
+2. If duplicate IDs are present, deduplicate silently and print one warning line: *"Duplicate story IDs removed: `US-NNN`, ... — each will only be verified once."*
+3. **Validate all stories upfront** — direct file reads by the orchestrator, no Agent calls. For each story run the equivalent of Steps 1–3 (workspace check, active-sprint lookup, story-file resolution, status check). Collect per-story results. If ANY story fails validation, print a per-story table and stop — no Agent call is dispatched:
+   ```
+   US-001 — PASS (review)
+   US-002 — FAIL: story not found in active sprint
+   US-003 — FAIL: status is done (already verified)
+   Refusing all stories. Fix the above and re-run.
+   ```
+4. Partition the validated story IDs into **batches of ≤ 3** (preserve order).
+5. For each batch:
+   - Issue one `Agent` tool call per story **in the same message** (concurrent). Each Agent call encapsulates all single-story steps (Steps 1–9 of this command) for that story ID, including UAT generation, CI wait, and verification report.
+   - Wait for all calls in the batch to return.
+   - For each result record `{ story_id, outcome: passed|blocked|pending_uat|failed, pr_url, error }`. On a hard error (Agent call failed, not a QA `blocked`): record the error — do not attempt a story-status reset (the story may already have been partially updated by the subagent).
+6. After all batches complete, print the final summary table:
+   ```
+   | Story  | Branch               | PR                           | Verdict              |
+   |--------|----------------------|------------------------------|----------------------|
+   | US-001 | feat/US-001-login    | https://github.com/…/pull/42 | ✓ passed             |
+   | US-002 | feat/US-002-profile  | https://github.com/…/pull/43 | ✗ blocked (2 items)  |
+   | US-003 | feat/US-003-mobile   | https://github.com/…/pull/44 | ⏳ pending_uat        |
+   ```
+7. Stop. The individual story steps below were already executed inside each Agent call.
 
 ---
 

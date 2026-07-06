@@ -95,12 +95,14 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review, Wave 1) | `/conclave-groom`, `/conclave-review` |
 | `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review + discipline assignment, Wave 1), `/conclave-pr-review` (code review + approval) | `/conclave-substack` |
 | `agents/scrum-master.md` | `/conclave-planning` (facilitator + assignment, Wave 2 — runs after PM/TL) | `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
-| `agents/developer.md` | `/conclave-dev US-NNN` (stories with `discipline: frontend \| backend \| mobile \| multi`, or unset) | — |
-| `agents/designer.md` | `/conclave-dev US-NNN` (stories with `discipline: design`) | — |
-| `agents/devops.md` | `/conclave-dev US-NNN` (stories with `discipline: devops`) | — |
-| `agents/qa.md` | `/conclave-qa US-NNN` | — |
+| `agents/developer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: frontend \| backend \| mobile \| multi`, or unset) — one Agent call per story, ≤ 3 concurrent per batch | — |
+| `agents/designer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: design`) | — |
+| `agents/devops.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: devops`) | — |
+| `agents/qa.md` | `/conclave-qa US-NNN [US-NNN ...]` — one Agent call per story, ≤ 3 concurrent per batch | — |
 
 A slash command delegates by spawning an Agent subagent and passing the **full content of the role charter file** as the system prompt prefix, followed by the task-specific instructions and the context the role needs.
+
+**Multi-story concurrency**: When `/conclave-dev` or `/conclave-qa` is invoked with multiple `US-NNN` arguments, the orchestrator validates all stories upfront (direct file reads — no Agent calls), partitions them into batches of ≤ 3, and issues all Agent calls within a batch in a single message so they run concurrently. Failures are isolated per story: a failed story is reset to `ready` (dev) or left at its last known state (QA) and reported in the final summary table; other stories in the batch continue unaffected.
 
 ---
 

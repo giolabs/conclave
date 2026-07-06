@@ -1,17 +1,34 @@
 ---
 title: /conclave-dev
-description: Tomá una historia, implementala con tests, abrí un PR — ruteado por disciplina.
+description: Tomá una o más historias, implementá cada una con tests, abrí un PR por historia — ruteado por disciplina. Múltiples historias corren en batches concurrentes de ≤ 3.
 ---
 
-# /conclave-dev US-NNN
+# /conclave-dev US-NNN [US-NNN ...]
 
-Toma una sola historia de usuario del sprint activo y la lleva a través de la implementación. Cuando termina, la historia queda en `status: review` con una feature branch y un PR listo para la verificación de QA vía `/conclave-qa US-NNN`.
+Toma una o más historias de usuario del sprint activo y lleva cada una a través de la implementación. Cuando termina, cada historia queda en `status: review` con su propia feature branch y PR listo para verificación de QA.
 
 ```
-/conclave-dev US-001
+/conclave-dev US-001                    # historia única — comportamiento idéntico al anterior
+/conclave-dev US-001 US-002 US-003      # tres historias en paralelo, cada una su branch y PR
 ```
 
-El argumento es requerido y debe coincidir con un archivo de historia bajo el sprint activo.
+Se requiere al menos un argumento `US-NNN`; todos deben coincidir con archivos de historia bajo el sprint activo. Cuando se dan múltiples IDs, las historias se procesan en batches concurrentes de ≤ 3 y cada una obtiene una branch y un PR independientes. El camino de historia única es completamente retrocompatible.
+
+## Comportamiento multi-historia
+
+Cuando se pasa más de un ID de historia:
+
+1. **Validación anticipada** — todas las historias se verifican antes de que empiece cualquier trabajo. Si alguna historia falla (no se encuentra, estado incorrecto, ya `in-progress` en otra branch), se rechaza toda la invocación con una tabla de errores por historia.
+2. **Batches concurrentes** — las historias se particionan en grupos de ≤ 3. Todas las historias de un batch corren simultáneamente; el siguiente batch empieza recién cuando el anterior termina.
+3. **Aislamiento de fallos** — una historia que falla se resetea a `status: ready`; el resto del batch continúa. Una tabla de resumen final muestra el resultado de cada historia.
+
+```
+| Historia | Branch                  | PR                           | Resultado         |
+|----------|-------------------------|------------------------------|-------------------|
+| US-001   | feat/US-001-login       | https://github.com/…/pull/42 | ✓ done            |
+| US-002   | feat/US-002-profile     | https://github.com/…/pull/43 | ✓ done            |
+| US-003   | feat/US-003-settings    | —                            | ✗ falló: <error>  |
+```
 
 ## Qué hace
 
@@ -64,6 +81,10 @@ Los tres charters comparten los mismos inputs, la misma forma de outputs, y la m
 
 - `peer_pr_review.required: true` → etiqueta a un par (típicamente el Tech Lead) como reviewer, la checklist condicional del cuerpo del PR incluye el ítem de aprobación del TL.
 - `peer_pr_review.required: false` → no se requiere un reviewer separado. El Dev igual se auto-revisa.
+
+## Cambio de salvaguarda desde v0.5.0
+
+Anteriormente el comando se rehusaba a arrancar si alguna historia ya estaba `in-progress`. La regla actualizada: una historia se rechaza solo si **ese `US-NNN` exacto** ya está `in-progress` en una branch existente. Que otras historias estén `in-progress` en sus propias branches está permitido y es esperado.
 
 ## Resumir en una branch existente
 
