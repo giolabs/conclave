@@ -1,0 +1,92 @@
+---
+title: /conclave-sprint
+description: Ejecutá un sprint activo completo — planning, dev, QA y PR review — en una sola invocación.
+---
+
+# /conclave-sprint
+
+Ejecutá un sprint activo (o en borrador) de punta a punta en una sola invocación.
+
+```
+/conclave-sprint
+```
+
+No requiere argumentos. El comando encuentra el sprint actual, resuelve los modelos configurados y ejecuta cuatro fases secuenciales. Cada fase respeta el perfil del equipo; los fallos se aíslan por historia.
+
+## Fases
+
+| Fase | Qué hace | Cuándo corre |
+|---|---|---|
+| **Fase 1 — Planning** | Corre Sprint Planning (PM + TL en paralelo, luego SM) para bloquear un sprint `draft` | Se saltea si el sprint ya está `active` |
+| **Fase 2 — Dev** | Despacha todas las historias `ready` al subagente Developer/Designer/DevOps (batches de ≤ 3) | Se saltea si no hay historias `ready` |
+| **Fase 3 — QA** | Despacha todas las historias `review` al subagente QA (batches de ≤ 3) | Se saltea si no hay historias `review` |
+| **Fase 4 — PR Review** | Despacha todas las historias `verified` al subagente Tech Lead (batches de ≤ 3) | Se saltea cuando `ceremonies.peer_pr_review.required: false` o no hay historias `verified` |
+
+## Output de cada fase
+
+Cada fase imprime un header antes de despachar las llamadas de Agent:
+
+```
+## Phase 2 — Dev (4 stories)
+```
+
+Y una tabla resumen después de que terminan todos los batches (mismo formato que `/conclave-dev` y `/conclave-qa`):
+
+```
+| Story  | Branch               | PR                           | Outcome              |
+|--------|----------------------|------------------------------|----------------------|
+| US-001 | feat/US-001-login    | https://github.com/…/pull/42 | ✓ done               |
+| US-002 | feat/US-002-profile  | https://github.com/…/pull/43 | ✓ done               |
+| US-003 | feat/US-003-settings | —                            | ✗ failed: <error>    |
+```
+
+Las fases salteadas imprimen un aviso de una línea:
+
+```
+Phase 4 — PR Review: skipped (peer_pr_review.required: false)
+```
+
+## Resumen final
+
+Después de todas las fases, una tabla a nivel sprint cubre cada historia tocada:
+
+```
+| Story  | Starting status | Final status | Notes               |
+|--------|-----------------|--------------|---------------------|
+| US-001 | ready           | done         |                     |
+| US-002 | ready           | review       | ✗ QA: blocked       |
+| US-003 | review          | done         | (was already review)|
+```
+
+## Configuración de modelos
+
+`/conclave-sprint` lee el bloque `models:` de `conclave/config.md` e imprime un resumen de una línea antes de la Fase 1:
+
+```
+Models: default=claude-sonnet-4-6, tech_lead=claude-opus-4-6, developer=claude-haiku-4-5-20251001
+```
+
+Cada llamada de Agent recibe el modelo configurado para su rol. Ver la [referencia de configuración](/es/configuration#bloque-de-configuración-de-modelos-opcional-v070) para el formato completo del bloque `models:`.
+
+## Comportamiento ante fallos
+
+- **Fallo en Fase 1** (error del agente de planning): stop duro. `Sprint run aborted: Phase 1 (Planning) failed.` Motivo: proceder al dev sin un objetivo de sprint bloqueado es estructuralmente inválido.
+- **Fallo por historia en Fases 2–4**: esa historia se reporta en el resumen (`✗ failed`); las demás continúan. Una historia fallida en dev queda en `ready` y se excluye de la colección de la Fase 3.
+- **QA `verdict: blocked`**: resultado normal. La historia queda en `review`, se reporta como `✗ QA: blocked`. No bloquea otras llamadas de QA.
+
+## Re-ejecuciones
+
+Re-ejecutar `/conclave-sprint` después de un fallo parcial es seguro. El frontmatter `status` de cada historia es el mecanismo de recuperación:
+
+- La Fase 2 colecciona historias `ready` (las que fallaron en una corrida anterior y quedaron en `ready` permanecen así).
+- La Fase 3 colecciona historias `review` (incluyendo las que quedaron en `review` de un bloqueo anterior de QA).
+- La Fase 4 colecciona historias `verified`.
+
+No se introduce ningún archivo de checkpoint. Volvé a correr el comando y retoma exactamente donde quedó el frontmatter.
+
+## Guardrails
+
+- El fallo en Fase 1 es un stop duro. Todos los demás fallos se aíslan por historia.
+- Nunca modifica archivos fuera de `conclave/` (excepto branches de features y `tests/uat/` que escribe la fase de QA).
+- Nunca mergea ningún PR — la aprobación del Tech Lead en la Fase 4 es suficiente.
+- Cada fase salteada imprime un aviso de salteo con el motivo.

@@ -99,6 +99,9 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 | `agents/designer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: design`) | — |
 | `agents/devops.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: devops`) | — |
 | `agents/qa.md` | `/conclave-qa US-NNN [US-NNN ...]` — one Agent call per story, ≤ 3 concurrent per batch | — |
+| *(all of the above)* | `/conclave-sprint` — sequential four-phase sprint runner: Phase 1 planning, Phase 2 dev (batch-of-3), Phase 3 QA (batch-of-3), Phase 4 PR review (batch-of-3, only if `peer_pr_review.required`). Each Agent call uses the role model resolved from `conclave/config.md`'s `models:` block. | — |
+
+**Model configuration (v0.7.0+)**: commands read an optional `models:` block from `conclave/config.md` frontmatter. Resolution per Agent call: `models.overrides.<role>` → `models.default` → parent session model (silent no-op when block is absent). Invalid model name → warn once and fall back. Role keys: `product_manager`, `tech_lead`, `scrum_master`, `developer`, `designer`, `devops`, `qa`.
 
 A slash command delegates by spawning an Agent subagent and passing the **full content of the role charter file** as the system prompt prefix, followed by the task-specific instructions and the context the role needs.
 

@@ -68,7 +68,14 @@ Follow these steps in order.
 
 Read:
 
-- `$REPO_ROOT/conclave/config.md` — especially `team_profile` and `ceremonies.peer_pr_review.required`
+- `$REPO_ROOT/conclave/config.md` — `team_profile`, `ceremonies.peer_pr_review.required`, and `models.*`. Resolve models for all three execution charters:
+  - `MODEL_FOR_DEVELOPER` = resolve `models.overrides.developer` → `models.default` → null (session)
+  - `MODEL_FOR_DESIGNER`  = resolve `models.overrides.designer`  → `models.default` → null
+  - `MODEL_FOR_DEVOPS`    = resolve `models.overrides.devops`    → `models.default` → null
+
+  Resolution rule: if the configured value is not one of `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, print `WARNING: Unknown model '<value>' for role <role>. Falling back to <next_fallback>.` and continue. If the `models:` block is absent, all three resolve to null — no warning, no change from v0.6.0 behavior.
+
+  Print one line: `Models: developer=<id or 'session'>, designer=<id or 'session'>, devops=<id or 'session'>`. Omit roles that resolve to null (session default).
 - `$REPO_ROOT/conclave/product/architecture.md`
 - `$REPO_ROOT/conclave/product/definition-of-done.md`
 - `$REPO_ROOT/conclave/team/roster.md` — needed to pick a peer reviewer if peer review is on. If it has no `Discipline` column (pre-0.2.0 schema), treat every member as `multi`-discipline and print once: *"Roster is using the pre-0.2.0 schema (no Discipline column) — treating all members as multi-discipline. Run `/conclave-init` again or add a Discipline column by hand to opt into discipline-based assignment."*
@@ -99,6 +106,7 @@ Read the story's `discipline` field and select the charter to load:
 
 Issue a single `Agent` tool call with:
 
+- **Model**: the resolved model for this story's charter (`MODEL_FOR_DEVELOPER`, `MODEL_FOR_DESIGNER`, or `MODEL_FOR_DEVOPS` per the routing table). Omit the parameter entirely if the resolved value is null.
 - Prompt prefix: full content of the charter resolved above.
 - Task: implement the story end-to-end per the charter.
 - Inputs to embed in the prompt:

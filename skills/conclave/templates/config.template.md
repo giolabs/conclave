@@ -35,6 +35,19 @@ ceremonies:
     required: {{sprint_review_required}}
   sprint_retrospective:
     required: {{sprint_retrospective_required}}
+
+# Model configuration (optional). Omit this block entirely to use the parent session model for all roles.
+# Valid model IDs: claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5-20251001
+# models:
+#   default: claude-sonnet-4-6        # fallback for any role not listed below
+#   overrides:
+#     # product_manager: claude-opus-4-6
+#     # tech_lead: claude-opus-4-6
+#     # scrum_master: claude-sonnet-4-6
+#     # developer: claude-haiku-4-5-20251001
+#     # designer: claude-sonnet-4-6
+#     # devops: claude-sonnet-4-6
+#     # qa: claude-sonnet-4-6
 ---
 
 # Conclave configuration
@@ -87,6 +100,26 @@ Reference the story ID in the commit: `feat(US-001): add JWT middleware`.
 
 ### PR titles
 Mirror the story title: `US-001: Add JWT middleware`.
+
+## Model configuration
+
+The optional `models:` block lets the team assign a specific Claude model to each Conclave role subagent. When absent, every Agent call uses the parent session model (current default behavior — no change from v0.6.0).
+
+**Fallback chain (per Agent call):**
+1. `models.overrides.<role>` if set and a known model ID.
+2. `models.default` if set and a known model ID.
+3. Parent session model if neither is set (or if the block is absent).
+
+**Known valid model IDs** (update this list when new models ship):
+- `claude-opus-4-6` — highest capability, highest cost
+- `claude-sonnet-4-6` — balanced capability and cost (recommended default)
+- `claude-haiku-4-5-20251001` — fastest, lowest cost (good for bulk dev work)
+
+**Invalid model name**: if a role's configured model is not in the list above, the command prints one warning and falls back to `models.default` (or the session model if `default` is also invalid).
+
+**Role keys**: `product_manager`, `tech_lead`, `scrum_master`, `developer`, `designer`, `devops`, `qa`.
+
+To activate, uncomment the `models:` block in the frontmatter above and fill in the values your team wants.
 
 ## How to update this file
 

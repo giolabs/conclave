@@ -43,7 +43,9 @@ Follow these steps in order.
 
 Read:
 
-- `$REPO_ROOT/conclave/config.md`
+- `$REPO_ROOT/conclave/config.md` — extract `team_profile`, `ceremonies.*`, and `models.*`. Resolve:
+  - `MODEL_FOR_TL` = `models.overrides.tech_lead` → `models.default` → null
+  Invalid model name → `WARNING: Unknown model '<value>' for role <role>. Falling back to <next_fallback>.` then continue. Absent block → null, no warning. Print `Models: tl=<id>` for any non-null values.
 - `$REPO_ROOT/conclave/product/architecture.md`
 - `$REPO_ROOT/conclave/product/definition-of-done.md`
 - Story file (must show `status: verified`)
@@ -55,6 +57,7 @@ Read:
 
 Issue a single `Agent` tool call with:
 
+- **Model**: `MODEL_FOR_TL` (omit if null).
 - Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/tech-lead.md`.
 - Task: review the PR per the charter's "How you operate inside `/conclave-pr-review`" section.
 - Inputs embedded:

@@ -4,6 +4,16 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+## [0.7.0]
+
+### Added
+- **Model configuration per role subagent**: teams can now declare, once in `conclave/config.md`, which Claude model each role subagent uses. Add an optional `models:` block to the YAML frontmatter with a `default` (fallback for every role) and per-role `overrides` (`product_manager`, `tech_lead`, `scrum_master`, `developer`, `designer`, `devops`, `qa`). Every command reads this block and passes the resolved `model` parameter to its `Agent` tool calls. Existing installs without a `models:` block continue to behave exactly as before — the absent block is a silent no-op.
+- **`/conclave-sprint`**: new command that drives an entire active sprint end-to-end in one invocation. Phase 1 runs sprint planning if the sprint is still `draft`. Phase 2 dispatches all `ready` stories via the batch-of-3 dev pattern. Phase 3 dispatches all `review` stories via the batch-of-3 QA pattern. Phase 4 dispatches all `verified` stories through the Tech Lead PR-review gate (skipped when `peer_pr_review.required: false`). Each phase prints a header and story count before dispatching; failures are isolated per story and do not block other stories. Final sprint summary table shows starting → final status for every story touched.
+
+### Changed
+- All commands that spawn Agent subagents (`/conclave-planning`, `/conclave-spec`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`) now resolve and apply the configured model for their respective roles. Invalid model names produce a `WARNING:` line and fall back gracefully rather than failing.
+- `skills/conclave/templates/config.template.md` — new `models:` YAML block (commented-out defaults) and `## Model configuration` prose section added.
+
 ## [0.6.0]
 
 ### Added

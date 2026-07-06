@@ -28,6 +28,11 @@ Follow these steps in order.
 
 Read `$REPO_ROOT/conclave/config.md`. Extract:
 
+- `models.*` — resolve models for the three planning agents:
+  - `MODEL_FOR_PM` = `models.overrides.product_manager` → `models.default` → null
+  - `MODEL_FOR_TL` = `models.overrides.tech_lead` → `models.default` → null
+  - `MODEL_FOR_SM` = `models.overrides.scrum_master` → `models.default` → null
+  Invalid model name → `WARNING: Unknown model '<value>' for role <role>. Falling back to <next_fallback>.` then continue. Absent block → all null, no warning. Print `Models: pm=<id>, tl=<id>, sm=<id>` for any non-null values.
 - `team_profile` (`lean` | `full-scrum` | `custom`)
 - `ceremonies.sprint_planning.required` → must be `true`. If somehow `false`, refuse with: *"sprint_planning is a structural Scrum gate and cannot be disabled. Edit config.md to restore required: true and re-run."*
 - `ceremonies.backlog_grooming.required` — affects step 5
@@ -71,6 +76,7 @@ Dispatch happens in **two waves**, not one three-way-parallel round: Scrum Maste
 
 #### Agent B — Product Manager (scope reviewer)
 
+- **Model**: `MODEL_FOR_PM` (omit if null).
 - Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/product-manager.md`.
 - Task: validate **scope** of the selected stories. For each story in the draft sprint:
   - Confirm the priority assigned during `/conclave-spec` is still correct in light of the rest of the backlog.
@@ -80,6 +86,7 @@ Dispatch happens in **two waves**, not one three-way-parallel round: Scrum Maste
 
 #### Agent C — Tech Lead (feasibility reviewer + discipline assignment)
 
+- **Model**: `MODEL_FOR_TL` (omit if null).
 - Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/tech-lead.md`.
 - Task: validate **technical feasibility** of the selected stories against the current `architecture.md`. For each story:
   - Confirm the story respects existing ADRs, or flag the deviation it would force.
@@ -94,6 +101,7 @@ Wait for both. If either errors, surface and stop.
 
 #### Agent A — Scrum Master (facilitator)
 
+- **Model**: `MODEL_FOR_SM` (omit if null).
 - Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/scrum-master.md`.
 - Task: produce the **Sprint Planning record** following `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/planning.template.md`.
 - Inputs to embed: the draft `spec.md`, story files, roster (with the backward-compat note from Step 2 if applicable), backlog, DoR, prior retro if any, the user's answers from Step 3, the resolved profile and ceremony flags, `architecture.md` (read-only for context), **and Wave 1's two outputs** — the TL's per-story `discipline` values and feasibility findings, and the PM's scope findings.

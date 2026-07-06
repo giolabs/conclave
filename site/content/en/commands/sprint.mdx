@@ -1,0 +1,92 @@
+---
+title: /conclave-sprint
+description: Drive an entire active sprint end-to-end — planning, dev, QA, and PR review — in a single invocation.
+---
+
+# /conclave-sprint
+
+Drive an entire active (or draft) sprint end-to-end in a single invocation.
+
+```
+/conclave-sprint
+```
+
+No arguments required. The command finds the current sprint, resolves configured models, and runs four sequential phases. Each phase is profile-aware; failures are isolated per story.
+
+## Phases
+
+| Phase | What it does | When it runs |
+|---|---|---|
+| **Phase 1 — Planning** | Runs Sprint Planning (PM + TL concurrent, then SM) to lock a `draft` sprint | Skipped if sprint is already `active` |
+| **Phase 2 — Dev** | Dispatches all `ready` stories to the Developer/Designer/DevOps subagent (batch-of-3) | Skipped if no `ready` stories |
+| **Phase 3 — QA** | Dispatches all `review` stories to the QA subagent (batch-of-3) | Skipped if no `review` stories |
+| **Phase 4 — PR Review** | Dispatches all `verified` stories to the Tech Lead subagent (batch-of-3) | Skipped when `ceremonies.peer_pr_review.required: false` or no `verified` stories |
+
+## Phase output
+
+Each phase prints a header before dispatching Agent calls:
+
+```
+## Phase 2 — Dev (4 stories)
+```
+
+And a summary table after all batches complete (same format as `/conclave-dev` and `/conclave-qa`):
+
+```
+| Story  | Branch               | PR                           | Outcome              |
+|--------|----------------------|------------------------------|----------------------|
+| US-001 | feat/US-001-login    | https://github.com/…/pull/42 | ✓ done               |
+| US-002 | feat/US-002-profile  | https://github.com/…/pull/43 | ✓ done               |
+| US-003 | feat/US-003-settings | —                            | ✗ failed: <error>    |
+```
+
+Skipped phases print a one-line notice:
+
+```
+Phase 4 — PR Review: skipped (peer_pr_review.required: false)
+```
+
+## Final summary
+
+After all phases, a sprint-level summary table covers every story touched:
+
+```
+| Story  | Starting status | Final status | Notes               |
+|--------|-----------------|--------------|---------------------|
+| US-001 | ready           | done         |                     |
+| US-002 | ready           | review       | ✗ QA: blocked       |
+| US-003 | review          | done         | (was already review)|
+```
+
+## Model configuration
+
+`/conclave-sprint` reads the `models:` block from `conclave/config.md` and prints a one-line summary before Phase 1:
+
+```
+Models: default=claude-sonnet-4-6, tech_lead=claude-opus-4-6, developer=claude-haiku-4-5-20251001
+```
+
+Each Agent call receives the model configured for its role. See the [configuration reference](/en/configuration#model-configuration-block-optional-v070) for the full `models:` block format.
+
+## Failure behaviour
+
+- **Phase 1 failure** (planning agent errors): hard stop. `Sprint run aborted: Phase 1 (Planning) failed.` Reason: proceeding to dev without a locked sprint goal is structurally invalid.
+- **Phase 2–4 per-story failure**: that story is reported in the summary (`✗ failed`); other stories continue. A failed dev story stays `ready` and is excluded from Phase 3's collection.
+- **QA `verdict: blocked`**: normal outcome. Story stays `review`, reported as `✗ QA: blocked`. Does not block other QA calls.
+
+## Re-runs
+
+Re-running `/conclave-sprint` after a partial failure is safe. Story `status` frontmatter is the recovery mechanism:
+
+- Phase 2 collects `ready` stories (those that failed in a prior run and were reset stay `ready`).
+- Phase 3 collects `review` stories (including those left in `review` from a prior QA block).
+- Phase 4 collects `verified` stories.
+
+No checkpoint file is introduced. Re-run the command and it picks up exactly where the frontmatter left off.
+
+## Guardrails
+
+- Phase 1 failure is a hard stop. All other failures are per-story isolated.
+- Never modifies files outside `conclave/` (except feature branches and `tests/uat/` written by the QA phase).
+- Never merges any PR — Tech Lead approval in Phase 4 is sufficient.
+- Every skipped phase prints a skip notice with the reason.
