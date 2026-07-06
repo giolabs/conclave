@@ -44,6 +44,9 @@ In your project repo:
 
 # 6. Tech Lead approves the PR (only in profiles where peer_pr_review is on)
 /conclave-pr-review US-001
+
+# Or: run the entire sprint in one shot (steps 3–6 above, automated)
+/conclave-sprint
 ```
 
 `/conclave-spec` invokes the Tech Lead and Product Manager subagents in parallel to produce:
@@ -123,6 +126,23 @@ Pick a profile in `conclave/config.md`:
 
 You can change the profile any time by editing `conclave/config.md`. The ceremony commands (`/conclave-standup`, `/conclave-review`, `/conclave-retro`, etc.) read the flags and become silent no-ops when their flag is `false`. The two structural gates (`sprint_planning` and `qa_verification`) cannot be turned off.
 
+### Model configuration (optional)
+
+Assign a specific Claude model to each role subagent. Add a `models:` block to `conclave/config.md`:
+
+```yaml
+models:
+  default: claude-sonnet-4-6
+  overrides:
+    tech_lead: claude-opus-4-6      # heavyweight reviews
+    developer: claude-haiku-4-5-20251001  # fast bulk dev work
+    qa: claude-sonnet-4-6
+```
+
+Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`. Omit the block entirely to keep today's behavior — every Agent call uses the parent session model.
+
+---
+
 ## Shipped so far
 
 - `/conclave-init` — bootstrap the `conclave/` workspace, pick a team profile.
@@ -132,6 +152,8 @@ You can change the profile any time by editing `conclave/config.md`. The ceremon
 - `/conclave-qa US-NNN` — QA verifies a story in `status: review` adversarially: re-derives PASS/FAIL per scenario, probes edge cases, appends a verification report, leaves a PR comment with the verdict. Moves story to `verified` (when TL gate is on) or `done` (when off). **Structurally required — cannot be skipped by any profile.** QA does NOT approve the PR itself. When `conclave/team/testing-environments.md` is configured, QA also generates UAT test artifacts from the story's Gherkin scenarios — a Playwright spec (`frontend`/`multi`), the shared project-wide Postman collection run via Newman (`backend`/`multi`), or a manual functional checklist (`mobile`) — pushes them, and gates the verdict on the target repo's own CI actually running them (never executed locally by QA). A `mobile` checklist awaiting a human produces a distinct `pending_uat` outcome, not a failure.
 - `/conclave-pr-review US-NNN` — Tech Lead reviews the code against the architecture, ADRs, and code-level DoD items, then runs `gh pr review --approve` or `--request-changes`. Only runs when `ceremonies.peer_pr_review.required: true`. Story moves from `verified` to `done` on approve.
 - `/conclave-board` — one-time scaffold of a local, branded Kanban board (Next.js + shadcn/ui) at `conclave-board/`, a sibling of `conclave/`. Columns mirror the story state machine; cards show ID, title, discipline, assignee, priority, and estimate. A plugin hook regenerates the board's data automatically whenever `conclave/` changes — no CI, no server, no LLM in the update loop. Read-only; never writes back to `conclave/`.
+
+- `/conclave-sprint` — run an entire active sprint end-to-end: planning → dev all ready stories → QA all review stories → Tech Lead PR review (if required). Each phase is profile-aware and failure-isolated per story.
 
 Sprint closeout ceremonies (review, retro) and stack-specific sub-specs are next.
 

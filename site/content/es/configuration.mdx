@@ -64,6 +64,32 @@ ceremonies:
 | `ceremonies.sprint_review.required` | `true \| false` | Ceremonia de cierre de sprint. Comando planeado, aún no lanzado. |
 | `ceremonies.sprint_retrospective.required` | `true \| false` | Ceremonia de cierre de sprint. Comando planeado, aún no lanzado. |
 
+### Bloque de configuración de modelos (opcional, v0.7.0+)
+
+Asigná un modelo de Claude específico a cada subagente de rol. Agregá un bloque `models:` al frontmatter — el bloque completo es opcional; omitirlo es un no-op silencioso y preserva el comportamiento de v0.6.0 exactamente.
+
+```yaml
+# Configuración de modelos (opcional). Omití este bloque para usar el modelo de la sesión padre.
+# IDs de modelos válidos: claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5-20251001
+models:
+  default: claude-sonnet-4-6        # fallback para cualquier rol no listado abajo
+  overrides:
+    tech_lead: claude-opus-4-6      # pesado: revisión de arquitectura, evaluación de ADRs
+    developer: claude-haiku-4-5-20251001  # trabajo de dev en paralelo masivo — velocidad + costo
+    qa: claude-sonnet-4-6
+```
+
+**Cadena de resolución** (por llamada de Agent): `models.overrides.<rol>` → `models.default` → modelo de la sesión padre.
+
+**Nombre de modelo inválido**: el comando imprime `WARNING: Unknown model '<value>' for role <role>. Falling back to <fallback>.` y continúa. Nunca es un error duro.
+
+**Claves de rol**: `product_manager`, `tech_lead`, `scrum_master`, `developer`, `designer`, `devops`, `qa`.
+
+| Campo | Notas |
+|---|---|
+| `models.default` | Modelo fallback para cualquier rol sin override. Debe ser un ID de modelo conocido. |
+| `models.overrides.<rol>` | Modelo para un rol específico. Tiene precedencia sobre `models.default`. |
+
 ### Bloque de convenciones
 
 El cuerpo de `config.md` (debajo del frontmatter) también documenta las convenciones del equipo que cada comando respeta:

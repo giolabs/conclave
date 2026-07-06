@@ -21,7 +21,10 @@ This is the MVP main command. Follow these steps in order.
 
 1. Run `git rev-parse --show-toplevel` to find `REPO_ROOT`. If not a git repo, ask the user via `AskUserQuestion` whether to `git init` here; if they decline, stop.
 2. If `$REPO_ROOT/conclave/config.md` does not exist, the workspace is not initialized. Run the `/conclave-init` flow inline first (do not fail). When that finishes, continue from Step 2.
-3. Read `$REPO_ROOT/conclave/config.md` so you know the project type and confirmed stack baseline.
+3. Read `$REPO_ROOT/conclave/config.md` so you know the project type and confirmed stack baseline. Extract `models.*` and resolve:
+   - `MODEL_FOR_TL` = `models.overrides.tech_lead` → `models.default` → null
+   - `MODEL_FOR_PM` = `models.overrides.product_manager` → `models.default` → null
+   Invalid model name → `WARNING: Unknown model '<value>' for role <role>. Falling back to <next_fallback>.` then continue. Absent block → all null, no warning. Print `Models: tl=<id>, pm=<id>` for any non-null values.
 
 ## Step 2 — Determine the sprint ID
 
@@ -61,6 +64,7 @@ Issue **two `Agent` tool calls in a single message** so they run concurrently:
 
 ### Agent A — Tech Lead
 
+- **Model**: `MODEL_FOR_TL` (omit if null).
 - Prompt prefix: the full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/tech-lead.md`.
 - Task: produce the **Architectural Foundation** document following the structure in `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/architecture.template.md`.
 - Inputs to embed in the task prompt: the user's `<idea>` argument, the `CLARIFICATIONS`, and the contents of the context snapshots (CLAUDE.md, skills inventory, rules inventory).
@@ -68,6 +72,7 @@ Issue **two `Agent` tool calls in a single message** so they run concurrently:
 
 ### Agent B — Product Manager
 
+- **Model**: `MODEL_FOR_PM` (omit if null).
 - Prompt prefix: the full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/product-manager.md`.
 - Task: produce the **Product Backlog** in the structure described in that charter.
 - Inputs to embed in the task prompt: the user's `<idea>` argument, the `CLARIFICATIONS`, and the contents of the context snapshots. (Do not wait for the TL's output; the PM works from the idea + constraints.)

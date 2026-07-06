@@ -80,7 +80,7 @@ Follow these steps in order.
 
 Read:
 
-- `$REPO_ROOT/conclave/config.md` — `team_profile`, `ceremonies.peer_pr_review.required`, `ceremonies.qa_verification.ci_wait_timeout_minutes` (default `20` if absent)
+- `$REPO_ROOT/conclave/config.md` — `team_profile`, `ceremonies.peer_pr_review.required`, `ceremonies.qa_verification.ci_wait_timeout_minutes` (default `20` if absent), and `models.*`. Resolve `MODEL_FOR_QA` = `models.overrides.qa` → `models.default` → null (session). Invalid model name → print `WARNING: Unknown model '<value>' for role qa. Falling back to <next_fallback>.` then continue. Absent `models:` block → null, no warning. Print `Model for qa: <id or 'session default'>` if non-null.
 - `$REPO_ROOT/conclave/product/definition-of-done.md`
 - `$REPO_ROOT/conclave/team/testing-environments.md` — if missing, or every environment/variable row is still `TBD`, set `UAT_ENABLED = false` and skip Steps 5–7 entirely (go straight to today's Gherkin-only verification at Step 8). Otherwise `UAT_ENABLED = true`.
 - The story file (note `discipline`)
@@ -94,6 +94,7 @@ Read:
 
 Issue an `Agent` tool call with:
 
+- **Model**: `MODEL_FOR_QA` (omit if null).
 - Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/qa.md`.
 - Task: generate UAT artifacts for this story per the charter's "Generating UAT artifacts" section.
 - Inputs to embed: story file (with `discipline`), acceptance file's Gherkin scenarios, `testing-environments.md` content, the existing Postman collection (if any), whether `tests/uat/US-NNN-UAT.md` already exists (second-run case).
@@ -127,6 +128,7 @@ Write whichever of `playwright_spec`, `postman_collection`, `postman_environment
 
 Issue a single `Agent` tool call with:
 
+- **Model**: `MODEL_FOR_QA` (omit if null).
 - Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/qa.md`.
 - Task: verify the story per the charter, folding in the UAT outcome.
 - Inputs to embed in the prompt:
