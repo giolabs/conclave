@@ -1,0 +1,98 @@
+---
+title: /conclave-adr
+description: Tech Lead ADR authoring — topic-directed or discovery. Writes standalone ADR files under conclave/product/adr/.
+---
+
+# /conclave-adr
+
+Author a Tech Lead ADR (Architectural Decision Record) as a standalone file at `conclave/product/adr/ADR-NNN-<slug>.md`. Two modes:
+
+```
+/conclave-adr "Redis vs Postgres for caching"    # topic-directed
+/conclave-adr                                     # discovery — TL proposes candidates
+```
+
+Every new ADR is written with `status: proposed`. The team promotes to `accepted` by editing the frontmatter on PR merge.
+
+## Topic-directed mode
+
+The TL subagent researches the topic (read-only exploration of the codebase, `architecture.md`, and existing ADRs) and returns a full ADR markdown document following [`skills/conclave/templates/adr.template.md`](https://github.com/lucasgio/conclave/blob/main/skills/conclave/templates/adr.template.md):
+
+- **Frontmatter**: `id`, `title`, `status: proposed`, `date`, `deciders` (roster's TL), `tags`, `supersedes: null`, `superseded_by: null`, `generated_by: conclave`.
+- **Body**: Context → Decision → Alternatives Considered (table) → Trade-offs → Consequences (Positive / Negative / Neutral) → Links.
+
+Hard rules the TL enforces:
+
+- **`status: proposed` always** — never `accepted` or `superseded` from the subagent.
+- **Cite evidence** — every Decision claim references a file path or existing ADR ID; every Alternatives Cons cell cites at least one piece of evidence.
+- **Ground in the confirmed stack** — new dependencies not already in `architecture.md`'s stack are called out explicitly under Consequences.
+- **At least two alternatives** in the table.
+
+## Discovery mode
+
+`/conclave-adr` with no arguments delegates to the TL to propose 1–3 candidate decisions from gaps in `architecture.md` + open questions raised by recent sprint stories.
+
+The TL returns a YAML block:
+
+```yaml
+candidates:
+  - title: "Cache backend choice: Redis vs Postgres vs Memcached"
+    one_line_context: "US-042 introduces a per-user request-history feature that needs low-latency reads."
+    why_it_needs_an_adr: "No caching layer decision exists; three stories in Sprint 5 will make incompatible assumptions if this is not locked."
+  - title: "..."
+```
+
+The user picks one via `AskUserQuestion`; the flow continues as topic-directed. If the TL surfaces zero candidates:
+
+```
+No ADR candidates surfaced — architecture appears complete relative to sprint scope.
+```
+
+The command exits cleanly with no file writes.
+
+## Inline-ADR migration (first run per repo)
+
+Repositories running pre-v0.8.0 `/conclave-spec` have inline `### ADR-NNN:` sections in `architecture.md` section 4. The first `/conclave-adr` run in such a repo migrates them to standalone files:
+
+1. **Per-ADR atomicity** — extract one inline ADR at a time: write the standalone file, then remove that specific inline section. Repeat for the next.
+2. **Resumability** — if the migration is interrupted mid-way, an inline section still present in `architecture.md` corresponds to an ADR whose standalone file does not yet exist; a re-run picks up where the previous run left off.
+3. **Idempotency** — after full migration, a second `/conclave-adr` run finds no inline sections and skips migration entirely.
+
+Migrated ADRs get `status: accepted` (the team already acted on them by shipping the architecture) and `date: "unknown"` (or a best-effort first-add date from `git log`). Their `Alternatives Considered` and `Trade-offs` sections carry a stub note explaining they were not populated at the time of the original decision.
+
+## The referenced-ADR table
+
+After migration (or on any run against a repo that never had inline ADRs), section 4 of `architecture.md` is a table:
+
+```markdown
+## 4. Architectural Decision Records
+
+| ID | Title | Status | Date |
+|---|---|---|---|
+| [ADR-001](adr/ADR-001-postgres-datastore.md) | Postgres as primary datastore | accepted | 2026-04-12 |
+| [ADR-002](adr/ADR-002-jwt-auth.md) | JWT-based auth for the REST API | accepted | 2026-04-12 |
+| [ADR-003](adr/ADR-003-redis-vs-postgres-cache.md) | Redis vs Postgres for caching | proposed | 2026-07-06 |
+```
+
+Every `/conclave-adr` run appends a new row for the ADR it authored.
+
+## Model configuration
+
+`/conclave-adr` uses the standard model-resolution logic:
+
+- `models.overrides.tech_lead` → `models.default` → parent session model.
+- Invalid model → `WARNING:` line, fall back.
+- Absent `models:` block → silent no-op.
+
+See the [configuration reference](/en/configuration#model-configuration-block-optional-v070).
+
+## Supersession (manual)
+
+ADRs are versioned via `supersedes` and `superseded_by` frontmatter fields. In v0.8.0 these are set **manually** — either during the same PR that introduces the superseding ADR (edit the older's `superseded_by:` and the newer's `supersedes:` before merge), or by hand-editing afterward. A future `/conclave-adr-supersede` command is out of scope for this release.
+
+## Guardrails
+
+- Never commits, pushes, or opens a PR.
+- Never writes `status: accepted` from the subagent — only migration writes `accepted`.
+- Never modifies any story file or any file outside `conclave/product/{architecture.md, adr/**}` and `conclave/context/`.
+- Discovery mode with no candidates is a clean exit, not a failure.

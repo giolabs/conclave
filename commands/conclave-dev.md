@@ -61,6 +61,7 @@ Follow these steps in order.
    - `status: ready` → continue.
    - `status: in-progress` → this is a resume. Continue but warn the user.
    - `status: review` or `status: done` → refuse (already past the dev gate). Suggest `/conclave-qa US-NNN` if it's `review`.
+   - `status: retired` → refuse: *"Story is retired and cannot be developed. Retired stories are terminal — un-retire by hand-editing the frontmatter if this was a mistake, then re-run."*
    - `status: backlog` → refuse (story has not been pulled into a sprint — needs planning).
 5. Read the `assignee`. If it does not match the current user (best effort from `git config user.name` or `$USER`), surface that and use `AskUserQuestion` to ask whether to take over the story (`Yes, reassign to me` / `No, abort`).
 

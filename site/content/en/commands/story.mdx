@@ -1,0 +1,99 @@
+---
+title: /conclave-story
+description: PM story authoring — new, edit, split, retire — outside the /conclave-spec ceremony. Every action available in every team mode.
+---
+
+# /conclave-story
+
+Author, refine, decompose, or retire a user story between `/conclave-spec` runs. Four sub-actions dispatched by the first argument:
+
+```
+/conclave-story new
+/conclave-story edit US-NNN
+/conclave-story split US-NNN
+/conclave-story retire US-NNN
+```
+
+Every action is available in every `team_mode` (solo, lean, full-scrum). None commits, pushes, or opens a PR — the user runs `git commit` and `gh pr create` after reviewing.
+
+## Sub-actions at a glance
+
+| Sub-action | LLM call? | Effect |
+|---|---|---|
+| `new` | Product Manager subagent | Allocates the next monotonic `US-NNN`. Writes a story + acceptance file. User picks: land in backlog only, or also pull into the active sprint. |
+| `edit US-NNN` | Product Manager subagent | Revises a `ready` or `backlog` story per the user's stated change. Preserves the story ID and any frontmatter fields not covered by the change. |
+| `split US-NNN` | Product Manager subagent | Decomposes a parent into 2, 3, or 4 children. Parent becomes `status: retired` with `superseded_by: [US-CHILD_1, ...]`. Enforces a hard scenario-coverage rule. |
+| `retire US-NNN` | **No LLM call** | Mechanical frontmatter update. Sets `status: retired`, `retirement_reason`, `retired_at`. |
+
+## `new`
+
+Prompts the user (via `AskUserQuestion`) for:
+
+- Story title (free text)
+- **Where should it land?** — `Backlog only` (default), or `Backlog + pull into active sprint` (only offered when a sprint exists)
+- Discipline (`frontend | backend | mobile | qa | design | devops | multi`)
+- Priority (MoSCoW)
+- Estimate (T-shirt)
+
+Then delegates to the PM subagent to author both a story and an acceptance file. Files land either in `conclave/product/stories-backlog/US-NEW_ID-<slug>.md` (backlog-only) or `conclave/sprints/SPRINT-NNN/stories/US-NEW_ID-<slug>.md` (pulled into sprint). The `assignee` field is left empty — assignment is `/conclave-planning`'s job.
+
+## `edit US-NNN`
+
+Refuses stories past `ready` (in-progress / review / verified / done) with:
+
+> Story is past the ready gate. Editing acceptance criteria mid-implementation would invalidate the QA verification — surface the issue via a PR comment on the story file instead.
+
+Prompts for the change as a free-form paragraph. The PM subagent revises the story markdown (and the acceptance markdown if criteria changed). The story ID is preserved; the file slug is stable (git tracks history through the same path).
+
+## `split US-NNN`
+
+Prompts for:
+
+- **How many splits?** — 2 / 3 / 4
+- **Split axis** — free-form paragraph (e.g. "by user flow", "by data layer vs UI")
+
+The PM subagent plans a scenario-to-child map **before emitting any child block**. If any parent Gherkin scenario cannot be assigned to a child under the given axis, the split is refused with a single line:
+
+```
+SPLIT_UNSAFE: Cannot cover parent scenario "<name>" in any proposed child. Suggest the user adjust the split axis or reduce N.
+```
+
+No files are written on refusal.
+
+On success, each child gets its own story + acceptance file with `split_from: US-NNN` in the frontmatter. The parent is marked `status: retired` with `superseded_by: [US-CHILD_1, US-CHILD_2, ...]`.
+
+## `retire US-NNN`
+
+Refuses stories past `ready` (retiring in-progress / shipped work would be dishonest) and stories already `retired`.
+
+Prompts for **retirement reason** as a non-empty free-form paragraph. Updates the story's frontmatter:
+
+- `status: retired`
+- `retirement_reason: <user's paragraph>`
+- `retired_at: <today ISO date>`
+
+**No subagent call.** Retirement is a policy decision the human already made; the PM has no research or authorship to add.
+
+## The `retired` state and cross-command exclusion
+
+Retired stories are excluded from every command's collection queries — `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, `/conclave-sprint`. `/conclave-spec` is intentionally exempt (it authors new stories rather than collecting existing ones).
+
+See the [story state machine](/en/state-machine) for the full picture including the parallel-terminal transition to `retired`.
+
+## Model configuration
+
+`/conclave-story` uses the same model-resolution logic as every other Conclave command:
+
+- `models.overrides.product_manager` → `models.default` → parent session model.
+- Invalid model → `WARNING:` line, fall back.
+- Absent `models:` block → silent no-op.
+
+See the [configuration reference](/en/configuration#model-configuration-block-optional-v070).
+
+## Guardrails
+
+- Never commits.
+- Never touches files outside `conclave/product/` and (when applicable) the active sprint's `stories/` and `acceptance/` directories.
+- Never dispatches multiple stories in one invocation — batch multi-story dev/QA lives in `/conclave-dev` and `/conclave-qa` since v0.6.0.
+- `retire` never calls the subagent — intentional design.
+- `split` output is validated both by the PM subagent (during generation) and by the orchestrator (post-hoc count + coverage check) as defense in depth.

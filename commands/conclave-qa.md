@@ -67,6 +67,7 @@ Follow these steps in order.
 4. Read the story frontmatter:
    - `status: review` → continue.
    - `status: in-progress` → refuse: *"Story is still in development. Wait for `/conclave-dev` to push it to `review`."*
+   - `status: retired` → refuse: *"Story is retired and cannot be QA-verified. Retired stories are terminal — un-retire by hand-editing the frontmatter if this was a mistake, then re-run."*
    - `status: done` → refuse: *"Story is already verified. Past verification reports live in the acceptance file."*
    - Anything else → refuse.
 

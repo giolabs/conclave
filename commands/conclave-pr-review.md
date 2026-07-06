@@ -31,6 +31,7 @@ Follow these steps in order.
    - `status: review` → refuse: *"QA has not verified this story yet. Run `/conclave-qa US-NNN` first."*
    - `status: in-progress` → refuse: *"Story is still in development."*
    - `status: done` → refuse: *"Story is already done. Past TL reviews are on the PR."*
+   - `status: retired` → refuse: *"Story is retired and cannot be TL-approved. Retired stories are terminal — un-retire by hand-editing the frontmatter if this was a mistake, then re-run."*
    - Anything else → refuse.
 
 ## Step 3 — Switch to the dev branch

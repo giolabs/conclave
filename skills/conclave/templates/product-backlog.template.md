@@ -33,4 +33,4 @@ generated_by: conclave
 
 - **Priority**: MoSCoW — `must`, `should`, `could`, `wont`.
 - **Estimate**: T-shirt — `XS`, `S`, `M`, `L`, `XL`. XL must be split before entering a sprint.
-- **Status**: `backlog` → `ready` (passes DoR) → `in-progress` → `review` → `done`.
+- **Status**: `backlog` → `ready` (passes DoR) → `in-progress` → `review` → `verified` (when `peer_pr_review.required: true`) → `done`. Terminal parallel: `retired` (via `/conclave-story retire` or `/conclave-story split` on the parent) — excluded from every command's collection queries.

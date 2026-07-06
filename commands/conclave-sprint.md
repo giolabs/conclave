@@ -69,7 +69,7 @@ Check the resolved sprint's `status`:
 
 ## Step 5 — Collect Phase 2 stories
 
-Re-read all story frontmatter under `$SPRINT_PATH/stories/`. Collect every story with `status: ready`. Set `DEV_STORIES`.
+Re-read all story frontmatter under `$SPRINT_PATH/stories/`. Collect every story with `status: ready`. Set `DEV_STORIES`. **Explicitly exclude any story with `status: retired`** — retired stories are terminal historical records and never enter any phase (v0.8.0+). The filter is redundant with the `status: ready` check but stated explicitly here so the intent is unmistakable across all three phase collections.
 
 If `DEV_STORIES` is empty, print `Phase 2 — Dev: skipped (0 stories in ready)` and skip to Step 7.
 

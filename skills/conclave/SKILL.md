@@ -92,14 +92,16 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 
 | Subagent file | Used by (shipped) | Used by (planned) |
 |---|---|---|
-| `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review, Wave 1) | `/conclave-groom`, `/conclave-review` |
-| `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review + discipline assignment, Wave 1), `/conclave-pr-review` (code review + approval) | `/conclave-substack` |
+| `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review, Wave 1), `/conclave-story` (new / edit / split — `retire` is mechanical and skips this agent) | `/conclave-groom`, `/conclave-review` |
+| `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review + discipline assignment, Wave 1), `/conclave-pr-review` (code review + approval), `/conclave-adr` (topic-directed and discovery ADR authoring) | `/conclave-substack` |
 | `agents/scrum-master.md` | `/conclave-planning` (facilitator + assignment, Wave 2 — runs after PM/TL) | `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
 | `agents/developer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: frontend \| backend \| mobile \| multi`, or unset) — one Agent call per story, ≤ 3 concurrent per batch | — |
 | `agents/designer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: design`) | — |
 | `agents/devops.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: devops`) | — |
 | `agents/qa.md` | `/conclave-qa US-NNN [US-NNN ...]` — one Agent call per story, ≤ 3 concurrent per batch | — |
 | *(all of the above)* | `/conclave-sprint` — sequential four-phase sprint runner: Phase 1 planning, Phase 2 dev (batch-of-3), Phase 3 QA (batch-of-3), Phase 4 PR review (batch-of-3, only if `peer_pr_review.required`). Each Agent call uses the role model resolved from `conclave/config.md`'s `models:` block. | — |
+| `agents/product-manager.md` (again) | `/conclave-story <new\|edit\|split>` — one Agent call per invocation. `/conclave-story retire` is mechanical (frontmatter-only) and skips the agent. Available in every `team_mode` (solo, lean, full-scrum). | — |
+| `agents/tech-lead.md` (again) | `/conclave-adr [topic]` — topic-directed mode writes a full ADR to `conclave/product/adr/ADR-NNN-<slug>.md`; discovery mode (no args) proposes 1–3 candidates then authors the picked one. Migrates any pre-0.8.0 inline ADRs in `architecture.md` on first run (per-ADR atomic, resumable, idempotent). Available in every `team_mode`. | — |
 
 **Model configuration (v0.7.0+)**: commands read an optional `models:` block from `conclave/config.md` frontmatter. Resolution per Agent call: `models.overrides.<role>` → `models.default` → parent session model (silent no-op when block is absent). Invalid model name → warn once and fall back. Role keys: `product_manager`, `tech_lead`, `scrum_master`, `developer`, `designer`, `devops`, `qa`.
 
@@ -140,6 +142,7 @@ Templates available:
 - `testing-environments.template.md`
 - `uat-report.template.md`
 - `board.template.md`
+- `adr.template.md`
 
 ---
 
@@ -167,12 +170,15 @@ The two gates do NOT collapse. QA never runs `gh pr review --approve`. The TL do
 
 ```
 backlog → ready → in-progress → review → [verified] → done
+                                              ↘
+                                                retired  (parallel terminal — via /conclave-story)
 ```
 
 - `review → verified`: only happens when `peer_pr_review.required: true`. QA pass moves the story here while waiting for TL approval.
 - `review → done`: direct, when `peer_pr_review.required: false`. QA pass and PR approval collapse into the same step.
 - `verified → done`: TL approves the PR via `/conclave-pr-review`.
 - Any failure: back to `review`. The dev fixes, pushes, then QA re-verifies (and TL re-reviews if applicable).
+- **`retired` (v0.8.0+)** — a parallel terminal state to `done`. Entered via `/conclave-story retire` (explicit retirement with `retirement_reason` and `retired_at` set) or `/conclave-story split` (on the parent, when it is decomposed into children — `superseded_by:` also populated). A retired story is **excluded from every command's story collection** (`/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, `/conclave-sprint`) — it is a historical record only. There is no un-retire command; teams that change their mind hand-edit the frontmatter (git preserves the audit trail). `/conclave-spec` is intentionally exempt from the filter — it authors new stories rather than collecting existing ones.
 - **UAT pending (v0.3.0+, no new status value).** When `testing-environments.md` is configured, `/conclave-qa` generates CI-runnable UAT tests (Playwright/Newman for `frontend`/`backend`/`multi`, a manual checklist for `mobile`) and folds the result into its verdict. A `mobile` story whose checklist is awaiting or mid-completion produces `verdict: pending_uat` — the story frontmatter stays `review`, same as a real failure, but the appended section is `## QA pending`, not `## QA blockers`, since nothing has actually failed yet. A failed CI run on the generated tests is treated exactly like a failing Gherkin scenario.
 
 ### Skippable per team profile
