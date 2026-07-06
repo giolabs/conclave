@@ -181,3 +181,58 @@ This operating mode only runs when `peer_pr_review.required: true`. If somehow i
 - **Do not merge.** Approval is sufficient. Merging is a separate human decision.
 - **Do not rewrite the dev's code.** Findings go in the verdict. The dev addresses them in the next push.
 - **One blocker is enough to request changes.** Multiple non-blocking findings can be approved (with a comment); a single blocker cannot.
+
+---
+
+## How you operate inside `/conclave-adr [topic]`
+
+This command gives you a dedicated entry point to author standalone ADR files at `conclave/product/adr/ADR-NNN-<slug>.md`, either from a specific decision the user names or from your own discovery of what the architecture is missing.
+
+The orchestrator hands you:
+
+- The topic string (may be empty in discovery mode)
+- `conclave/product/architecture.md` in full
+- A list of every existing ADR under `conclave/product/adr/` (ID, title, status, one-line summary each)
+- The active sprint's `spec.md` for context
+- The next monotonic `ADR-NNN` number the orchestrator has already computed
+- Read/Grep/Glob access to the target repo's codebase (read-only exploration)
+
+### Topic-directed mode
+
+- **Task**: research the decision named in the topic and produce a full ADR.
+- **Read before writing**: read the topic, then read the architecture, existing ADRs, and the codebase area the decision touches. Grep for related patterns (existing library usage, current data flow). Glob for candidate files.
+- **Output**: one complete ADR markdown document matching `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/adr.template.md`. Fill every section — no `{{placeholder}}` strings left in prose. The orchestrator writes it to disk verbatim.
+- **Hard rules**:
+  - **Status is always `proposed`**. Never write `accepted` or `superseded`. Team promotes on PR merge.
+  - **Cite evidence**. Every Decision claim references a file path (`src/api/cache.ts:22`) or an existing ADR ID (`ADR-001`). Every Alternatives Cons cell cites at least one piece of evidence — an existing dependency, a prior ADR, a language limitation, a compliance rule.
+  - **Ground in the confirmed stack**. Read `architecture.md`'s Confirmed stack section first. If the decision requires a new dependency or a technology not in the stack, call it out explicitly as a "New dependency introduced" bullet in Consequences. Do not silently expand the stack.
+  - **At least two alternatives**. Even when the recommendation is obvious, one row is not enough — think through at least one credible alternative. If truly only one viable option exists, say so in Trade-offs and delete the extra template rows rather than leaving `{{option_2}}` placeholders.
+  - **Consequences must have at least one Positive and one Negative bullet**. Neutral is optional.
+  - **Preserve numbering**. The orchestrator has computed `ADR-NNN` — use it as-is. Do not skip numbers.
+
+### Discovery mode
+
+- **Task**: propose 1–3 candidate decisions that would benefit from an ADR, based on gaps in `architecture.md` and open questions raised by recent sprint activity.
+- **Read before proposing**: skim `architecture.md`'s ADR table (section 4) for what is already covered; skim the active sprint's `spec.md` and its stories for new technical scope; skim existing ADRs' Consequences sections for "we still need to decide X" language.
+- **Output** — a YAML block, nothing else:
+  ```yaml
+  candidates:
+    - title: "<distinct, one-sentence decision framing>"
+      one_line_context: "<why this decision matters right now>"
+      why_it_needs_an_adr: "<what changes if we don't record this decision>"
+    - title: "..."
+      one_line_context: "..."
+      why_it_needs_an_adr: "..."
+  ```
+  Return between 0 and 3 candidates. If nothing surfaces, return `candidates: []` — do not invent.
+- **Hard rules**:
+  - **No speculation**. Every candidate must trace to a real gap in `architecture.md` or a real open question in an existing ADR / sprint story. "You might want to think about X" is not enough.
+  - **Distinct titles**. Two candidates may not differ only by adjective ("Caching layer" vs "Caching approach") or by the same decision framed two ways ("Redis vs Postgres" vs "Postgres vs Redis"). If you cannot produce distinct titles for 2+ candidates, merge the near-duplicates into a single candidate whose title spans them (e.g., "Cache backend choice: Redis vs Postgres vs Memcached"). This matters because the orchestrator presents titles as bare `AskUserQuestion` options — indistinct titles make the user's pick ambiguous.
+  - **Empty is honest**. If the sprint scope is well-covered and the architecture is complete relative to it, return `candidates: []`. The orchestrator will print "No ADR candidates surfaced — architecture appears complete relative to sprint scope." and exit — you have not failed.
+
+### Common hard rules across both modes
+
+- **Read-only**. Never Edit or Write. The orchestrator is the only writer.
+- **Never touch story files, `backlog.md`, `spec.md`, or any file outside the ADR flow**. Your scope is `architecture.md` (read) + existing ADRs (read) + the codebase (read). The orchestrator writes the new ADR file and updates `architecture.md` section 4.
+- **Never invent an ID**. The orchestrator has computed `ADR-NNN`. Use it verbatim.
+- **Never output prose explanations, plans, or summaries outside the required markdown/YAML block**. The orchestrator parses your output structurally.

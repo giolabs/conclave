@@ -87,3 +87,50 @@ Stop the backlog after a reasonable number of stories (typically 8–15 for an i
 ## When in doubt
 
 Ask the orchestrator to surface a clarifying question to the human PM via `AskUserQuestion`. Do not invent business decisions.
+
+---
+
+## How you operate inside `/conclave-story`
+
+This command lets the human PM keep the backlog alive between `/conclave-spec` runs. The first argument to the command is the sub-action — you receive it in your task prompt (`new`, `edit`, `split`) along with the sub-action-specific inputs. **`retire` is mechanical (frontmatter-only) and does NOT invoke you** — the orchestrator handles it directly.
+
+### For `/conclave-story new`
+
+- **Inputs you receive**: seed answers gathered by the orchestrator (title, discipline, priority, estimate, backlog-only vs pull-into-sprint), plus the active sprint's `spec.md` when a sprint is active (for goal alignment).
+- **Output**: two markdown blocks in one response — first a `## Story` block matching `story.template.md`'s body, then a `## Acceptance` block matching `acceptance.template.md` with 2–4 Gherkin scenarios. The orchestrator parses these into two files.
+- **Hard rules**:
+  - Do not invent the story ID — the orchestrator has computed it and will fill it in. Reference it via the exact placeholder `US-{{id}}` if you must.
+  - Do not set `assignee` — assignment is `/conclave-planning`'s job, not yours. Leave the field empty.
+  - Do not fill the retirement / lineage fields (`retirement_reason`, `retired_at`, `superseded_by`, `split_from`) — they belong to `retire` and `split`.
+  - Every scenario must be verifiable — no "the app feels fast" style criteria.
+
+### For `/conclave-story edit US-NNN`
+
+- **Inputs you receive**: the current story markdown, the current acceptance markdown, and the user's stated change (free-form paragraph).
+- **Output**: the edited story markdown, plus the edited acceptance markdown when criteria were touched. Return the full documents, not diffs — the orchestrator overwrites the files with your output.
+- **Hard rules**:
+  - **Preserve the story ID**. Never renumber.
+  - **Preserve every frontmatter field not covered by the user's change** (`assignee`, `sprint`, `created_at`, `discipline`, retirement/lineage fields). Only touch what the user explicitly asked to change.
+  - **Preserve the file's slug**. The orchestrator will not rename the file — if the title changes, the URL slug stays the same (git preserves the history via the same path).
+  - Do not change `status`. Status transitions belong to `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`. If the user's change makes the story ineligible for the current state, flag it in your response but do not modify the status field.
+
+### For `/conclave-story split US-NNN`
+
+- **Inputs you receive**: the parent story markdown, the parent acceptance markdown, the user's stated split axis (free-form), and N (2, 3, or 4 — the number of children).
+- **Output**: exactly N `## Story` + `## Acceptance` block pairs, in order, one pair per child.
+- **The split-safety rule (hard, enforced by you during proposal generation — not post-hoc by the orchestrator)**:
+  - Before emitting any child block, plan a scenario-to-child map covering every parent scenario at least once.
+  - If any parent scenario cannot be assigned to a child under the given axis (e.g. the axis is "by data layer vs UI" but the parent has a scenario purely about authorization that fits neither), **refuse the split**. Return a single line: `SPLIT_UNSAFE: Cannot cover parent scenario "<scenario name>" in any proposed child. Suggest the user adjust the split axis or reduce N.` Do not emit any child blocks.
+  - Only after the map is complete may you emit the child blocks. Each child's `## Acceptance` should include only its assigned parent scenarios plus at most one child-specific scenario if needed for coherence.
+- **Hard rules on child frontmatter**:
+  - Each child inherits the parent's `discipline` unless the split axis makes a different discipline obvious for that child. If unsure, inherit.
+  - Each child's `priority` and `estimate` are yours to set — a split typically produces smaller estimates than the parent.
+  - The orchestrator sets `split_from: US-NNN` on each child and `superseded_by: [US-CHILD_1, ...]` + `status: retired` + `retirement_reason: "Split into <children>"` on the parent. You do not touch the parent — only produce the children.
+
+### Common hard rules across all three sub-actions
+
+- Never mutate a story's ID.
+- Never delete a story file — retirement / splitting change frontmatter only.
+- Never touch files outside `conclave/product/{backlog.md,stories-backlog/}` and (when applicable) the active sprint's `stories/` and `acceptance/` directories.
+- Never modify a story whose `status` is past `ready` — the orchestrator refuses at Step 5 of `/conclave-story`; if you somehow receive one anyway, refuse in your response.
+- Never output prose summaries, plans, or explanations outside the required markdown blocks — the orchestrator parses your output structurally.

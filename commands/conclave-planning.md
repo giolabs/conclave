@@ -46,7 +46,7 @@ Read the rest of the workspace in parallel:
 - `$REPO_ROOT/conclave/product/definition-of-ready.md`
 - `$REPO_ROOT/conclave/product/architecture.md`
 - `$SPRINT_PATH/spec.md` and `$SPRINT_PATH/meta.md`
-- All `$SPRINT_PATH/stories/US-NNN-*.md` and `$SPRINT_PATH/acceptance/AC-US-NNN.md`
+- All `$SPRINT_PATH/stories/US-NNN-*.md` and `$SPRINT_PATH/acceptance/AC-US-NNN.md` — **skip any file whose frontmatter `status: retired`** (v0.8.0+: retired stories are historical records only and never enter planning; they may be present in the sprint dir if `/conclave-story retire` or `/conclave-story split` was run against a story already in the sprint).
 - If a previous sprint exists and `sprint_retrospective.required: true`: read `$REPO_ROOT/conclave/sprints/SPRINT-PREV/retro.md` to import active experiments.
 
 ## Step 3 — Ask the team for inputs

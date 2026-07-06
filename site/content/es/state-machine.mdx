@@ -17,12 +17,30 @@ Una historia de usuario pasa por un conjunto pequeño y bien definido de estados
 | `review` | PR abierto, esperando verificación de QA. |
 | `verified` | QA pasó los criterios de aceptación; esperando la aprobación de PR del Tech Lead. **Se usa solo cuando `peer_pr_review.required: true`.** |
 | `done` | Todos los gates pasados, DoD cumplida, PR mergeable. |
+| `retired` (v0.8.0+) | Estado terminal paralelo a `done`. Se entra vía `/conclave-story retire` o `/conclave-story split` (en el padre). Excluido de la colección de historias de todos los comandos. |
 
 ## Transiciones
 
 ```
 backlog → ready → in-progress → review → [verified] → done
+                                              ↘
+                                                retired  (terminal paralelo — vía /conclave-story)
 ```
+
+## El estado terminal `retired` (v0.8.0+)
+
+Una historia con `status: retired` queda fuera del scope de todos los comandos — `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review` y `/conclave-sprint` la saltean. Solo `/conclave-spec` está exento (autora historias nuevas en lugar de coleccionar existentes).
+
+Hay dos formas de entrar:
+
+1. **`/conclave-story retire US-NNN`** — retiro explícito. El campo `retirement_reason` se puebla con la razón del usuario; `retired_at` se setea con la fecha de hoy. Sin llamada a LLM — es una decisión de política mecánica.
+2. **`/conclave-story split US-NNN`** — descomposición. La historia padre pasa a `retired` con `superseded_by: [US-CHILD_1, ...]` y `retirement_reason: "Split into ..."`. Los hijos llevan `split_from: US-NNN`.
+
+No hay un comando para des-retirar. Si el equipo cambia de opinión, edita el frontmatter a mano — git preserva el audit trail.
+
+Casos de rechazo:
+- `/conclave-story retire` rechaza historias pasadas de `ready` (in-progress / review / verified / done) — retirar trabajo activo o ya shipeado sería deshonesto.
+- `/conclave-story split` rechaza lo mismo, y además rechaza si la regla de cobertura de escenarios del subagent PM no se puede satisfacer bajo el eje pedido (una línea `SPLIT_UNSAFE:` nombra el escenario problemático; no se escriben archivos).
 
 ### Cuando `peer_pr_review.required: true` (default de full-scrum)
 

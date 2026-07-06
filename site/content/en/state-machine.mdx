@@ -17,12 +17,30 @@ A user story moves through a small set of well-defined states. The exact path de
 | `review` | PR open, awaiting QA verification. |
 | `verified` | QA passed acceptance criteria; awaiting Tech Lead PR approval. **Used only when `peer_pr_review.required: true`.** |
 | `done` | All gates passed, DoD met, PR mergeable. |
+| `retired` (v0.8.0+) | Parallel terminal state to `done`. Entered via `/conclave-story retire` or `/conclave-story split` (on the parent). Excluded from every command's story collection. |
 
 ## Transitions
 
 ```
 backlog → ready → in-progress → review → [verified] → done
+                                              ↘
+                                                retired  (parallel terminal — via /conclave-story)
 ```
+
+## The `retired` terminal state (v0.8.0+)
+
+A story with `status: retired` is out of every command's scope — `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, and `/conclave-sprint` all skip it. Only `/conclave-spec` is exempt (it authors new stories rather than collecting existing ones).
+
+There are two ways in:
+
+1. **`/conclave-story retire US-NNN`** — explicit retirement. A `retirement_reason` frontmatter field is populated with the user's reason; `retired_at` is set to today. No LLM call — this is a mechanical policy decision.
+2. **`/conclave-story split US-NNN`** — decomposition. The parent story becomes `retired` with `superseded_by: [US-CHILD_1, ...]` and `retirement_reason: "Split into ..."`. The children carry `split_from: US-NNN`.
+
+There is no un-retire command. If a team changes their mind, they hand-edit the frontmatter — git preserves the audit trail.
+
+Refusal cases:
+- `/conclave-story retire` refuses stories past `ready` (in-progress / review / verified / done) — retiring active or shipped work would be dishonest.
+- `/conclave-story split` refuses the same, plus refuses if the PM subagent's scenario-coverage rule cannot be satisfied under the requested axis (a `SPLIT_UNSAFE:` line names the offending scenario; no files are written).
 
 ### When `peer_pr_review.required: true` (full-scrum default)
 

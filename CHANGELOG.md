@@ -4,6 +4,35 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+## [0.8.0]
+
+### Added
+- **`/conclave-story` (PM story authoring)** — four sub-actions the human PM can invoke between `/conclave-spec` runs to keep the backlog alive:
+  - `new` — allocates the next monotonic `US-NNN` and authors a story + acceptance file. User picks whether it lands in `conclave/product/stories-backlog/` (backlog-only) or is also pulled into the active sprint.
+  - `edit US-NNN` — revises a `ready` or `backlog` story per the user's stated change. Preserves the story ID and any frontmatter fields the user did not touch.
+  - `split US-NNN` — decomposes a parent story into 2, 3, or 4 children. The PM subagent enforces a hard scenario-coverage rule **during proposal generation** — if any parent Gherkin scenario cannot be assigned to a child under the given axis, the split is refused with `SPLIT_UNSAFE:` and no files are written. Parent becomes `status: retired` with `superseded_by: [US-CHILD_1, ...]`.
+  - `retire US-NNN` — mechanical frontmatter update, no LLM call. Sets `status: retired`, `retirement_reason`, `retired_at`. Refused on stories past `ready` (in-progress / review / verified / done) because retiring shipped or actively-implemented work would be dishonest.
+  Every action is available in every `team_mode` (solo, lean, full-scrum). None of them commit, push, or open a PR — the user runs `git commit` and `gh pr create` after reviewing.
+- **`/conclave-adr` (TL ADR authoring)** — two modes:
+  - Topic-directed: `/conclave-adr "<decision>"` has the Tech Lead research the decision (read-only exploration of the codebase, `architecture.md`, and existing ADRs) and write a full ADR file at `conclave/product/adr/ADR-NNN-<slug>.md`.
+  - Discovery: `/conclave-adr` (no args) has the TL propose 1–3 candidate decisions from gaps in `architecture.md` + open questions raised by sprint stories. User picks one via `AskUserQuestion`; the flow continues as topic-directed. If nothing surfaces, the command exits cleanly with `No ADR candidates surfaced`.
+  Every new ADR is `status: proposed`; team promotes to `accepted` on PR merge.
+- **New terminal story state `retired`** — parallel terminal to `done`. Excluded from every command's story collection (`/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, `/conclave-sprint`). `/conclave-spec` is intentionally exempt from the filter (it authors new stories rather than collecting existing ones). Documented in `SKILL.md` §6 and `story.template.md`.
+- **New optional story-frontmatter fields** — `retirement_reason`, `retired_at`, `superseded_by`, `split_from`. All optional; pre-0.8.0 story files are unaffected.
+- **New template `skills/conclave/templates/adr.template.md`** — ADR file format modelled on this repo's own `docs/adr/ADR-001-...md`. Includes YAML frontmatter (`id`, `title`, `status`, `date`, `deciders`, `tags`, `supersedes`, `superseded_by`) and body sections (Context / Decision / Alternatives Considered / Trade-offs / Consequences / Links).
+- **New standalone-ADR directory in target repos**: `conclave/product/adr/`. Created lazily on first `/conclave-adr` invocation. Numbering is monotonic and never reused.
+- **New backlog-only story directory in target repos**: `conclave/product/stories-backlog/`. Home for stories that exist in `backlog.md` but are not yet pulled into any sprint. Created lazily by `/conclave-story new` when the user picks "backlog only".
+- **Inline-ADR migration** — the first `/conclave-adr` run in a repo with pre-0.8.0 inline `### ADR-NNN:` sections in `architecture.md` extracts each to a standalone file under `adr/`, updates section 4 to a referenced-ADR table, and is idempotent + resumable: interrupted runs can be resumed by re-invoking the command (per-ADR existence check detects already-extracted ADRs and skips them). Migrated ADRs get `status: accepted` (the team already acted on them by shipping the architecture) and `date: "unknown"` (or the best-effort first-add date from `git log`).
+
+### Changed
+- `skills/conclave/templates/architecture.template.md` — section 4 restructured from inline `### ADR-NNN:` blocks to a **referenced-ADR table** with rows linking to `adr/ADR-NNN-<slug>.md`. New section 7 documents `/conclave-adr` and the `status: proposed → accepted → superseded` lifecycle.
+- `skills/conclave/agents/product-manager.md` — gains a "How you operate inside `/conclave-story`" section with sub-contracts for `new`, `edit`, and `split` (including the hard scenario-coverage rule for splits).
+- `skills/conclave/agents/tech-lead.md` — gains a "How you operate inside `/conclave-adr`" section covering topic-directed authoring, discovery mode, and hard rules (always `proposed`, cite evidence, ground in confirmed stack, distinct discovery titles).
+- `skills/conclave/templates/story.template.md` — status enum extended to include `retired`; four optional retirement / lineage frontmatter fields documented; state-transitions prose extended.
+- `skills/conclave/templates/product-backlog.template.md` — legend updated to include `retired` and reference the exclusion rule.
+- `commands/conclave-planning.md`, `commands/conclave-dev.md`, `commands/conclave-qa.md`, `commands/conclave-pr-review.md`, `commands/conclave-sprint.md` — each gains a one-line filter to exclude `status: retired` stories from its collection queries or its status guards. `/conclave-spec` is not modified.
+- `.claude-plugin/plugin.json` and `marketplace.json` — version bumped to `0.8.0`; marketplace description mentions the two new commands.
+
 ## [0.7.0]
 
 ### Added

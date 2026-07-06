@@ -47,6 +47,16 @@ In your project repo:
 
 # Or: run the entire sprint in one shot (steps 3–6 above, automated)
 /conclave-sprint
+
+# Mid-sprint story authoring — new, edit, split, retire
+/conclave-story new                    # PM authors a new story
+/conclave-story edit US-002            # revise a ready story
+/conclave-story split US-004           # decompose a story into 2–4 children
+/conclave-story retire US-005          # terminal — no LLM call
+
+# Author a Tech Lead ADR
+/conclave-adr "Postgres vs Redis for caching"   # topic-directed
+/conclave-adr                                    # discovery — TL proposes 1–3 candidates
 ```
 
 `/conclave-spec` invokes the Tech Lead and Product Manager subagents in parallel to produce:
@@ -154,6 +164,8 @@ Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251
 - `/conclave-board` — one-time scaffold of a local, branded Kanban board (Next.js + shadcn/ui) at `conclave-board/`, a sibling of `conclave/`. Columns mirror the story state machine; cards show ID, title, discipline, assignee, priority, and estimate. A plugin hook regenerates the board's data automatically whenever `conclave/` changes — no CI, no server, no LLM in the update loop. Read-only; never writes back to `conclave/`.
 
 - `/conclave-sprint` — run an entire active sprint end-to-end: planning → dev all ready stories → QA all review stories → Tech Lead PR review (if required). Each phase is profile-aware and failure-isolated per story.
+- `/conclave-story <new | edit US-NNN | split US-NNN | retire US-NNN>` — Product Manager mid-sprint story authoring, in every team mode. `new` allocates the next monotonic ID and lands the story in backlog (default) or the active sprint; `edit` revises a `ready`/`backlog` story; `split` decomposes a parent into 2–4 children (with a hard scenario-coverage safety rule enforced by the PM subagent); `retire` is a mechanical status change with no LLM call. Introduces the `retired` terminal state — retired stories are excluded from every command's collection queries.
+- `/conclave-adr [topic]` — Tech Lead ADR authoring. Topic-directed: `/conclave-adr "<decision>"` researches and writes a standalone ADR at `conclave/product/adr/ADR-NNN-<slug>.md`. Discovery: `/conclave-adr` (no args) has the TL propose 1–3 candidate decisions from sprint activity + architecture gaps, then authors the one the user picks. On first run in a repo with inline ADRs, migrates them to standalone files (atomic per ADR, resumable, idempotent). Every new ADR is `status: proposed`; the team promotes to `accepted` on PR merge.
 
 Sprint closeout ceremonies (review, retro) and stack-specific sub-specs are next.
 

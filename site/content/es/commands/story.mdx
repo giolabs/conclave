@@ -1,0 +1,99 @@
+---
+title: /conclave-story
+description: Gestión de historias del PM — new, edit, split, retire — fuera de la ceremonia /conclave-spec. Todas las acciones disponibles en cada team mode.
+---
+
+# /conclave-story
+
+Autora, refina, descompone, o retira una user story entre corridas de `/conclave-spec`. Cuatro sub-acciones dispatchadas por el primer argumento:
+
+```
+/conclave-story new
+/conclave-story edit US-NNN
+/conclave-story split US-NNN
+/conclave-story retire US-NNN
+```
+
+Todas las acciones están disponibles en cada `team_mode` (solo, lean, full-scrum). Ninguna commitea, pushea, ni abre un PR — el usuario corre `git commit` y `gh pr create` después de revisar.
+
+## Sub-acciones de un vistazo
+
+| Sub-acción | ¿Llamada al LLM? | Efecto |
+|---|---|---|
+| `new` | Subagent Product Manager | Aloca el siguiente `US-NNN` monotónico. Escribe un story + un acceptance file. El usuario elige: aterrizar solo en backlog, o también entrar al sprint activo. |
+| `edit US-NNN` | Subagent Product Manager | Revisa una historia `ready` o `backlog` según el cambio pedido por el usuario. Preserva el ID de la historia y los campos del frontmatter que el cambio no toca. |
+| `split US-NNN` | Subagent Product Manager | Descompone un padre en 2, 3 o 4 hijos. El padre queda `status: retired` con `superseded_by: [US-CHILD_1, ...]`. Fuerza una regla dura de cobertura de escenarios. |
+| `retire US-NNN` | **Sin llamada al LLM** | Update mecánico de frontmatter. Setea `status: retired`, `retirement_reason`, `retired_at`. |
+
+## `new`
+
+Pregunta al usuario (vía `AskUserQuestion`):
+
+- Título de la historia (texto libre)
+- **¿Dónde debería aterrizar?** — `Solo backlog` (default), o `Backlog + entrar al sprint activo` (solo se ofrece cuando existe un sprint)
+- Disciplina (`frontend | backend | mobile | qa | design | devops | multi`)
+- Prioridad (MoSCoW)
+- Estimación (T-shirt)
+
+Después delega al subagent PM para autorar tanto una historia como un archivo de aceptación. Los archivos aterrizan en `conclave/product/stories-backlog/US-NEW_ID-<slug>.md` (solo backlog) o `conclave/sprints/SPRINT-NNN/stories/US-NEW_ID-<slug>.md` (traído al sprint). El campo `assignee` queda vacío — la asignación es tarea de `/conclave-planning`.
+
+## `edit US-NNN`
+
+Rechaza historias pasadas de `ready` (in-progress / review / verified / done) con:
+
+> Story is past the ready gate. Editing acceptance criteria mid-implementation would invalidate the QA verification — surface the issue via a PR comment on the story file instead.
+
+Pregunta por el cambio como párrafo libre. El subagent PM revisa el markdown de la historia (y el de aceptación si los criterios cambiaron). El ID de la historia se preserva; el slug del archivo es estable (git trackea la historia por el mismo path).
+
+## `split US-NNN`
+
+Pregunta por:
+
+- **¿Cuántos splits?** — 2 / 3 / 4
+- **Eje del split** — párrafo libre (ej. "por user flow", "por data layer vs UI")
+
+El subagent PM planea un mapa escenario→hijo **antes de emitir cualquier bloque de hijo**. Si algún escenario Gherkin del padre no puede asignarse a un hijo bajo el eje dado, el split se rechaza con una sola línea:
+
+```
+SPLIT_UNSAFE: Cannot cover parent scenario "<name>" in any proposed child. Suggest the user adjust the split axis or reduce N.
+```
+
+No se escriben archivos en rechazo.
+
+En éxito, cada hijo obtiene su propio story + acceptance file con `split_from: US-NNN` en el frontmatter. El padre queda marcado `status: retired` con `superseded_by: [US-CHILD_1, US-CHILD_2, ...]`.
+
+## `retire US-NNN`
+
+Rechaza historias pasadas de `ready` (retirar trabajo in-progress / shipeado sería deshonesto) e historias ya `retired`.
+
+Pregunta por **razón del retiro** como párrafo libre no-vacío. Actualiza el frontmatter de la historia:
+
+- `status: retired`
+- `retirement_reason: <párrafo del usuario>`
+- `retired_at: <fecha ISO de hoy>`
+
+**Sin llamada al subagent.** El retiro es una decisión de política que el humano ya tomó; el PM no tiene research ni autoría que agregar.
+
+## El estado `retired` y la exclusión cross-command
+
+Las historias retired quedan excluidas de las collection queries de todos los comandos — `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, `/conclave-sprint`. `/conclave-spec` está exento a propósito (autora historias nuevas en vez de coleccionar existentes).
+
+Mirá la [máquina de estados de la historia](/es/state-machine) para el cuadro completo incluyendo la transición terminal-paralela a `retired`.
+
+## Configuración de modelos
+
+`/conclave-story` usa la misma lógica de resolución de modelos que todos los comandos de Conclave:
+
+- `models.overrides.product_manager` → `models.default` → modelo de la sesión padre.
+- Modelo inválido → línea `WARNING:`, fallback.
+- Bloque `models:` ausente → no-op silencioso.
+
+Mirá la [referencia de configuración](/es/configuration#model-configuration-block-optional-v070).
+
+## Guardrails
+
+- Nunca commitea.
+- Nunca toca archivos fuera de `conclave/product/` y (cuando aplica) los directorios `stories/` y `acceptance/` del sprint activo.
+- Nunca despacha múltiples historias en una invocación — dev/QA batch multi-story vive en `/conclave-dev` y `/conclave-qa` desde v0.6.0.
+- `retire` nunca llama al subagent — diseño intencional.
+- El output de `split` es validado tanto por el subagent PM (durante generación) como por el orquestador (chequeo post-hoc de count + coverage) como defense in depth.
