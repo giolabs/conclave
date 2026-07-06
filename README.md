@@ -34,11 +34,13 @@ In your project repo:
 # 3. Lock the sprint (once per sprint, when you're ready to start)
 /conclave-planning
 
-# 4. Each dev picks up their assigned story
+# 4. Each dev picks up their assigned story (one story, or several at once)
 /conclave-dev US-001
+/conclave-dev US-001 US-002 US-003   # parallel — each gets its own branch and PR
 
-# 5. QA verifies the story when it reaches review
+# 5. QA verifies stories when they reach review (one or several at once)
 /conclave-qa US-001
+/conclave-qa US-001 US-002           # parallel — each verified on its own branch
 
 # 6. Tech Lead approves the PR (only in profiles where peer_pr_review is on)
 /conclave-pr-review US-001

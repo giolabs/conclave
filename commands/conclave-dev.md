@@ -1,15 +1,46 @@
 ---
-description: Pick up a story from the active sprint and implement it. Creates a feature branch, spawns the Developer subagent (which writes code, tests, and runs them), updates the story to status review, and opens a PR. Profile-aware peer-review handling.
+description: Pick up one or more stories from the active sprint and implement them. Each story gets its own feature branch, Developer subagent, and PR. Multiple stories run in concurrent batches of ≤ 3. Profile-aware peer-review handling.
 allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git checkout:*), Bash(git switch:*), Bash(git branch:*), Bash(git push:*), Bash(git stash:*), Bash(ls:*), Bash(cat:*), Bash(date:*), Bash(gh pr create:*), Bash(gh pr view:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
-# /conclave-dev US-NNN
+# /conclave-dev US-NNN [US-NNN ...]
 
-Pick up a single user story from the active sprint and drive it through implementation. When this finishes, the story is in `status: review` with a feature branch and a PR ready for QA verification via `/conclave-qa US-NNN`.
+Pick up one or more user stories from the active sprint and drive each through implementation. When this finishes, every story is in `status: review` with its own feature branch and PR ready for QA verification.
 
-The argument `US-NNN` is required and must match a story file under the active sprint.
+- **Single story** (`/conclave-dev US-001`): identical to the previous behaviour — no change in output or flow.
+- **Multiple stories** (`/conclave-dev US-001 US-002 US-003`): each story gets its own branch and PR; stories run in concurrent batches of ≤ 3.
+
+At least one `US-NNN` argument is required; all must match story files under the active sprint.
 
 Follow these steps in order.
+
+---
+
+## Step 0 — Multi-story dispatch (skip entirely if only one story ID is provided)
+
+1. Parse all `US-NNN` arguments from the command invocation. If exactly one is present, skip this step entirely and continue with Step 1 as today.
+2. If duplicate IDs are present, deduplicate silently and print one warning line: *"Duplicate story IDs removed: `US-NNN`, ... — each will only be worked once."*
+3. **Validate all stories upfront** — direct file reads by the orchestrator, no Agent calls. For each story run the equivalent of Steps 1–3 (workspace check, active-sprint lookup, story-file resolution, status check, branch check). Collect per-story results. If ANY story fails validation, print a per-story table and stop — no Agent call is dispatched:
+   ```
+   US-001 — PASS (ready)
+   US-002 — FAIL: story not found in active sprint
+   US-003 — FAIL: status is in-progress (already claimed on feat/US-003-foo)
+   Refusing all stories. Fix the above and re-run.
+   ```
+4. Partition the validated story IDs into **batches of ≤ 3** (preserve order).
+5. For each batch:
+   - Issue one `Agent` tool call per story **in the same message** (concurrent). Each Agent call encapsulates all single-story steps (Steps 1–9 of this command) for that story ID.
+   - Wait for all calls in the batch to return.
+   - For each result record `{ story_id, outcome: ok|failed, branch, pr_url, error }`. On failure: reset that story's frontmatter `status: ready` (best effort) and record the error.
+6. After all batches complete, print the final summary table:
+   ```
+   | Story  | Branch               | PR                           | Outcome              |
+   |--------|----------------------|------------------------------|----------------------|
+   | US-001 | feat/US-001-login    | https://github.com/…/pull/42 | ✓ done               |
+   | US-002 | feat/US-002-profile  | https://github.com/…/pull/43 | ✓ done               |
+   | US-003 | feat/US-003-settings | —                            | ✗ failed: <error>    |
+   ```
+7. Stop. The individual story steps below were already executed inside each Agent call.
 
 ---
 
@@ -109,6 +140,6 @@ Print:
 
 - **Do not touch any file under `conclave/` except the single story file's frontmatter.** Architecture changes go in a separate ADR PR raised by the Tech Lead.
 - **Do not merge the PR.** Even with `peer_pr_review.required: false`, QA approval is structurally required before the story is `done`.
-- **Do not work multiple stories at once.** If the user invokes `/conclave-dev` on a second story while another is still `in-progress` on the same branch, refuse.
+- **Refuse a story only if that exact `US-NNN` is already `in-progress` on an existing branch** — not because other stories are concurrently in-progress on other branches. Parallel stories on separate branches are permitted and expected.
 - **Idempotent on resume.** If the branch exists, the story is `in-progress`, and the user opted to resume in Step 4: the Developer subagent must read what already exists in the branch before generating new code, not overwrite.
 - **If any of `git push`, `gh pr create`, or `gh pr edit` fails, do NOT roll back local commits.** Surface the error and let the user retry the network step manually. The local branch and story-frontmatter changes are the durable output.

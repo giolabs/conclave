@@ -1,22 +1,37 @@
 ---
 title: /conclave-qa
-description: Verificación adversarial de una historia contra sus criterios de aceptación en Gherkin. Estructuralmente requerido.
+description: Verificación adversarial de una o más historias contra sus criterios de aceptación en Gherkin. Estructuralmente requerido. Múltiples historias corren en batches concurrentes de ≤ 3.
 ---
 
-# /conclave-qa US-NNN
+# /conclave-qa US-NNN [US-NNN ...]
 
-Verifica una sola historia de usuario en `status: review` contra sus criterios de aceptación. Cuando termina, la historia pasó a uno de cuatro estados:
+Verifica una o más historias de usuario en `status: review` contra sus criterios de aceptación.
+
+```
+/conclave-qa US-001                   # historia única — comportamiento idéntico al anterior
+/conclave-qa US-001 US-002 US-003     # tres historias en paralelo, cada una en su branch
+```
+
+Cuando termina, cada historia pasó a uno de cuatro estados:
 
 - **`verified`** — QA pasó, esperando la aprobación de PR del Tech Lead. Pasa cuando `peer_pr_review.required: true`.
 - **`done`** — QA pasó y no hay un gate separado del TL. Pasa cuando `peer_pr_review.required: false`.
 - **`review` (UAT pendiente)** — se generaron y pushearon artefactos de UAT y nada falló, pero un checklist de mobile está esperando a una persona, o quedó incompleto. No es un defecto.
 - **`review` (con bloqueos)** — QA encontró fallas — en los escenarios Gherkin, la DoD, o la corrida de CI de los tests UAT generados. El dev (o la persona tester) arregla, y QA vuelve a correr.
 
-```
-/conclave-qa US-001
-```
-
 Este es uno de los dos gates **estructurales** de Scrum que Conclave hace cumplir (junto a Sprint Planning). No se puede saltar en ningún perfil. **QA no aprueba el PR él mismo** — la aprobación a nivel de código le corresponde al Tech Lead vía `/conclave-pr-review`. El veredicto de QA va al reporte de verificación y a un comentario en el PR.
+
+## Comportamiento multi-historia
+
+Cuando se pasa más de un ID de historia, aplica el mismo patrón de validación anticipada → batches concurrentes de ≤ 3 → aislamiento de fallos → tabla de resumen final que en `/conclave-dev`. Cada subagente de QA corre completamente independiente en su propia branch, incluyendo generación de UAT, espera al CI, y comentario en el PR. Una tabla de resumen final muestra el veredicto de cada historia:
+
+```
+| Historia | Branch               | PR                           | Veredicto           |
+|----------|----------------------|------------------------------|---------------------|
+| US-001   | feat/US-001-login    | https://github.com/…/pull/42 | ✓ passed            |
+| US-002   | feat/US-002-profile  | https://github.com/…/pull/43 | ✗ blocked (2 ítems) |
+| US-003   | feat/US-003-mobile   | https://github.com/…/pull/44 | ⏳ pending_uat       |
+```
 
 ## Qué hace
 
