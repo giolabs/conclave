@@ -90,6 +90,84 @@ Previously the command refused to start if any story was already `in-progress`. 
 
 If `feat/US-NNN-<slug>` already exists locally (the story is `in-progress` from a prior run), the command offers three options: switch and resume, delete and recreate, or abort. On resume, the execution subagent reads what already exists in the branch before adding new code.
 
+## Autonomous mode (v0.9.0+)
+
+`/conclave-dev` supports a headless mode that never calls `AskUserQuestion`. Activate it in one of three ways:
+
+```bash
+# 1. Ad-hoc CLI flag (highest priority; overrides config.md)
+/conclave-dev --no-interaction US-042    # --headless is a synonym
+
+# 2. Repo default — add to conclave/config.md
+commands:
+  dev:
+    interactive: false
+
+# 3. Implicit inside /conclave-sprint — Phase 2 forces autonomous mode regardless of config.md
+/conclave-sprint
+```
+
+### What changes
+
+- **No prompts.** Every `AskUserQuestion` site applies a documented default from the "sensible defaults" catalog. Cases without a safe default abort with a specific reason.
+- **Per-run report appended to the story file** as a new `## Autonomous run — <ISO>` section (see [`skills/conclave/templates/autonomous-run.template.md`](https://github.com/giolabs/conclave/blob/main/skills/conclave/templates/autonomous-run.template.md)).
+- **`Mode: autonomous` line** printed once at the start of the run. Interactive mode is silent — no `Mode:` line means interactive.
+
+### Sensible defaults catalog
+
+| Interactive prompt | Autonomous default |
+|---|---|
+| Assignee mismatch (story's `assignee` ≠ runner's `git config user.name`) | **Take over** — reassign to runner; recorded as `assignee_takeover: <old> → <new>` |
+| Existing local branch with no story commits | **Delete and recreate** from integration branch; recorded as `branch_recreated` |
+| Existing local branch with prior story commits by the same runner | **Switch and resume**; recorded as `branch_resumed: from <sha>` |
+| Existing local branch with commits by another `git config user.email` | **Abort** — `AUTONOMOUS_ABORT: story branch has commits from another dev (<their email>); manual coordination required` |
+
+### Abort scenarios (subagent-side)
+
+The Developer subagent returns `AUTONOMOUS_ABORT: <reason>` when:
+
+- **No test framework detected** — the story would require bootstrapping one (a human decision).
+- **New dependency required not in any ADR** — adding a dep is a scope change; the TL should have authorised it via `/conclave-adr` first.
+- **Ambiguous Gherkin scenario** — two plausible interpretations and nothing (ADR, story text, technical notes) disambiguates.
+- **Story requires an architectural change** — needs `/conclave-adr` first, not `/conclave-dev`.
+
+On abort, the story frontmatter is reset to `status: ready`. Nothing is pushed. A `## Autonomous run —` section with `Outcome: aborted` and the abort line under `Blockers` is appended to the story file. Re-run interactively (`/conclave-dev US-NNN` without `--no-interaction`) to resolve the ambiguity.
+
+### Example run-report section
+
+```markdown
+## Autonomous run — 2026-07-06T15:23:11Z
+
+- **Outcome**: done
+- **Branch**: `feat/US-042-jwt-middleware`
+- **PR**: https://github.com/foo/bar/pull/123
+- **Duration**: 4m 22s
+- **Runner**: gio (git config user.email = gio@example.com)
+- **Config source**: --no-interaction CLI flag
+
+### Autonomous decisions
+
+- assignee_takeover: alice → gio — story executed by whoever ran the batch
+- test framework selection: vitest — already in package.json; architecture.md Confirmed stack lists it
+
+### Files touched
+
+- `src/middleware/jwt.ts` (new, 47 lines)
+- `tests/middleware/jwt.test.ts` (new, 6 tests)
+
+### Tests
+
+- Gherkin scenarios covered: 3/3
+- Suite: `pnpm test` → 342 pass, 0 fail
+- Lint: 0 warnings
+```
+
+For `blocked` and `aborted` outcomes, the section additionally includes a `### Blockers` subsection with the failure or abort line verbatim.
+
+### Asymmetry: no `--force-interaction` flag
+
+There is intentionally no CLI flag to force interactive mode when `config.md` says autonomous. A CI job with `interactive: false` in its `config.md` fork must not be able to hang on a stray flag. To debug, edit `config.md` locally or use a different repo/branch.
+
 ## After it runs
 
 - QA verifies: [`/conclave-qa US-NNN`](/en/commands/qa).
