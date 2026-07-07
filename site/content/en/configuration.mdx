@@ -90,6 +90,34 @@ models:
 | `models.default` | Fallback model for any role whose override is absent. Must be a known model ID. |
 | `models.overrides.<role>` | Model for one specific role. Takes precedence over `models.default`. |
 
+### Command configuration block (optional, v0.9.0+)
+
+Assign per-command interaction behavior. Currently only `/conclave-dev` honors this block; other commands ignore it.
+
+```yaml
+# Uncomment to make /conclave-dev autonomous by default in this repo.
+# /conclave-sprint Phase 2 always forces autonomous regardless of this.
+# commands:
+#   dev:
+#     interactive: false
+```
+
+- **`commands.dev.interactive`** — `true` (default, historical behavior) or `false` (autonomous). When `false`, `/conclave-dev` never calls `AskUserQuestion`: every prompt site applies a documented sensible default (assignee takeover, branch recreate/resume, refuse when another dev's commits are on the branch), and ambiguities without a safe default abort with `AUTONOMOUS_ABORT: <reason>`. A `## Autonomous run — <ISO>` section is appended to the story file with outcome, decisions taken, files touched, test/lint summary, and blockers.
+
+**Coercion table** — a mis-typed value falls back with a warning:
+
+| Value | Resolved | Warning |
+|---|---|---|
+| `true` (boolean) | `true` — interactive | no |
+| `false` (boolean) | `false` — autonomous | no |
+| `"true"` / `"false"` (strings, case-insensitive) | boolean equivalent | yes |
+| `1` (or any non-zero integer) | `true` | yes |
+| `0` | `false` | yes |
+| any other value | `true` (safe fallback) | yes |
+| absent | `true` (silent default) | no |
+
+**Ad-hoc CLI override** — force autonomous for a single invocation without editing this file: `/conclave-dev --no-interaction US-042` (also accepted as `--headless`). There is no `--force-interaction` flag; the asymmetry is intentional so a CI job never hangs on a stray flag. See [`/conclave-dev`](/en/commands/dev#autonomous-mode-v090) for the full defaults catalog and abort scenarios.
+
 ### Conventions block
 
 `config.md`'s body (below the frontmatter) also documents team conventions every command respects:

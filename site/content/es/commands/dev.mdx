@@ -90,6 +90,84 @@ Anteriormente el comando se rehusaba a arrancar si alguna historia ya estaba `in
 
 Si `feat/US-NNN-<slug>` ya existe localmente (la historia está `in-progress` de una corrida anterior), el comando ofrece tres opciones: cambiar a esa branch y resumir, borrar y recrear, o abortar. Al resumir, el subagente de ejecución lee lo que ya existe en la branch antes de agregar código nuevo.
 
+## Modo autónomo (v0.9.0+)
+
+`/conclave-dev` soporta un modo headless que nunca llama a `AskUserQuestion`. Se activa de tres formas:
+
+```bash
+# 1. Flag CLI ad-hoc (prioridad más alta; overridea config.md)
+/conclave-dev --no-interaction US-042    # --headless es un sinónimo
+
+# 2. Default del repo — agregar a conclave/config.md
+commands:
+  dev:
+    interactive: false
+
+# 3. Implícito dentro de /conclave-sprint — la Fase 2 fuerza autonomous mode independientemente de config.md
+/conclave-sprint
+```
+
+### Qué cambia
+
+- **Sin prompts.** Cada sitio con `AskUserQuestion` aplica un default documentado del catálogo de "sensible defaults". Los casos sin default seguro abortan con una razón específica.
+- **Reporte por corrida appendeado al archivo de la historia** como una nueva sección `## Autonomous run — <ISO>` (mirá [`skills/conclave/templates/autonomous-run.template.md`](https://github.com/giolabs/conclave/blob/main/skills/conclave/templates/autonomous-run.template.md)).
+- **Línea `Mode: autonomous`** printeada una vez al inicio de la corrida. El modo interactivo es silencioso — la ausencia de `Mode:` significa interactivo.
+
+### Catálogo de sensible defaults
+
+| Prompt interactivo | Default autónomo |
+|---|---|
+| Assignee mismatch (`assignee` de la historia ≠ `git config user.name` del runner) | **Take over** — reasigna al runner; se graba como `assignee_takeover: <old> → <new>` |
+| Branch local existente sin commits de la historia | **Borrar y recrear** desde la branch de integración; se graba como `branch_recreated` |
+| Branch local existente con commits previos de la historia hechos por el mismo runner | **Switch and resume**; se graba como `branch_resumed: from <sha>` |
+| Branch local existente con commits de otro `git config user.email` | **Abort** — `AUTONOMOUS_ABORT: story branch has commits from another dev (<their email>); manual coordination required` |
+
+### Escenarios de abort (lado del subagent)
+
+El subagent Developer devuelve `AUTONOMOUS_ABORT: <reason>` cuando:
+
+- **No se detecta test framework** — la historia requeriría bootstrapear uno (decisión humana).
+- **Nueva dependencia requerida no listada en ningún ADR** — agregar una dep es un cambio de scope; el TL debería haberla autorizado vía `/conclave-adr` primero.
+- **Escenario Gherkin ambiguo** — dos interpretaciones plausibles y nada (ADR, texto de la historia, notas técnicas) desambigua.
+- **La historia requiere un cambio arquitectónico** — necesita `/conclave-adr` primero, no `/conclave-dev`.
+
+En abort, el frontmatter de la historia se resetea a `status: ready`. No se pushea nada. Una sección `## Autonomous run —` con `Outcome: aborted` y la línea de abort bajo `Blockers` se appendea al archivo de la historia. Re-correr en modo interactivo (`/conclave-dev US-NNN` sin `--no-interaction`) para resolver la ambigüedad.
+
+### Ejemplo de sección de run-report
+
+```markdown
+## Autonomous run — 2026-07-06T15:23:11Z
+
+- **Outcome**: done
+- **Branch**: `feat/US-042-jwt-middleware`
+- **PR**: https://github.com/foo/bar/pull/123
+- **Duration**: 4m 22s
+- **Runner**: gio (git config user.email = gio@example.com)
+- **Config source**: --no-interaction CLI flag
+
+### Autonomous decisions
+
+- assignee_takeover: alice → gio — story executed by whoever ran the batch
+- test framework selection: vitest — already in package.json; architecture.md Confirmed stack lists it
+
+### Files touched
+
+- `src/middleware/jwt.ts` (new, 47 lines)
+- `tests/middleware/jwt.test.ts` (new, 6 tests)
+
+### Tests
+
+- Gherkin scenarios covered: 3/3
+- Suite: `pnpm test` → 342 pass, 0 fail
+- Lint: 0 warnings
+```
+
+Para outcomes `blocked` y `aborted`, la sección adicionalmente incluye una subsección `### Blockers` con la línea de falla o abort verbatim.
+
+### Asimetría: sin flag `--force-interaction`
+
+Intencionalmente no hay un flag CLI para forzar modo interactivo cuando `config.md` dice autónomo. Un job de CI con `interactive: false` en su fork de `config.md` no debe poder colgarse por un flag suelto. Para debuggear, editá `config.md` localmente o usá otro repo/branch.
+
 ## Después de que corre
 
 - QA verifica: [`/conclave-qa US-NNN`](/es/commands/qa).

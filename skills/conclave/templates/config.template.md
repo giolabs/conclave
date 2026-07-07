@@ -48,6 +48,13 @@ ceremonies:
 #     # designer: claude-sonnet-4-6
 #     # devops: claude-sonnet-4-6
 #     # qa: claude-sonnet-4-6
+
+# Command behavior (optional). Omit this block entirely to keep interactive mode for every command.
+# Only /conclave-dev honors this in v0.9.0; other commands ignore the block. /conclave-sprint Phase 2
+# always forces dev.interactive: false regardless of what is set here.
+# commands:
+#   dev:
+#     interactive: true                # false = never call AskUserQuestion; apply sensible defaults or abort with a reason
 ---
 
 # Conclave configuration
@@ -120,6 +127,41 @@ The optional `models:` block lets the team assign a specific Claude model to eac
 **Role keys**: `product_manager`, `tech_lead`, `scrum_master`, `developer`, `designer`, `devops`, `qa`.
 
 To activate, uncomment the `models:` block in the frontmatter above and fill in the values your team wants.
+
+## Command configuration
+
+The optional `commands:` block controls per-command interaction behavior. In v0.9.0 only `/conclave-dev` honors it; other commands ignore the block.
+
+### `commands.dev.interactive` (v0.9.0+)
+
+Default: `true` (interactive — the historical behavior). When set to `false`, `/conclave-dev` runs in **autonomous mode**:
+
+- **No `AskUserQuestion` prompts.** Every current prompt site applies a documented sensible default (assignee takeover, branch recreate for stale local branches, branch resume when there is prior story work, refuse when another dev's commits are on the branch).
+- **Ambiguous decisions with no safe default abort.** The Developer subagent returns `AUTONOMOUS_ABORT: <one-line reason>` — no test framework detected, new dependency required that no ADR authorised, ambiguous Gherkin scenario, architecture change required. The story resets to `status: ready`; nothing is pushed.
+- **Per-run report appended to the story file** — `## Autonomous run — <ISO>` section with outcome (`done`/`blocked`/`aborted`), decisions taken, files touched, test/lint summary, and blockers if any.
+
+Set to `false` when running `/conclave-dev` from CI, from `/conclave-sprint` (Phase 2 forces autonomous regardless of this setting), or when you want a hands-off "just run it" flow. Interactive mode remains the default for direct terminal use where a human is watching.
+
+**Ad-hoc override** — force autonomous for a single invocation without editing this file:
+
+```
+/conclave-dev --no-interaction US-042
+/conclave-dev --headless US-042            # synonym
+```
+
+There is no CLI flag to force interactive when the config is autonomous — the asymmetry is intentional so a CI job never hangs on a stray flag.
+
+**Value coercion** — non-boolean values are coerced with a warning:
+
+| Value in `config.md` | Resolved | Warning |
+|---|---|---|
+| `true` (boolean) | `true` — interactive | no |
+| `false` (boolean) | `false` — autonomous | no |
+| `"true"` / `"false"` (strings, case-insensitive) | boolean equivalent | yes |
+| `1` (or any non-zero integer) | `true` | yes |
+| `0` | `false` | yes |
+| any other value | `true` (fallback) | yes |
+| field absent | `true` (silent default) | no |
 
 ## How to update this file
 
