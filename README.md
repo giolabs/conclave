@@ -48,6 +48,10 @@ In your project repo:
 # Or: run the entire sprint in one shot (steps 3–6 above, automated)
 /conclave-sprint
 
+# Autonomous /conclave-dev — no prompts, run report appended to the story file
+/conclave-dev --no-interaction US-042    # ad-hoc CLI override
+# Or set commands.dev.interactive: false in conclave/config.md to make it the default
+
 # Mid-sprint story authoring — new, edit, split, retire
 /conclave-story new                    # PM authors a new story
 /conclave-story edit US-002            # revise a ready story
@@ -166,6 +170,23 @@ Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251
 - `/conclave-sprint` — run an entire active sprint end-to-end: planning → dev all ready stories → QA all review stories → Tech Lead PR review (if required). Each phase is profile-aware and failure-isolated per story.
 - `/conclave-story <new | edit US-NNN | split US-NNN | retire US-NNN>` — Product Manager mid-sprint story authoring, in every team mode. `new` allocates the next monotonic ID and lands the story in backlog (default) or the active sprint; `edit` revises a `ready`/`backlog` story; `split` decomposes a parent into 2–4 children (with a hard scenario-coverage safety rule enforced by the PM subagent); `retire` is a mechanical status change with no LLM call. Introduces the `retired` terminal state — retired stories are excluded from every command's collection queries.
 - `/conclave-adr [topic]` — Tech Lead ADR authoring. Topic-directed: `/conclave-adr "<decision>"` researches and writes a standalone ADR at `conclave/product/adr/ADR-NNN-<slug>.md`. Discovery: `/conclave-adr` (no args) has the TL propose 1–3 candidate decisions from sprint activity + architecture gaps, then authors the one the user picks. On first run in a repo with inline ADRs, migrates them to standalone files (atomic per ADR, resumable, idempotent). Every new ADR is `status: proposed`; the team promotes to `accepted` on PR merge.
+
+### Autonomous mode for `/conclave-dev` (v0.9.0+)
+
+```bash
+# Ad-hoc, one-off
+/conclave-dev --no-interaction US-042    # or --headless as a synonym
+
+# Repo default — edit conclave/config.md
+# commands:
+#   dev:
+#     interactive: false
+
+# Sprint runs always use autonomous mode (Phase 2 forces it regardless of config.md)
+/conclave-sprint
+```
+
+Autonomous mode never calls `AskUserQuestion`. Every prompt site applies a documented default (assignee takeover, branch recreate for stale local branches, branch resume when there is prior story work, refuse when another dev's commits are on the branch); ambiguities without a safe default abort with `AUTONOMOUS_ABORT: <reason>` and reset the story to `status: ready`. Every autonomous run appends a `## Autonomous run — <ISO>` section to the story file with outcome (`done` / `blocked` / `aborted`), decisions taken, files touched, test/lint summary, and blockers if any. This makes `/conclave-sprint` and CI-driven story runs hands-off without giving up auditability.
 
 Sprint closeout ceremonies (review, retro) and stack-specific sub-specs are next.
 
