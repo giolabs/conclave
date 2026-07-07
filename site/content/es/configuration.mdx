@@ -90,6 +90,34 @@ models:
 | `models.default` | Modelo fallback para cualquier rol sin override. Debe ser un ID de modelo conocido. |
 | `models.overrides.<rol>` | Modelo para un rol específico. Tiene precedencia sobre `models.default`. |
 
+### Bloque de configuración de comandos (opcional, v0.9.0+)
+
+Asigna comportamiento de interacción por comando. Actualmente solo `/conclave-dev` honra este bloque; los otros comandos lo ignoran.
+
+```yaml
+# Descomentá para que /conclave-dev sea autónomo por default en este repo.
+# La Fase 2 de /conclave-sprint siempre fuerza autonomous independientemente de esto.
+# commands:
+#   dev:
+#     interactive: false
+```
+
+- **`commands.dev.interactive`** — `true` (default, comportamiento histórico) o `false` (autonomous). Cuando es `false`, `/conclave-dev` nunca llama a `AskUserQuestion`: cada sitio de prompt aplica un default sensato documentado (assignee takeover, branch recreate/resume, rechazar cuando hay commits de otro dev en la branch), y las ambigüedades sin default seguro abortan con `AUTONOMOUS_ABORT: <razón>`. Se appendea una sección `## Autonomous run — <ISO>` al archivo de la historia con outcome, decisiones tomadas, archivos tocados, resumen de tests/lint, y blockers.
+
+**Tabla de coerción** — un valor mal tipeado hace fallback con un warning:
+
+| Valor | Resuelto | Warning |
+|---|---|---|
+| `true` (boolean) | `true` — interactive | no |
+| `false` (boolean) | `false` — autonomous | no |
+| `"true"` / `"false"` (strings, case-insensitive) | boolean equivalente | sí |
+| `1` (o cualquier integer no-cero) | `true` | sí |
+| `0` | `false` | sí |
+| cualquier otro valor | `true` (fallback seguro) | sí |
+| ausente | `true` (default silencioso) | no |
+
+**Override ad-hoc por CLI** — forzar autonomous en una sola invocación sin editar este archivo: `/conclave-dev --no-interaction US-042` (también aceptado como `--headless`). No hay flag `--force-interaction`; la asimetría es intencional para que un job de CI nunca se cuelgue por un flag suelto. Mirá [`/conclave-dev`](/es/commands/dev#modo-autónomo-v090) para el catálogo completo de defaults y escenarios de abort.
+
 ### Bloque de convenciones
 
 El cuerpo de `config.md` (debajo del frontmatter) también documenta las convenciones del equipo que cada comando respeta:

@@ -95,7 +95,7 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review, Wave 1), `/conclave-story` (new / edit / split — `retire` is mechanical and skips this agent) | `/conclave-groom`, `/conclave-review` |
 | `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review + discipline assignment, Wave 1), `/conclave-pr-review` (code review + approval), `/conclave-adr` (topic-directed and discovery ADR authoring) | `/conclave-substack` |
 | `agents/scrum-master.md` | `/conclave-planning` (facilitator + assignment, Wave 2 — runs after PM/TL) | `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
-| `agents/developer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: frontend \| backend \| mobile \| multi`, or unset) — one Agent call per story, ≤ 3 concurrent per batch | — |
+| `agents/developer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: frontend \| backend \| mobile \| multi`, or unset) — one Agent call per story, ≤ 3 concurrent per batch. **Autonomous mode (v0.9.0+)**: `--no-interaction` CLI flag or `commands.dev.interactive: false` in `config.md` makes the command run headless — no `AskUserQuestion` prompts; defaults or `AUTONOMOUS_ABORT: <reason>`; per-run report appended to the story file. `/conclave-sprint` Phase 2 always forces autonomous. | — |
 | `agents/designer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: design`) | — |
 | `agents/devops.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: devops`) | — |
 | `agents/qa.md` | `/conclave-qa US-NNN [US-NNN ...]` — one Agent call per story, ≤ 3 concurrent per batch | — |
@@ -143,6 +143,7 @@ Templates available:
 - `uat-report.template.md`
 - `board.template.md`
 - `adr.template.md`
+- `autonomous-run.template.md`
 
 ---
 

@@ -84,8 +84,9 @@ Partition `DEV_STORIES` into batches of ≤ 3. For each batch:
     - `discipline: devops` → `MODEL_FOR_DEVOPS`
     - `frontend | backend | mobile | multi | unset` → `MODEL_FOR_DEVELOPER`
   - Omit the model param if null.
-- Wait for all calls in the batch. Collect `{ story_id, outcome: ok|failed, branch, pr_url, error }`.
-- On failure: reset that story's frontmatter `status: ready` (best effort). Record the error.
+  - **Autonomous mode is forced ON for every Phase 2 dispatch (`INTERACTIVE = false`), regardless of `conclave/config.md`'s `commands.dev.interactive` setting.** Sprint dispatches are inherently batched; per-story `AskUserQuestion` prompts would freeze the batch. Explicitly pass this into each per-story task prompt so `/conclave-dev`'s Step 1.5 resolver picks it up: prepend the same preamble line the CLI-flag path uses (see `commands/conclave-dev.md` Step 6 preamble). Additionally, set the run-report `Config source` field to the literal string `forced by /conclave-sprint Phase 2` so each story's appended `## Autonomous run —` section names the sprint runner as the driver.
+- Wait for all calls in the batch. Collect `{ story_id, outcome: ok|failed|aborted, branch, pr_url, error }`. `aborted` matches an `AUTONOMOUS_ABORT` return from the subagent (v0.9.0+); treat it the same as `failed` for sprint-summary purposes.
+- On failure or abort: the per-story Agent call has already reset that story's frontmatter `status: ready` and appended a `## Autonomous run —` section documenting the failure. Record the error/reason in the batch's collected results.
 
 Print a per-batch table using the same format as `/conclave-dev`'s final summary.
 

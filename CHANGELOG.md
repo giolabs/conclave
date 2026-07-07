@@ -4,6 +4,29 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+## [0.9.0]
+
+### Added
+- **Autonomous mode for `/conclave-dev`** — new `commands.dev.interactive: true | false` config field in `conclave/config.md` (default `true`, absent = interactive) and matching CLI flag `--no-interaction` (also accepted as `--headless`). When resolved to `false`, `/conclave-dev` runs headless:
+  - **No `AskUserQuestion` prompts.** Every current prompt site applies a documented sensible default:
+    - Assignee mismatch → **auto-take-over** (ownership follows execution).
+    - Existing local branch with no story commits → **delete and recreate** from the integration branch.
+    - Existing local branch with prior story commits by the same runner → **switch and resume**.
+    - Existing local branch with commits authored by another `git config user.email` → **refuse with `AUTONOMOUS_ABORT: story branch has commits from another dev (<their email>); manual coordination required`**.
+  - **Ambiguities without a safe default abort.** The Developer subagent returns `AUTONOMOUS_ABORT: <one-line reason>` for the four documented cases (no test framework detected; new dependency not in any ADR; ambiguous Gherkin scenario; story requires architectural change). The story resets to `status: ready`; no push, no PR.
+  - **Per-run report appended to the story file** — new `## Autonomous run — <ISO>` section covering outcome (`done` / `blocked` / `aborted`), autonomous decisions taken, files touched, test/lint summary, and blockers when applicable. Append-only across repeated runs — every autonomous invocation stacks a new section; prior sections are preserved verbatim.
+  - **Compact terminal summary** — a `Mode: autonomous` line at the start of the run and a bullet-list summary at the end (interactive mode is silent — no `Mode:` line — matching v0.8.0 behavior byte-for-byte).
+- **`/conclave-sprint` Phase 2 always forces autonomous mode** — regardless of `commands.dev.interactive` in `config.md`. Sprint dispatches are inherently batched; per-story prompts would freeze the batch. Each per-story `## Autonomous run —` section records `Config source: forced by /conclave-sprint Phase 2` so the driver is auditable.
+- **New template `skills/conclave/templates/autonomous-run.template.md`** — the run-report section format the orchestrator renders and appends to the story file. Fully documented in-file with a placeholder legend covering all fallbacks (early aborts, missing subagent payload fields, blockers subsection conditional rendering).
+- **New Developer-subagent operating mode** — `skills/conclave/agents/developer.md` gains a "How you operate in autonomous mode" section documenting the `AUTONOMOUS_ABORT` contract, the default catalog (test framework selection, ADR-mandated patterns, canonical scenario interpretations, established directory conventions), and the four hard abort scenarios.
+- **Value coercion for `commands.dev.interactive`** — the config field accepts `true`/`false` (boolean), `"true"`/`"false"` (strings, case-insensitive), and `0`/non-zero integers with a `WARNING:` line. Boolean is documented and unambiguous; other shapes fall back with the warning so a mistyped config never silently changes behavior.
+
+### Changed
+- `skills/conclave/templates/config.template.md` — new optional `commands:` YAML block (commented-out defaults) alongside the existing `models:` and `ceremonies:` blocks; new `## Command configuration` prose section with the coercion table.
+- `commands/conclave-dev.md` — CLI argument parse now extracts `--no-interaction` / `--headless` from the arg list before positional IDs; new Step 1.5 resolves `INTERACTIVE` from config and CLI; every existing `AskUserQuestion` site branches on `INTERACTIVE` (assignee mismatch, existing-branch handling); Step 6 prepends an autonomous-mode preamble to the subagent task and handles `AUTONOMOUS_ABORT` / error / structured-payload return paths; new Step 8.5 emits the run-report section on autonomous runs; Step 9 has interactive and autonomous variants.
+- `commands/conclave-sprint.md` Phase 2 dispatch hard-codes `INTERACTIVE = false` in the per-story task prompt; documents the Config-source-string convention for the appended run-report sections.
+- `.claude-plugin/plugin.json` and `marketplace.json` — version bumped to `0.9.0`; marketplace description notes the autonomous mode capability.
+
 ## [0.8.0]
 
 ### Added
