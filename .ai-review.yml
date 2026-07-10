@@ -1,0 +1,42 @@
+language: es
+tech: nextjs
+# appDir: site  # descomentar cuando beta.7 esté en npm — auto-detecta el stack desde site/
+
+ignore:
+  - site/node_modules/**
+  - site/.next/**
+  - site/out/**
+  - site/public/**
+  - "**/*.lock"
+  - "**/*.min.js"
+  - "**/*.min.css"
+  - "**/*.map"
+  - "**/*.svg"
+  - "**/*.png"
+  - "**/*.jpg"
+  - "**/*.jpeg"
+  - "**/*.gif"
+  - "**/*.ico"
+  - "**/*.pdf"
+  - conclave/sprints/**
+  - conclave/backlog/**
+
+minSeverity: minor
+
+checks:
+  security: true
+  performance: true
+  maintainability: true
+  testing: true
+  documentation: false
+  style: false
+  bug-risk: true
+  architecture: true
+
+inlineComments: true
+summaryComment: true
+maxInlineComments: 20
+
+feedback:
+  enabled: true
+  allowDismiss: true
