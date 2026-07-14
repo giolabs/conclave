@@ -4,6 +4,23 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+## [0.10.0]
+
+### Added
+- **New `/conclave-bug <report [text|url] | list>` command** — report a bug the moment it surfaces (typically after a PR has already merged and shipped a silent regression) without waiting for the next Sprint Planning cycle:
+  - `report` turns free text, or a URL/ID from a connected logging/error-tracking MCP tool, into a `BUG-NNN` artifact with Gherkin repro steps and an explicit `severity` (`critical | high | medium | low` — distinct from `priority`, since severity measures incident impact, not feature work order). MCP-tool detection is generic (keyword/description matching, e.g. "sentry", "error tracking", "logging") — never a hardcoded vendor name. Mirrors the bug as a GitHub issue via `gh issue create` (GitHub-only this phase).
+  - `list` is mechanical, no subagent call — same precedent as `/conclave-story retire` — and prints the open bug backlog sorted by severity.
+  - Bugs reuse the story state machine verbatim and are written directly in `status: ready` — they never pass through `backlog` or Sprint Planning. `/conclave-planning` and `/conclave-sprint` never collect them.
+- **New persistent directory `conclave/product/bugs/`** — flat, no index file; `/conclave-bug list` globs it directly.
+- **New template `skills/conclave/templates/bug.template.md`.**
+- **`/conclave-dev` and `/conclave-qa` now accept `BUG-NNN` IDs alongside `US-NNN`**, including mixed batches (`/conclave-dev US-001 BUG-004`) — the ID prefix disambiguates which directory each resolves against; every other step (branch naming, discipline-based charter routing, batching, model resolution, summary tables) is unchanged, since a bug's frontmatter has the same shape a story's does. `/conclave-pr-review` accepts either ID too (single-ID only, unbatched).
+- **The Developer subagent reproduces a bug before fixing it** — uses the bug file's inline Gherkin repro steps to confirm the failure is still present before writing any fix code; aborts (or asks, interactively) if it cannot reproduce. The rendered PR body includes `Fixes #<github_issue_number>` so merging auto-closes the mirrored GitHub issue.
+- **QA subagent gains a bug-report authoring mode** — "How you operate inside `/conclave-bug report`" turns raw input into Gherkin repro steps and an advisory severity note (the user's explicit severity choice is always authoritative, never overridden).
+
+### Changed
+- `skills/conclave/templates/pr-body.template.md` — the two previously-hardcoded sprint-relative links (and a new optional `Fixes #<n>` line) are now resolved by the orchestrator per ID prefix before being handed to the Developer subagent, since the template itself has no conditional syntax. Story PRs render byte-for-byte as before.
+- `.claude-plugin/plugin.json` and `marketplace.json` — version bumped to `0.10.0`; marketplace description updated to eleven shipped commands.
+
 ## [0.9.0]
 
 ### Added

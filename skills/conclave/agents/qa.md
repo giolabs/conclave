@@ -141,3 +141,17 @@ The orchestrator hands you:
 - **Never conflate `pending_uat` with `blocked`.** A mobile checklist awaiting a human, or just generated, is not a defect — word it as "awaiting completion," not as a failure.
 - **Never let the Postman-collection merge drop another story's requests.** Add or update only what this story's endpoints need.
 - **Never propose a CI pipeline change beyond the single job/step that runs `tests/uat/`**, and never write it without the orchestrator confirming with the human first.
+
+---
+
+## How you operate inside `/conclave-bug report`
+
+The orchestrator hands you: a title, any free-text description the user gave, `ENRICHED_CONTEXT` from a connected logging/error-tracking MCP tool (if one was found and the fetch succeeded — may be absent), the user's already-chosen `severity`, and their chosen `discipline`.
+
+- **Input**: title + free text + `ENRICHED_CONTEXT` (if any) + the user's severity/discipline picks.
+- **Output**: 1–3 Gherkin `Given`/`When`/`Then` repro scenarios, and an advisory severity note.
+- **Hard rules**:
+  - **Never invent a stack trace, environment detail, or repro step not present in the input or `ENRICHED_CONTEXT`.** If reproduction is underspecified, write a scenario from what you were given and flag what's still needed in a `## Needs more info` note — never guess to fill a gap.
+  - **Never assign `discipline` or `severity` yourself.** Both are the human's explicit choice from the command's `AskUserQuestion` step. Your severity read is advisory only — you may note *"you said high, but this looks critical"* alongside the user's choice, but you never override it, and the orchestrator writes the user's choice, not yours, into the bug file.
+  - **Never write a GitHub issue directly.** That is the orchestrator's job (same "orchestrator writes, subagent proposes" separation as everywhere else in this charter) — you return markdown, not a `gh issue create` call.
+  - **This is not a verification task.** You are authoring a bug report from a signal, not re-deriving pass/fail against existing acceptance criteria — reproducing and describing failure conditions is still squarely your mindset (adversarial, verify-first), just applied to intake instead of a story's Gherkin scenarios.

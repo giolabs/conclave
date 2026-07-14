@@ -1,16 +1,16 @@
 ---
-description: Verify one or more stories in status review against their Gherkin acceptance criteria. Generates UAT test artifacts (Playwright for frontend/multi, a shared Postman collection for backend/multi, a manual checklist for mobile), pushes them, and waits for the target repo's own CI to run them before spawning the adversarial QA subagent. Multiple stories run in concurrent batches of ≤ 3. QA does NOT approve the PR — that is the Tech Lead's call via /conclave-pr-review. QA verification is structurally required — cannot be skipped.
+description: Verify one or more stories and/or bugs (US-NNN or BUG-NNN) in status review against their Gherkin scenarios. Generates UAT test artifacts (Playwright for frontend/multi, a shared Postman collection for backend/multi, a manual checklist for mobile), pushes them, and waits for the target repo's own CI to run them before spawning the adversarial QA subagent. Multiple IDs run in concurrent batches of ≤ 3, story/bug IDs may be mixed. QA does NOT approve the PR — that is the Tech Lead's call via /conclave-pr-review. QA verification is structurally required — cannot be skipped.
 allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git rev-parse HEAD:*), Bash(git log:*), Bash(git switch:*), Bash(git checkout:*), Bash(git fetch:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(ls:*), Bash(cat:*), Bash(date:*), Bash(gh pr view:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh run list:*), Bash(gh run view:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
-# /conclave-qa US-NNN [US-NNN ...]
+# /conclave-qa US-NNN|BUG-NNN [US-NNN|BUG-NNN ...]
 
-Verify one or more user stories in `status: review` against their acceptance criteria.
+Verify one or more user stories and/or bugs in `status: review` against their Gherkin scenarios — a `BUG-NNN`'s repro steps are verified exactly like a story's acceptance criteria, same UAT/CI logic, same verdict semantics.
 
-- **Single story** (`/conclave-qa US-001`): identical to the previous behaviour — no change in output or flow.
-- **Multiple stories** (`/conclave-qa US-001 US-002`): each story is verified on its own branch, concurrently in batches of ≤ 3.
+- **Single ID** (`/conclave-qa US-001` or `/conclave-qa BUG-004`): identical flow either way — no change in output or flow versus verifying a story.
+- **Multiple, and mixed** (`/conclave-qa US-001 US-002 BUG-004`): each ID is verified on its own branch, concurrently in batches of ≤ 3, regardless of kind.
 
-When this finishes, each story has moved to one of four states:
+When this finishes, each ID has moved to one of four states:
 
 - **`verified`** — QA passed, awaiting Tech Lead PR approval. Happens when `peer_pr_review.required: true`.
 - **`done`** — QA passed and there is no separate TL gate. Happens when `peer_pr_review.required: false`.
@@ -27,29 +27,30 @@ Follow these steps in order.
 
 ## Step 0 — Multi-story dispatch (skip entirely if only one story ID is provided)
 
-1. Parse all `US-NNN` arguments from the command invocation. If exactly one is present, skip this step entirely and continue with Step 1 as today.
-2. If duplicate IDs are present, deduplicate silently and print one warning line: *"Duplicate story IDs removed: `US-NNN`, ... — each will only be verified once."*
-3. **Validate all stories upfront** — direct file reads by the orchestrator, no Agent calls. For each story run the equivalent of Steps 1–3 (workspace check, active-sprint lookup, story-file resolution, status check). Collect per-story results. If ANY story fails validation, print a per-story table and stop — no Agent call is dispatched:
+1. Parse all `US-NNN` and `BUG-NNN` arguments from the command invocation (order-preserving, IDs of either kind may be mixed). If exactly one ID is present, skip this step entirely and continue with Step 1 as today.
+2. If duplicate IDs are present, deduplicate silently and print one warning line: *"Duplicate IDs removed: `US-NNN`/`BUG-NNN`, ... — each will only be verified once."*
+3. **Validate all IDs upfront** — direct file reads by the orchestrator, no Agent calls. For each ID run the equivalent of Steps 1–3 (workspace check, resolution per §Step 2's prefix branching, status check). Collect per-ID results. If ANY ID fails validation, print a per-ID table and stop — no Agent call is dispatched:
    ```
-   US-001 — PASS (review)
-   US-002 — FAIL: story not found in active sprint
-   US-003 — FAIL: status is done (already verified)
-   Refusing all stories. Fix the above and re-run.
+   US-001  — PASS (review)
+   BUG-004 — PASS (review)
+   US-002  — FAIL: story not found in active sprint
+   US-003  — FAIL: status is done (already verified)
+   Refusing all IDs. Fix the above and re-run.
    ```
-4. Partition the validated story IDs into **batches of ≤ 3** (preserve order).
+4. Partition the validated IDs into **batches of ≤ 3** (preserve order, story/bug IDs mixed freely).
 5. For each batch:
-   - Issue one `Agent` tool call per story **in the same message** (concurrent). Each Agent call encapsulates all single-story steps (Steps 1–9 of this command) for that story ID, including UAT generation, CI wait, and verification report.
+   - Issue one `Agent` tool call per ID **in the same message** (concurrent). Each Agent call encapsulates all single-ID steps (Steps 1–9 of this command) for that ID, including UAT generation, CI wait, and verification report.
    - Wait for all calls in the batch to return.
-   - For each result record `{ story_id, outcome: passed|blocked|pending_uat|failed, pr_url, error }`. On a hard error (Agent call failed, not a QA `blocked`): record the error — do not attempt a story-status reset (the story may already have been partially updated by the subagent).
+   - For each result record `{ id, outcome: passed|blocked|pending_uat|failed, pr_url, error }`. On a hard error (Agent call failed, not a QA `blocked`): record the error — do not attempt a status reset (the file may already have been partially updated by the subagent).
 6. After all batches complete, print the final summary table:
    ```
-   | Story  | Branch               | PR                           | Verdict              |
-   |--------|----------------------|------------------------------|----------------------|
-   | US-001 | feat/US-001-login    | https://github.com/…/pull/42 | ✓ passed             |
-   | US-002 | feat/US-002-profile  | https://github.com/…/pull/43 | ✗ blocked (2 items)  |
-   | US-003 | feat/US-003-mobile   | https://github.com/…/pull/44 | ⏳ pending_uat        |
+   | ID      | Branch                | PR                           | Verdict              |
+   |---------|-----------------------|-------------------------------|----------------------|
+   | US-001  | feat/US-001-login     | https://github.com/…/pull/42 | ✓ passed             |
+   | BUG-004 | feat/BUG-004-checkout | https://github.com/…/pull/43 | ✓ passed             |
+   | US-003  | feat/US-003-mobile    | https://github.com/…/pull/44 | ⏳ pending_uat        |
    ```
-7. Stop. The individual story steps below were already executed inside each Agent call.
+7. Stop. The individual steps below were already executed inside each Agent call.
 
 ---
 
@@ -59,21 +60,23 @@ Follow these steps in order.
 2. Confirm `$REPO_ROOT/conclave/config.md` exists. If not, suggest `/conclave-init` and stop.
 3. Confirm `ceremonies.qa_verification.required: true`. If somehow `false`, refuse with: *"qa_verification is a structural Scrum gate and cannot be disabled. Edit config.md to restore required: true and re-run."*
 
-## Step 2 — Resolve the story
+## Step 2 — Resolve the story or bug
 
-1. Parse `US-NNN`. If missing, ask via `AskUserQuestion` to pick from the list of `review` stories in the active sprint.
-2. Find the active sprint as in `/conclave-dev` Step 2.
-3. Locate `$REPO_ROOT/conclave/sprints/$SPRINT_ID/stories/US-NNN-*.md` and `$REPO_ROOT/conclave/sprints/$SPRINT_ID/acceptance/AC-US-NNN.md`. If either missing, refuse.
-4. Read the story frontmatter:
+1. Parse `US-NNN`/`BUG-NNN`. If missing, ask via `AskUserQuestion` to pick from the list of `review` stories in the active sprint (bugs are not offered in this picker — same rationale as `/conclave-dev`).
+2. **Resolution by ID prefix**:
+   - **`US-NNN`**: find the active sprint as in `/conclave-dev` Step 2. Locate `$REPO_ROOT/conclave/sprints/$SPRINT_ID/stories/US-NNN-*.md` and `$REPO_ROOT/conclave/sprints/$SPRINT_ID/acceptance/AC-US-NNN.md`. If either missing, refuse.
+   - **`BUG-NNN`**: no sprint lookup. Locate `$REPO_ROOT/conclave/product/bugs/BUG-NNN-*.md`. If missing, refuse. A bug has no separate acceptance file — its Gherkin repro steps live inline (see `bug.template.md`); every place below that reads "the acceptance file" reads the bug file itself instead.
+   - Any other prefix → refuse with `Unrecognized ID prefix: <id>. Expected US-NNN or BUG-NNN.`
+3. Read the frontmatter (same status enum for both):
    - `status: review` → continue.
-   - `status: in-progress` → refuse: *"Story is still in development. Wait for `/conclave-dev` to push it to `review`."*
-   - `status: retired` → refuse: *"Story is retired and cannot be QA-verified. Retired stories are terminal — un-retire by hand-editing the frontmatter if this was a mistake, then re-run."*
-   - `status: done` → refuse: *"Story is already verified. Past verification reports live in the acceptance file."*
+   - `status: in-progress` → refuse: *"Story/bug is still in development. Wait for `/conclave-dev` to push it to `review`."*
+   - `status: retired` → refuse: *"Story/bug is retired and cannot be QA-verified. Retired items are terminal — un-retire by hand-editing the frontmatter if this was a mistake, then re-run."*
+   - `status: done` → refuse: *"Story/bug is already verified. Past verification reports live in the acceptance/bug file."*
    - Anything else → refuse.
 
 ## Step 3 — Switch to the dev branch
 
-1. The branch should be `feat/US-NNN-<slug>` from the story's slug.
+1. The branch should be `feat/US-NNN-<slug>` or `feat/BUG-NNN-<slug>` from the ID's slug.
 2. `git switch $BRANCH` (or `git checkout $BRANCH`). If the branch does not exist locally, ask the user via `AskUserQuestion` whether to fetch it (`git fetch origin $BRANCH:$BRANCH`) or abort.
 3. Capture `git rev-parse HEAD` as `COMMIT_SHA` — this is the SHA the verification report is anchored to.
 
@@ -84,8 +87,8 @@ Read:
 - `$REPO_ROOT/conclave/config.md` — `team_profile`, `ceremonies.peer_pr_review.required`, `ceremonies.qa_verification.ci_wait_timeout_minutes` (default `20` if absent), and `models.*`. Resolve `MODEL_FOR_QA` = `models.overrides.qa` → `models.default` → null (session). Invalid model name → print `WARNING: Unknown model '<value>' for role qa. Falling back to <next_fallback>.` then continue. Absent `models:` block → null, no warning. Print `Model for qa: <id or 'session default'>` if non-null.
 - `$REPO_ROOT/conclave/product/definition-of-done.md`
 - `$REPO_ROOT/conclave/team/testing-environments.md` — if missing, or every environment/variable row is still `TBD`, set `UAT_ENABLED = false` and skip Steps 5–7 entirely (go straight to today's Gherkin-only verification at Step 8). Otherwise `UAT_ENABLED = true`.
-- The story file (note `discipline`)
-- The acceptance file
+- The story or bug file (note `discipline`)
+- The acceptance file (`US-NNN`) or the bug file itself, which holds its own repro steps inline (`BUG-NNN`)
 - `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/verification-report.template.md`
 - `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/uat-report.template.md` (only if `UAT_ENABLED`)
 - The existing `tests/uat/api-collection.postman_collection.json` and `tests/uat/US-NNN-UAT.md` in the target repo, if present (only if `UAT_ENABLED`) — a pre-existing `US-NNN-UAT.md` means this is a *second* run reading back a CI/mobile result, not the first
@@ -153,7 +156,7 @@ Wait for the subagent. If it errors, surface and stop.
 ## Step 8 — Write outputs
 
 ### 8.1 Append the verification report and finalize the UAT report
-Append `report_markdown` to the end of `acceptance/AC-US-NNN.md`. Never overwrite previous verification sections. If `uat_report_final` is non-null, overwrite `tests/uat/US-NNN-UAT.md` with it — this is the one case where overwriting the file is correct, since it's replacing the placeholder shell Step 5.2 wrote with the real, now-known CI outcome. Commit with `chore(US-NNN): QA verification report` on the dev branch.
+Append `report_markdown` to the end of `acceptance/AC-US-NNN.md` (`US-NNN`) or `conclave/product/bugs/BUG-NNN-*.md` (`BUG-NNN` — appended to the bug file itself, since it has no separate acceptance file). Never overwrite previous verification sections. If `uat_report_final` is non-null, overwrite `tests/uat/<ID>-UAT.md` with it — this is the one case where overwriting the file is correct, since it's replacing the placeholder shell Step 5.2 wrote with the real, now-known CI outcome. Commit with `chore(<ID>): QA verification report` on the dev branch.
 
 ### 8.2 Update the story file
 - `verdict: passed`:
@@ -196,9 +199,9 @@ Print:
 
 ## Guardrails
 
-- **Do not modify any file outside `conclave/`, the story's acceptance file, and `tests/uat/US-NNN.spec.ts` / `tests/uat/api-collection.postman_collection.json` / `tests/uat/postman-environment.json` / `tests/uat/US-NNN-UAT.md`.** QA writes verification reports and UAT artifacts; QA does NOT fix code.
+- **Do not modify any file outside `conclave/`, the story's acceptance file (or the bug file itself, for `BUG-NNN`), and `tests/uat/<ID>.spec.ts` / `tests/uat/api-collection.postman_collection.json` / `tests/uat/postman-environment.json` / `tests/uat/<ID>-UAT.md`.** QA writes verification reports and UAT artifacts; QA does NOT fix code.
 - **May propose (with human confirmation via `AskUserQuestion`) an addition to `.github/workflows/*.yml` limited to running `tests/uat/`** — no other pipeline changes, and never written without that confirmation.
-- **Never delete prior verification sections.** Each run appends a new `## Verification — <date>` block. The acceptance file is the story's full audit trail.
+- **Never delete prior verification sections.** Each run appends a new `## Verification — <date>` block. The acceptance/bug file is the story's/bug's full audit trail.
 - **Never overwrite another story's requests in the shared Postman collection.** Merge only.
 - **Never resolve, read, or write a secret value**, anywhere, at any step. Only environment-variable/CI-secret names ever appear in anything written.
 - **Never use `gh pr review --approve` or `gh pr review --request-changes`.** QA's role ends at the verification report and a PR comment. Code-level approval is the Tech Lead's call, exercised through `/conclave-pr-review`.

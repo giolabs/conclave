@@ -1,5 +1,5 @@
 ---
-description: Tech Lead PR review and approval gate. Validates that QA already verified the story behaviorally, then spawns the Tech Lead subagent to review the diff against the architecture, ADRs, and code-level DoD items. On approve, runs gh pr review --approve and moves the story to done. On request-changes, moves it back to review for the dev to fix. Only runs when ceremonies.peer_pr_review.required is true.
+description: Tech Lead PR review and approval gate for a story or bug (US-NNN or BUG-NNN). Validates that QA already verified it behaviorally, then spawns the Tech Lead subagent to review the diff against the architecture, ADRs, and code-level DoD items. On approve, runs gh pr review --approve and moves it to done. On request-changes, moves it back to review for the dev to fix. Only runs when ceremonies.peer_pr_review.required is true.
 allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git switch:*), Bash(git checkout:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(ls:*), Bash(cat:*), Bash(date:*), Bash(gh pr view:*), Bash(gh pr review:*), Bash(gh pr diff:*), Bash(gh pr checks:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
@@ -21,12 +21,14 @@ Follow these steps in order.
    - `false` → refuse with: *"Your team profile (`lean` or custom-off) has `peer_pr_review.required: false`. There is no separate Tech Lead PR gate. QA verification is the merge signal — once `/conclave-qa US-NNN` passes, the story is `done`."*
    - `true` → continue.
 
-## Step 2 — Resolve the story
+## Step 2 — Resolve the story or bug
 
-1. Parse `US-NNN`. If missing, ask via `AskUserQuestion` to pick from the list of `verified` stories in the active sprint.
-2. Find the active sprint as in `/conclave-dev` Step 2.
-3. Locate the story and acceptance files. If either missing, refuse.
-4. Read the story frontmatter:
+1. Parse `US-NNN`/`BUG-NNN`. If missing, ask via `AskUserQuestion` to pick from the list of `verified` stories in the active sprint (bugs are not offered in this picker — same rationale as `/conclave-dev`).
+2. **Resolution by ID prefix** (same branching as `/conclave-dev`/`/conclave-qa`):
+   - **`US-NNN`**: find the active sprint as in `/conclave-dev` Step 2. Locate the story and acceptance files. If either missing, refuse.
+   - **`BUG-NNN`**: no sprint lookup. Locate `$REPO_ROOT/conclave/product/bugs/BUG-NNN-*.md`. If missing, refuse. No separate acceptance file — the bug file holds its own verification history.
+   - Any other prefix → refuse with `Unrecognized ID prefix: <id>. Expected US-NNN or BUG-NNN.`
+3. Read the frontmatter (same status enum for both):
    - `status: verified` → continue (this is the happy path: QA passed, TL approval pending).
    - `status: review` → refuse: *"QA has not verified this story yet. Run `/conclave-qa US-NNN` first."*
    - `status: in-progress` → refuse: *"Story is still in development."*
@@ -36,7 +38,7 @@ Follow these steps in order.
 
 ## Step 3 — Switch to the dev branch
 
-1. Branch name is `feat/US-NNN-<slug>` from the story's slug.
+1. Branch name is `feat/US-NNN-<slug>` or `feat/BUG-NNN-<slug>` from the ID's slug.
 2. `git switch $BRANCH`. If not present locally, ask user whether to `git fetch origin $BRANCH:$BRANCH` first.
 3. Determine the integration branch from `config.md` or default to `main`. Compute the diff: `git diff $INTEGRATION_BRANCH...$BRANCH`.
 

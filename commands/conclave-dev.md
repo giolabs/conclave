@@ -1,17 +1,18 @@
 ---
-description: Pick up one or more stories from the active sprint and implement them. Each story gets its own feature branch, Developer subagent, and PR. Multiple stories run in concurrent batches of ≤ 3. Profile-aware peer-review handling. Supports autonomous (no-interaction) mode via `--no-interaction` CLI flag or `commands.dev.interactive: false` in config.md.
+description: Pick up one or more stories and/or bugs (US-NNN or BUG-NNN) and implement them. Each gets its own feature branch, Developer subagent, and PR. Multiple IDs run in concurrent batches of ≤ 3, story/bug IDs may be mixed. Profile-aware peer-review handling. Supports autonomous (no-interaction) mode via `--no-interaction` CLI flag or `commands.dev.interactive: false` in config.md.
 allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git checkout:*), Bash(git switch:*), Bash(git branch:*), Bash(git push:*), Bash(git stash:*), Bash(git log:*), Bash(git config:*), Bash(ls:*), Bash(cat:*), Bash(date:*), Bash(gh pr create:*), Bash(gh pr view:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
-# /conclave-dev [--no-interaction] US-NNN [US-NNN ...]
+# /conclave-dev [--no-interaction] US-NNN|BUG-NNN [US-NNN|BUG-NNN ...]
 
-Pick up one or more user stories from the active sprint and drive each through implementation. When this finishes, every story is in `status: review` with its own feature branch and PR ready for QA verification.
+Pick up one or more user stories and/or bugs from the active sprint (stories) or the bug backlog (bugs) and drive each through implementation. When this finishes, every ID is in `status: review` with its own feature branch and PR ready for QA verification.
 
-- **Single story** (`/conclave-dev US-001`): identical to the previous behaviour — no change in output or flow.
-- **Multiple stories** (`/conclave-dev US-001 US-002 US-003`): each story gets its own branch and PR; stories run in concurrent batches of ≤ 3.
-- **Autonomous mode** (`/conclave-dev --no-interaction US-001` OR `commands.dev.interactive: false` in `conclave/config.md`): the command never calls `AskUserQuestion`. Every prompt site applies a documented sensible default (assignee takeover, branch recreate/resume) or aborts with `AUTONOMOUS_ABORT: <reason>` when no safe default exists. A `## Autonomous run — <ISO>` section is appended to the story file with outcome, decisions, files touched, and blockers if any. Synonym: `--headless`.
+- **Single ID** (`/conclave-dev US-001` or `/conclave-dev BUG-004`): identical flow either way — a `BUG-NNN`'s frontmatter has the same `discipline`/`status`/`assignee` shape a story's does, so nothing about this command needs to know which kind of ID it's holding beyond where to look it up (§Step 2).
+- **Multiple, and mixed** (`/conclave-dev US-001 US-002 BUG-004`): each ID gets its own branch and PR; IDs run in concurrent batches of ≤ 3 regardless of kind.
+- **Autonomous mode** (`/conclave-dev --no-interaction US-001` OR `commands.dev.interactive: false` in `conclave/config.md`): the command never calls `AskUserQuestion`. Every prompt site applies a documented sensible default (assignee takeover, branch recreate/resume) or aborts with `AUTONOMOUS_ABORT: <reason>` when no safe default exists. A `## Autonomous run — <ISO>` section is appended to the file with outcome, decisions, files touched, and blockers if any. Synonym: `--headless`.
+- **Bugs (`BUG-NNN`) reproduce before they fix.** The Developer subagent confirms the bug is still present using its Gherkin repro steps before writing any fix code, and the PR body includes `Fixes #<github_issue_number>` to auto-close the mirrored GitHub issue on merge. See Step 6.
 
-At least one `US-NNN` argument is required; all must match story files under the active sprint.
+At least one `US-NNN`/`BUG-NNN` argument is required; every `US-NNN` must match a story file under the active sprint, every `BUG-NNN` must match a bug file under `conclave/product/bugs/`.
 
 Follow these steps in order.
 
@@ -19,30 +20,31 @@ Follow these steps in order.
 
 ## Step 0 — Multi-story dispatch (skip entirely if only one story ID is provided)
 
-1. **Parse the CLI flags first.** Scan the arg list for `--no-interaction` or `--headless`. Set `CLI_NO_INTERACTION = true` if either appears (idempotent — multiple occurrences are a no-op). Remove those tokens from the arg list before parsing story IDs.
-2. Parse all `US-NNN` arguments from the (post-flag-removal) arg list. If exactly one is present, skip this step entirely and continue with Step 1 as today (the `CLI_NO_INTERACTION` value is carried forward and used by Step 1.5 below).
-3. If duplicate IDs are present, deduplicate silently and print one warning line: *"Duplicate story IDs removed: `US-NNN`, ... — each will only be worked once."*
-4. **Validate all stories upfront** — direct file reads by the orchestrator, no Agent calls. For each story run the equivalent of Steps 1–3 (workspace check, active-sprint lookup, story-file resolution, status check, branch check). Collect per-story results. If ANY story fails validation, print a per-story table and stop — no Agent call is dispatched:
+1. **Parse the CLI flags first.** Scan the arg list for `--no-interaction` or `--headless`. Set `CLI_NO_INTERACTION = true` if either appears (idempotent — multiple occurrences are a no-op). Remove those tokens from the arg list before parsing IDs.
+2. Parse all `US-NNN` and `BUG-NNN` arguments from the (post-flag-removal) arg list (order-preserving, IDs of either kind may be mixed in one invocation). If exactly one ID is present, skip this step entirely and continue with Step 1 as today (the `CLI_NO_INTERACTION` value is carried forward and used by Step 1.5 below). An ID with any other prefix is invalid — refuse it individually with `Unrecognized ID prefix: <id>. Expected US-NNN or BUG-NNN.` (folded into the per-ID validation table in point 4).
+3. If duplicate IDs are present, deduplicate silently and print one warning line: *"Duplicate IDs removed: `US-NNN`/`BUG-NNN`, ... — each will only be worked once."*
+4. **Validate all IDs upfront** — direct file reads by the orchestrator, no Agent calls. For each ID run the equivalent of Steps 1–3 (workspace check, resolution per §Step 2's prefix branching, status check, branch check). Collect per-ID results. If ANY ID fails validation, print a per-ID table and stop — no Agent call is dispatched:
    ```
-   US-001 — PASS (ready)
-   US-002 — FAIL: story not found in active sprint
-   US-003 — FAIL: status is in-progress (already claimed on feat/US-003-foo)
-   Refusing all stories. Fix the above and re-run.
+   US-001  — PASS (ready)
+   BUG-004 — PASS (ready)
+   US-002  — FAIL: story not found in active sprint
+   US-003  — FAIL: status is in-progress (already claimed on feat/US-003-foo)
+   Refusing all IDs. Fix the above and re-run.
    ```
-5. Partition the validated story IDs into **batches of ≤ 3** (preserve order).
+5. Partition the validated IDs into **batches of ≤ 3** (preserve order, story/bug IDs mixed freely).
 6. For each batch:
-   - Issue one `Agent` tool call per story **in the same message** (concurrent). Each Agent call encapsulates all single-story steps (Steps 1–9 of this command) for that story ID. **Propagate `CLI_NO_INTERACTION`** into each per-story invocation so they resolve `INTERACTIVE` identically to the parent.
+   - Issue one `Agent` tool call per ID **in the same message** (concurrent). Each Agent call encapsulates all single-ID steps (Steps 1–9 of this command) for that ID. **Propagate `CLI_NO_INTERACTION`** into each per-ID invocation so they resolve `INTERACTIVE` identically to the parent.
    - Wait for all calls in the batch to return.
-   - For each result record `{ story_id, outcome: ok|failed|aborted, branch, pr_url, error }`. On failure or `AUTONOMOUS_ABORT`: the per-story invocation has already reset that story's frontmatter `status: ready` (best effort). Record the error/reason.
+   - For each result record `{ id, outcome: ok|failed|aborted, branch, pr_url, error }`. On failure or `AUTONOMOUS_ABORT`: the per-ID invocation has already reset that story's/bug's frontmatter `status: ready` (best effort). Record the error/reason.
 7. After all batches complete, print the final summary table:
    ```
-   | Story  | Branch               | PR                           | Outcome              |
-   |--------|----------------------|------------------------------|----------------------|
-   | US-001 | feat/US-001-login    | https://github.com/…/pull/42 | ✓ done               |
-   | US-002 | feat/US-002-profile  | https://github.com/…/pull/43 | ✓ done               |
-   | US-003 | feat/US-003-settings | —                            | ✗ failed: <error>    |
+   | ID      | Branch                | PR                           | Outcome              |
+   |---------|-----------------------|-------------------------------|----------------------|
+   | US-001  | feat/US-001-login     | https://github.com/…/pull/42 | ✓ done               |
+   | BUG-004 | feat/BUG-004-checkout | https://github.com/…/pull/43 | ✓ done               |
+   | US-003  | feat/US-003-settings  | —                             | ✗ failed: <error>    |
    ```
-8. Stop. The individual story steps below were already executed inside each Agent call.
+8. Stop. The individual steps below were already executed inside each Agent call.
 
 ---
 
@@ -73,16 +75,21 @@ if CLI_NO_INTERACTION == true:   INTERACTIVE = false     # CLI always wins
 
 If `INTERACTIVE == false`, print one line: `Mode: autonomous`. If `INTERACTIVE == true`, print nothing (silent default). Also compute `RUN_START_ISO = date -u +%Y-%m-%dT%H:%M:%SZ` — used later for the run-report timestamp.
 
-## Step 2 — Resolve the story
+## Step 2 — Resolve the story or bug
 
-1. Parse the `US-NNN` argument. If missing or malformed:
-   - **Interactive**: ask the user via `AskUserQuestion` to pick from the list of `ready` and `in-progress` stories in the active sprint.
-   - **Autonomous**: refuse with `AUTONOMOUS_ABORT: US-NNN argument required; command cannot pick a story without input.` Do not proceed.
-2. List `$REPO_ROOT/conclave/sprints/` and read each `meta.md`'s frontmatter to find the sprint with `status: active`.
-   - No active sprint → refuse with: *"No active sprint. Run `/conclave-planning` to lock the latest draft sprint first."*
-   - Multiple active sprints → refuse and ask the user to pick (this should not happen in normal flow).
-3. Locate `$REPO_ROOT/conclave/sprints/$SPRINT_ID/stories/US-NNN-*.md`. If not found, refuse.
-4. Read the story frontmatter:
+1. Parse the `US-NNN`/`BUG-NNN` argument. If missing or malformed:
+   - **Interactive**: ask the user via `AskUserQuestion` to pick from the list of `ready` and `in-progress` stories in the active sprint (bugs are not offered in this picker — a human reporting a bug already knows its ID from `/conclave-bug list`).
+   - **Autonomous**: refuse with `AUTONOMOUS_ABORT: US-NNN or BUG-NNN argument required; command cannot pick a story or bug without input.` Do not proceed.
+2. **Branch resolution by ID prefix**:
+   - **`US-NNN`**: list `$REPO_ROOT/conclave/sprints/` and read each `meta.md`'s frontmatter to find the sprint with `status: active`.
+     - No active sprint → refuse with: *"No active sprint. Run `/conclave-planning` to lock the latest draft sprint first."*
+     - Multiple active sprints → refuse and ask the user to pick (this should not happen in normal flow).
+   - **`BUG-NNN`**: no sprint lookup — bugs are not sprint-scoped (§`/conclave-bug`, they skip Sprint Planning by design).
+   - Any other prefix → refuse that ID with `Unrecognized ID prefix: <id>. Expected US-NNN or BUG-NNN.`
+3. Locate the file:
+   - **`US-NNN`**: `$REPO_ROOT/conclave/sprints/$SPRINT_ID/stories/US-NNN-*.md`. If not found, refuse.
+   - **`BUG-NNN`**: `$REPO_ROOT/conclave/product/bugs/BUG-NNN-*.md`. If not found, refuse.
+4. Read the frontmatter (same status enum for both — bugs reuse the story state machine verbatim):
    - `status: ready` → continue.
    - `status: in-progress` → this is a resume. Continue but warn the user.
    - `status: review` or `status: done` → refuse (already past the dev gate). Suggest `/conclave-qa US-NNN` if it's `review`.
@@ -113,8 +120,8 @@ Read:
 
 ## Step 4 — Create the feature branch
 
-1. Compute `SLUG` from the story title (lowercase, dash-separated ASCII, ~40 chars).
-2. Branch name: `BRANCH=feat/US-NNN-$SLUG`.
+1. Compute `SLUG` from the title (lowercase, dash-separated ASCII, ~40 chars) — same computation for a story or a bug.
+2. Branch name: `BRANCH=feat/$ID-$SLUG` (e.g. `feat/US-NNN-$SLUG` or `feat/BUG-NNN-$SLUG` — the same `feat/`-prefixed convention regardless of ID kind, so every branch-parsing step below stays prefix-agnostic. `config.md`'s `fix/<short-slug>` convention note is guidance for *manual* branches a human creates outside Conclave's own commands, not a constraint on what this command generates).
 3. Determine the integration branch (`main` or `master`, default `main` if both absent — pick whatever the repo uses).
 4. Run `git checkout -b $BRANCH` from a freshly updated integration branch. If `$BRANCH` already exists locally:
    - **Interactive**: ask the user via `AskUserQuestion` whether to (a) switch and resume, (b) delete and recreate, or (c) abort.
@@ -131,7 +138,7 @@ Update the story file's frontmatter `status: in-progress` and `assignee: <curren
 
 ## Step 6 — Delegate to the execution subagent
 
-Read the story's `discipline` field and select the charter to load:
+Read the `discipline` field (present on both stories and bugs — same frontmatter shape) and select the charter to load:
 
 | `discipline` | Charter |
 |---|---|
@@ -146,15 +153,19 @@ Issue a single `Agent` tool call with:
 - **Task preamble** — when `INTERACTIVE == false`, prepend this exact line as the first line of the task:
   > `Autonomous mode. Do not call AskUserQuestion. Follow the "How you operate in autonomous mode" section of your charter — apply documented defaults or return exactly one line: AUTONOMOUS_ABORT: <one-line reason>. Include an autonomous_decisions list in your final payload.`
   When `INTERACTIVE == true`, do not prepend anything — the subagent runs in its default interactive mode.
-- Task body: implement the story end-to-end per the charter.
+- **Bug preamble** — when the ID is a `BUG-NNN`, additionally prepend (after the autonomous preamble, if both apply): *"This is BUG-NNN, not a story. First reproduce the failure using its Gherkin repro steps before writing any fix — treat a failure to reproduce as grounds to pause and ask (interactive mode) or `AUTONOMOUS_ABORT: could not reproduce BUG-NNN's repro steps` (autonomous mode)."*
+- Task body: implement the story or bug fix end-to-end per the charter.
 - Inputs to embed in the prompt:
-  - Story file content
-  - Acceptance file content with full Gherkin scenarios
+  - Story (or bug) file content
+  - Acceptance file content with full Gherkin scenarios (a bug's repro steps live inline in its own file instead — see `bug.template.md`)
   - `architecture.md` content
   - `definition-of-done.md` content
   - Resolved `team_profile` and `peer_pr_review.required` flag
   - Current branch name and integration branch name
   - Full path to `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/pr-body.template.md`
+  - **The orchestrator-resolved PR-body link targets and `Fixes #` line, precomputed here (not left to the subagent to guess) because `pr-body.template.md` has no conditional syntax of its own**:
+    - For `US-NNN`: link targets are unchanged from today (`../conclave/sprints/$SPRINT_ID/stories/US-NNN-$SLUG.md`, `.../spec.md`, `.../acceptance/AC-US-NNN.md`); no `Fixes #` line.
+    - For `BUG-NNN`: the "Implements" line targets `../conclave/product/bugs/BUG-NNN-$SLUG.md` and drops the "from sprint ..." clause (a bug has no sprint); the "Scenario → test mapping" intro targets that same bug file instead of a separate acceptance file (bugs have none); and, when the bug file's `github_issue_number` is populated, a `Fixes #<github_issue_number>` line is included directly under the title heading (omitted entirely — not even blank — when no issue number is on file, e.g. `gh` was unavailable at report time).
 - Expected output:
   - **Success path**: a structured payload containing `branch`, `commits` (list of commit subjects authored), `tests_added` (paths), `pr_body` (the fully rendered PR body string), and optionally `adr_proposal` (the markdown of any proposed ADR change). In autonomous mode, also `autonomous_decisions` (list of `{ decision, chosen, reason }` — may be empty). The subagent commits the code itself; the orchestrator does not need to commit further.
   - **Autonomous abort path**: a single line `AUTONOMOUS_ABORT: <reason>` — the orchestrator recognises this and moves to run-report emission (Step 8.5) with `outcome: aborted`.
@@ -250,9 +261,9 @@ Next-step hint depends on outcome:
 
 ## Guardrails
 
-- **Do not touch any file under `conclave/` except the single story file's frontmatter and (in autonomous mode) its body.** The `## Autonomous run —` section appended in Step 8.5 is the sole additional write allowed. Architecture changes still go in a separate ADR PR raised by the Tech Lead.
-- **Do not merge the PR.** Even with `peer_pr_review.required: false`, QA approval is structurally required before the story is `done`.
-- **Refuse a story only if that exact `US-NNN` is already `in-progress` on an existing branch** — not because other stories are concurrently in-progress on other branches. Parallel stories on separate branches are permitted and expected.
+- **Do not touch any file under `conclave/` except the single story/bug file's frontmatter and (in autonomous mode) its body.** The `## Autonomous run —` section appended in Step 8.5 is the sole additional write allowed. Architecture changes still go in a separate ADR PR raised by the Tech Lead.
+- **Do not merge the PR.** Even with `peer_pr_review.required: false`, QA approval is structurally required before the story/bug is `done`.
+- **Refuse an ID only if that exact `US-NNN`/`BUG-NNN` is already `in-progress` on an existing branch** — not because other IDs are concurrently in-progress on other branches. Parallel work on separate branches is permitted and expected.
 - **Idempotent on resume.** If the branch exists, the story is `in-progress`, and the resume path was chosen (interactively or by autonomous default): the Developer subagent must read what already exists in the branch before generating new code, not overwrite.
 - **If any of `git push`, `gh pr create`, or `gh pr edit` fails, do NOT roll back local commits.** Surface the error and let the user retry the network step manually. The local branch and story-frontmatter changes are the durable output. In autonomous mode, record the failure as a `blocked` outcome in the run report.
 - **Autonomous mode never bypasses the QA gate.** A `done` outcome still puts the story in `status: review`; `/conclave-qa` remains required to move to `verified` or `done`.

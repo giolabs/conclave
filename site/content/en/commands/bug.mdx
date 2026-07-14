@@ -1,0 +1,60 @@
+---
+title: /conclave-bug
+description: Report a post-merge bug or list the open bug backlog. Dev-ready immediately — bugs skip Sprint Planning.
+---
+
+# /conclave-bug &lt;report [text\|url] | list&gt;
+
+Report a bug the moment it surfaces — typically after a PR has already merged and shipped a silent regression — or list the current bug backlog.
+
+```
+/conclave-bug report "checkout button throws 500 on mobile Safari"
+/conclave-bug report https://<logging-tool-url>/issues/8f2a1c
+/conclave-bug list
+```
+
+`report` writes a `BUG-NNN` artifact directly in `status: ready` — bugs never pass through `backlog` or Sprint Planning, and [`/conclave-planning`](/en/commands/planning) never sees them. Once reported, a bug is picked up exactly like a story: [`/conclave-dev BUG-NNN`](/en/commands/dev) → [`/conclave-qa BUG-NNN`](/en/commands/qa) → [`/conclave-pr-review BUG-NNN`](/en/commands/pr-review) (if applicable). This command is the on-ramp only — no new pipeline is introduced.
+
+## What `report` does
+
+1. Classifies the argument — free text, or a URL/ID that looks like a reference to a logging/error-tracking tool.
+2. If it looks like a reference, checks whether the current session has any connected MCP tool whose name/description matches logging/error-tracking terms (generic keyword detection — **never a hardcoded vendor name**). If one matches, attempts to fetch stack trace/breadcrumbs/context. Falls back silently to plain text on no match or a failed fetch.
+3. Asks for **title**, **severity** (`critical | high | medium | low`, no default — must be explicit), **discipline** (default `multi`), and an optional related story/PR.
+4. Delegates to the **QA subagent** — not Product Manager — to draft Gherkin repro steps and an advisory severity note (the user's explicit severity choice is always authoritative).
+5. Computes the next `BUG-NNN` — a separate monotonic sequence from `US-NNN`, independent counters, never colliding.
+6. Writes `conclave/product/bugs/BUG-NNN-<slug>.md` from `bug.template.md`.
+7. Mirrors it as a GitHub issue via `gh issue create` (GitHub-only this phase) — the issue is a mirror, never the source of truth, same relationship a PR already has to a story.
+
+## What `list` does
+
+Mechanical — no subagent call, same precedent as [`/conclave-story retire`](/en/commands/story). Globs `conclave/product/bugs/*.md` and prints a table sorted by severity (`critical → high → medium → low`), then by ID:
+
+```
+| Bug     | Title                          | Severity | Status      | Related    | Issue                         | Assignee |
+|---------|---------------------------------|----------|--------------|------------|--------------------------------|----------|
+| BUG-004 | Checkout 500 on mobile Safari  | critical | in-progress  | US-042     | https://github.com/…/issues/81 | Cy       |
+```
+
+## Severity vs priority
+
+`severity` (`critical | high | medium | low`) is a field only bugs have — distinct from `priority` (MoSCoW: `must | should | could | wont`), which stories use. Severity measures incident impact; priority measures feature work order. They are never conflated.
+
+## Bugs in `/conclave-dev` and `/conclave-qa`
+
+`/conclave-dev` and `/conclave-qa` accept `BUG-NNN` IDs anywhere they accept `US-NNN`, including mixed batches (`/conclave-dev US-001 BUG-004`) — the ID prefix disambiguates which directory each resolves against. Everything else (branch naming, discipline-based charter routing, batching, model resolution, summary tables) works unmodified, since a bug's frontmatter has the same shape a story's does.
+
+The Developer subagent reproduces a bug before fixing it — uses the bug file's inline Gherkin repro steps to confirm the failure is still present before writing any fix code. If it cannot reproduce, it stops and surfaces that (interactively, or `AUTONOMOUS_ABORT: could not reproduce BUG-NNN's repro steps` in autonomous mode) rather than fixing something it never actually saw fail. The rendered PR body includes `Fixes #<github_issue_number>` so merging auto-closes the mirrored GitHub issue.
+
+## Guardrails
+
+- Never modifies any file outside `conclave/product/bugs/` and `conclave/context/`.
+- Never commits — the team reviews the bug report as a PR, same as every existing command.
+- `list` never calls a subagent.
+- No `edit`/`retire`/`split` sub-actions in this phase — a mis-filed bug is hand-corrected via frontmatter edit (git preserves the audit trail).
+- Never invents a stack trace, environment detail, or severity the user didn't provide or the enrichment didn't surface.
+- Never hardcodes a specific logging/error-tracking vendor name in the MCP-detection logic.
+
+## After it runs
+
+- `report` — next step is `/conclave-dev BUG-NNN` to fix it.
+- `list` — informational only, no next step implied.
