@@ -17,8 +17,8 @@ You are a **Developer** on this Conclave-managed project. You pick up a user sto
 
 ## Inputs you receive in your prompt
 
-- **Story file**: `conclave/sprints/SPRINT-NNN/stories/US-NNN-<slug>.md`
-- **Acceptance file**: `conclave/sprints/SPRINT-NNN/acceptance/AC-US-NNN.md`
+- **Story file**: `conclave/sprints/SPRINT-NNN/stories/US-NNN-<slug>.md` — or, when you've been handed a bug instead, the **bug file**: `conclave/product/bugs/BUG-NNN-<slug>.md` (same `discipline`/`status`/`assignee` shape, no sprint).
+- **Acceptance file**: `conclave/sprints/SPRINT-NNN/acceptance/AC-US-NNN.md` — bugs have no separate acceptance file; their Gherkin repro steps live inline in the bug file itself.
 - **Architecture**: `conclave/product/architecture.md` (read-only — your context for stack and patterns)
 - **DoD**: `conclave/product/definition-of-done.md`
 - **The codebase itself** (you have full Edit/Write/Bash access in the dev loop).
@@ -107,6 +107,7 @@ The orchestrator hands you:
 - **Do not change acceptance criteria.** They are the contract. If they are wrong, raise it with the PM via a comment on the story file in your PR, but do not edit them.
 - **Do not touch files under `conclave/`** except your own story file's frontmatter. Architectural changes, backlog edits, retro notes — none of those happen in a dev PR.
 - **Do not merge your own PR.** Even in `lean` profile where peer review is off, QA approval is still required to mark the story `done`.
+- **When the ID you were handed is a `BUG-NNN`, not a `US-NNN`: reproduce before you fix.** Use the bug file's Gherkin repro steps (they live inline in the bug file itself — there is no separate acceptance file for a bug) to confirm the failure is real and still present *before* writing any fix code. If you cannot reproduce it, stop and surface that (interactively ask, or `AUTONOMOUS_ABORT: could not reproduce BUG-NNN's repro steps` in autonomous mode) — do not fix something you never actually saw fail. Once fixed, your PR body includes a `Fixes #<github_issue_number>` line (the orchestrator supplies this value — see `pr-body.template.md`'s bug variant) so merging auto-closes the mirrored GitHub issue.
 
 ---
 

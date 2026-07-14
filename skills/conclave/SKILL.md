@@ -57,7 +57,8 @@ conclave/                             # VISIBLE top-level directory, all markdow
 │   ├── backlog.md                    # ordered Product Backlog
 │   ├── architecture.md               # living architectural doc (ADRs)
 │   ├── definition-of-ready.md        # team-agreed DoR
-│   └── definition-of-done.md         # team-agreed DoD
+│   ├── definition-of-done.md         # team-agreed DoD
+│   └── bugs/                         # BUG-NNN-<slug>.md — flat, no index file, /conclave-bug list globs directly
 ├── context/                          # frozen snapshots of inputs used (auditable)
 │   ├── claude-md.snapshot.md
 │   ├── skills.inventory.md
@@ -83,6 +84,7 @@ conclave/                             # VISIBLE top-level directory, all markdow
 - **Roster schema degrades gracefully.** A `roster.md` written before v0.2.0 (no `Discipline` column) is not rejected — commands that read it treat every member as `multi`-discipline and print a one-time compatibility hint. No auto-migration is provided; a team opts into discipline-based assignment by re-running `/conclave-init` or hand-editing the roster.
 - **UAT config degrades gracefully.** A `testing-environments.md` that doesn't exist yet, or still has every row `TBD` (v0.2.0 installs, or a fresh `/conclave-init` before the team fills it in), is not a hard failure — `/conclave-qa` skips UAT generation entirely and verifies acceptance criteria exactly as it did before v0.3.0.
 - **`conclave-board/` (v0.5.0+) is application code, not part of this contract.** `/conclave-board` scaffolds a Next.js app as a *sibling* of `conclave/`, not inside it — the markdown-only invariant above applies only to `conclave/` itself. The board reads `conclave/` but never writes to it.
+- **Bugs (v0.10.0+) skip Sprint Planning by design.** A `BUG-NNN` reported via `/conclave-bug report` is written directly in `status: ready` under `conclave/product/bugs/` — not under any `sprints/SPRINT-NNN/`. `/conclave-planning` and `/conclave-sprint` never look inside `conclave/product/bugs/`; a bug is picked up directly via `/conclave-dev BUG-NNN`.
 
 ---
 
@@ -95,10 +97,11 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review, Wave 1), `/conclave-story` (new / edit / split — `retire` is mechanical and skips this agent) | `/conclave-groom`, `/conclave-review` |
 | `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review + discipline assignment, Wave 1), `/conclave-pr-review` (code review + approval), `/conclave-adr` (topic-directed and discovery ADR authoring) | `/conclave-substack` |
 | `agents/scrum-master.md` | `/conclave-planning` (facilitator + assignment, Wave 2 — runs after PM/TL) | `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
-| `agents/developer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: frontend \| backend \| mobile \| multi`, or unset) — one Agent call per story, ≤ 3 concurrent per batch. **Autonomous mode (v0.9.0+)**: `--no-interaction` CLI flag or `commands.dev.interactive: false` in `config.md` makes the command run headless — no `AskUserQuestion` prompts; defaults or `AUTONOMOUS_ABORT: <reason>`; per-run report appended to the story file. `/conclave-sprint` Phase 2 always forces autonomous. | — |
+| `agents/developer.md` | `/conclave-dev US-NNN\|BUG-NNN [US-NNN\|BUG-NNN ...]` (items with `discipline: frontend \| backend \| mobile \| multi`, or unset) — one Agent call per item, ≤ 3 concurrent per batch, story and bug IDs may be mixed in one invocation. For a `BUG-NNN`, reproduces via the bug file's inline Gherkin repro steps before fixing, and the rendered PR body includes `Fixes #<github_issue_number>` (v0.10.0+). **Autonomous mode (v0.9.0+)**: `--no-interaction` CLI flag or `commands.dev.interactive: false` in `config.md` makes the command run headless — no `AskUserQuestion` prompts; defaults or `AUTONOMOUS_ABORT: <reason>`; per-run report appended to the file. `/conclave-sprint` Phase 2 always forces autonomous (stories only — see below). | — |
 | `agents/designer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: design`) | — |
 | `agents/devops.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: devops`) | — |
-| `agents/qa.md` | `/conclave-qa US-NNN [US-NNN ...]` — one Agent call per story, ≤ 3 concurrent per batch | — |
+| `agents/qa.md` | `/conclave-qa US-NNN\|BUG-NNN [US-NNN\|BUG-NNN ...]` — one Agent call per item, ≤ 3 concurrent per batch, story and bug IDs may be mixed. A bug's repro steps are verified exactly like a story's Gherkin scenarios. | — |
+| `agents/qa.md` (again) | `/conclave-bug report` (v0.10.0+) — one Agent call per invocation, authors Gherkin repro steps + an advisory severity note from the report's raw input. `/conclave-bug list` is mechanical (frontmatter-only) and skips the agent, same precedent as `/conclave-story retire`. | — |
 | *(all of the above)* | `/conclave-sprint` — sequential four-phase sprint runner: Phase 1 planning, Phase 2 dev (batch-of-3), Phase 3 QA (batch-of-3), Phase 4 PR review (batch-of-3, only if `peer_pr_review.required`). Each Agent call uses the role model resolved from `conclave/config.md`'s `models:` block. | — |
 | `agents/product-manager.md` (again) | `/conclave-story <new\|edit\|split>` — one Agent call per invocation. `/conclave-story retire` is mechanical (frontmatter-only) and skips the agent. Available in every `team_mode` (solo, lean, full-scrum). | — |
 | `agents/tech-lead.md` (again) | `/conclave-adr [topic]` — topic-directed mode writes a full ADR to `conclave/product/adr/ADR-NNN-<slug>.md`; discovery mode (no args) proposes 1–3 candidates then authors the picked one. Migrates any pre-0.8.0 inline ADRs in `architecture.md` on first run (per-ADR atomic, resumable, idempotent). Available in every `team_mode`. | — |
@@ -107,7 +110,7 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 
 A slash command delegates by spawning an Agent subagent and passing the **full content of the role charter file** as the system prompt prefix, followed by the task-specific instructions and the context the role needs.
 
-**Multi-story concurrency**: When `/conclave-dev` or `/conclave-qa` is invoked with multiple `US-NNN` arguments, the orchestrator validates all stories upfront (direct file reads — no Agent calls), partitions them into batches of ≤ 3, and issues all Agent calls within a batch in a single message so they run concurrently. Failures are isolated per story: a failed story is reset to `ready` (dev) or left at its last known state (QA) and reported in the final summary table; other stories in the batch continue unaffected.
+**Multi-story concurrency**: When `/conclave-dev` or `/conclave-qa` is invoked with multiple `US-NNN`/`BUG-NNN` arguments (v0.10.0+ accepts either kind, mixed freely), the orchestrator validates all items upfront (direct file reads — no Agent calls), partitions them into batches of ≤ 3, and issues all Agent calls within a batch in a single message so they run concurrently. Failures are isolated per item: a failed item is reset to `ready` (dev) or left at its last known state (QA) and reported in the final summary table; other items in the batch continue unaffected. `/conclave-pr-review` (single-ID only, no batching) also accepts either `US-NNN` or `BUG-NNN`.
 
 ---
 
@@ -144,6 +147,7 @@ Templates available:
 - `board.template.md`
 - `adr.template.md`
 - `autonomous-run.template.md`
+- `bug.template.md`
 
 ---
 
@@ -181,6 +185,7 @@ backlog → ready → in-progress → review → [verified] → done
 - Any failure: back to `review`. The dev fixes, pushes, then QA re-verifies (and TL re-reviews if applicable).
 - **`retired` (v0.8.0+)** — a parallel terminal state to `done`. Entered via `/conclave-story retire` (explicit retirement with `retirement_reason` and `retired_at` set) or `/conclave-story split` (on the parent, when it is decomposed into children — `superseded_by:` also populated). A retired story is **excluded from every command's story collection** (`/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, `/conclave-sprint`) — it is a historical record only. There is no un-retire command; teams that change their mind hand-edit the frontmatter (git preserves the audit trail). `/conclave-spec` is intentionally exempt from the filter — it authors new stories rather than collecting existing ones.
 - **UAT pending (v0.3.0+, no new status value).** When `testing-environments.md` is configured, `/conclave-qa` generates CI-runnable UAT tests (Playwright/Newman for `frontend`/`backend`/`multi`, a manual checklist for `mobile`) and folds the result into its verdict. A `mobile` story whose checklist is awaiting or mid-completion produces `verdict: pending_uat` — the story frontmatter stays `review`, same as a real failure, but the appended section is `## QA pending`, not `## QA blockers`, since nothing has actually failed yet. A failed CI run on the generated tests is treated exactly like a failing Gherkin scenario.
+- **`BUG-NNN` artifacts (v0.10.0+) reuse this exact state machine.** A bug reported via `/conclave-bug report` is written directly in `status: ready` — bugs never pass through `backlog` or Sprint Planning; `/conclave-bug report` is the only way one is created, and it always starts dev-ready. From there it follows the identical path a story does (`/conclave-dev` → `/conclave-qa` → `/conclave-pr-review` if applicable), including `retired` as a manual escape hatch (no `/conclave-bug retire` sub-action yet — hand-edit the frontmatter).
 
 ### Skippable per team profile
 

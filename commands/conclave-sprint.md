@@ -71,6 +71,8 @@ Check the resolved sprint's `status`:
 
 Re-read all story frontmatter under `$SPRINT_PATH/stories/`. Collect every story with `status: ready`. Set `DEV_STORIES`. **Explicitly exclude any story with `status: retired`** — retired stories are terminal historical records and never enter any phase (v0.8.0+). The filter is redundant with the `status: ready` check but stated explicitly here so the intent is unmistakable across all three phase collections.
 
+**Bugs (`BUG-NNN`, v0.10.0+) are never auto-collected by any `/conclave-sprint` phase** — they bypass sprint orchestration by design (see `/conclave-bug`: a reported bug is immediately `ready` but lives under `conclave/product/bugs/`, not under any sprint's `stories/`, so this phase's directory scan never sees them). Fix a bug directly via `/conclave-dev BUG-NNN`.
+
 If `DEV_STORIES` is empty, print `Phase 2 — Dev: skipped (0 stories in ready)` and skip to Step 7.
 
 ## Step 6 — Phase 2: Dev

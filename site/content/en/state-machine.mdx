@@ -76,6 +76,10 @@ review ──/conclave-qa──→ passed  → verified/done as above
 - **`blocked` via UAT** — a CI run on the generated Playwright/Newman tests fails, or no run is found / the wait times out (`ceremonies.qa_verification.ci_wait_timeout_minutes`, default 20). Both are treated exactly like a failing Gherkin scenario — never silently `passed`.
 - **Not configured yet** — a missing or all-`TBD` `testing-environments.md` degrades gracefully: `/conclave-qa` skips UAT entirely and verifies acceptance criteria exactly as it did before this file existed.
 
+## Bugs reuse this exact state machine (v0.10.0+)
+
+A `BUG-NNN` reported via [`/conclave-bug report`](/en/commands/bug) is written directly in `status: ready` — no new state, no new transition table. It never passes through `backlog` or Sprint Planning (`/conclave-planning` and `/conclave-sprint` never look inside `conclave/product/bugs/`), and from `ready` it follows the identical path a story does: `/conclave-dev BUG-NNN` → `/conclave-qa BUG-NNN` → `/conclave-pr-review BUG-NNN` (if `peer_pr_review.required: true`). `US-NNN` and `BUG-NNN` IDs can be mixed in the same `/conclave-dev`/`/conclave-qa` invocation — the ID prefix is all that disambiguates which directory a given ID resolves against. `retired` is available as a manual escape hatch for a mis-filed bug (hand-edit the frontmatter — there's no `/conclave-bug retire` sub-action yet).
+
 ## When `discipline` gets assigned
 
 Unlike `assignee` (set at planning time), `discipline` follows a specific sequence inside `/conclave-planning`:

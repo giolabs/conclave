@@ -76,6 +76,10 @@ review ──/conclave-qa──→ passed  → verified/done como arriba
 - **`blocked` vía UAT** — una corrida de CI sobre los tests Playwright/Newman generados falla, o no se encuentra ninguna corrida / la espera expira (`ceremonies.qa_verification.ci_wait_timeout_minutes`, default 20). Ambos casos se tratan exactamente igual que un escenario Gherkin que falla — nunca se pasa silenciosamente.
 - **Todavía no configurado** — un `testing-environments.md` faltante o completamente `TBD` degrada con gracia: `/conclave-qa` se salta UAT por completo y verifica los criterios de aceptación exactamente como lo hacía antes de que este archivo existiera.
 
+## Los bugs reusan esta misma máquina de estados (v0.10.0+)
+
+Un `BUG-NNN` reportado vía [`/conclave-bug report`](/es/commands/bug) se escribe directamente en `status: ready` — sin estado nuevo, sin tabla de transiciones nueva. Nunca pasa por `backlog` ni por Sprint Planning (`/conclave-planning` y `/conclave-sprint` nunca miran dentro de `conclave/product/bugs/`), y desde `ready` sigue el mismo camino que una historia: `/conclave-dev BUG-NNN` → `/conclave-qa BUG-NNN` → `/conclave-pr-review BUG-NNN` (si `peer_pr_review.required: true`). Los IDs `US-NNN` y `BUG-NNN` se pueden mezclar en la misma invocación de `/conclave-dev`/`/conclave-qa` — el prefijo del ID es lo único que desambigua contra qué directorio se resuelve cada uno. `retired` está disponible como escape manual para un bug mal cargado (editar el frontmatter a mano — todavía no hay una sub-acción `/conclave-bug retire`).
+
 ## Cuándo se asigna `discipline`
 
 A diferencia de `assignee` (definido al momento de planning), `discipline` sigue una secuencia específica dentro de `/conclave-planning`:

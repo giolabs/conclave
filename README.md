@@ -61,6 +61,12 @@ In your project repo:
 # Author a Tech Lead ADR
 /conclave-adr "Postgres vs Redis for caching"   # topic-directed
 /conclave-adr                                    # discovery — TL proposes 1–3 candidates
+
+# Report a bug (post-merge regression) and fix it through the same pipeline
+/conclave-bug report "checkout button throws 500 on mobile Safari"
+/conclave-bug list                               # the open bug backlog, sorted by severity
+/conclave-dev BUG-004                            # reproduces first, then fixes — same as a story
+/conclave-qa BUG-004                             # same verification gate as a story
 ```
 
 `/conclave-spec` invokes the Tech Lead and Product Manager subagents in parallel to produce:
@@ -97,7 +103,8 @@ conclave/
 │   ├── backlog.md            # ordered Product Backlog
 │   ├── architecture.md       # living architecture doc
 │   ├── definition-of-ready.md
-│   └── definition-of-done.md
+│   ├── definition-of-done.md
+│   └── bugs/                 # BUG-NNN-<slug>.md — flat, no index file
 ├── context/                  # frozen snapshots of what fed each spec
 └── sprints/
     └── SPRINT-NNN/
@@ -170,6 +177,7 @@ Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251
 - `/conclave-sprint` — run an entire active sprint end-to-end: planning → dev all ready stories → QA all review stories → Tech Lead PR review (if required). Each phase is profile-aware and failure-isolated per story.
 - `/conclave-story <new | edit US-NNN | split US-NNN | retire US-NNN>` — Product Manager mid-sprint story authoring, in every team mode. `new` allocates the next monotonic ID and lands the story in backlog (default) or the active sprint; `edit` revises a `ready`/`backlog` story; `split` decomposes a parent into 2–4 children (with a hard scenario-coverage safety rule enforced by the PM subagent); `retire` is a mechanical status change with no LLM call. Introduces the `retired` terminal state — retired stories are excluded from every command's collection queries.
 - `/conclave-adr [topic]` — Tech Lead ADR authoring. Topic-directed: `/conclave-adr "<decision>"` researches and writes a standalone ADR at `conclave/product/adr/ADR-NNN-<slug>.md`. Discovery: `/conclave-adr` (no args) has the TL propose 1–3 candidate decisions from sprint activity + architecture gaps, then authors the one the user picks. On first run in a repo with inline ADRs, migrates them to standalone files (atomic per ADR, resumable, idempotent). Every new ADR is `status: proposed`; the team promotes to `accepted` on PR merge.
+- `/conclave-bug <report [text|url] | list>` — report a post-merge bug or list the open backlog. `report` turns free text (or a URL/ID from a connected logging/error-tracking MCP tool, detected generically — never a hardcoded vendor) into a `BUG-NNN` artifact with Gherkin repro steps and an explicit `severity`, mirrors it as a GitHub issue, and hands it straight to `/conclave-dev` — bugs are written directly `ready`, skipping Sprint Planning entirely. `list` is mechanical, no LLM call. `/conclave-dev`/`/conclave-qa` accept `BUG-NNN` IDs anywhere they accept `US-NNN`, including mixed batches; the Developer reproduces a bug via its repro steps before fixing it, and the PR includes `Fixes #<issue>` to auto-close the mirrored issue on merge.
 
 ### Autonomous mode for `/conclave-dev` (v0.9.0+)
 
