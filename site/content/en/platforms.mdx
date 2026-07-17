@@ -1,0 +1,41 @@
+---
+title: Platforms
+description: Run Conclave on Claude Code or Cursor against the same conclave/ contract.
+---
+
+# Platforms
+
+Conclave ships **two packages** from one repository. Both read and write the same target-repo `conclave/` directory, so teammates can mix Claude Code and Cursor without migrating artifacts.
+
+| Runtime | Package name | Location in this repo |
+|---|---|---|
+| Claude Code | `conclave` | Repository root (`.claude-plugin/`) |
+| Cursor | `conclave-cursor` | `platforms/cursor/` (`.cursor-plugin/`) |
+
+Architecture: [ADR-002](https://github.com/lucasgio/conclave/blob/main/docs/adr/ADR-002-cursor-platform-adaptation.md) (in-repo: `docs/adr/ADR-002-cursor-platform-adaptation.md`).
+
+## What stays shared
+
+- Target-repo `conclave/` layout, story/bug state machine, templates, and methodology (`SKILL.md`)
+- Optional `runtime: claude-code | cursor | both` in `conclave/config.md` (informational only)
+
+## What differs
+
+| Concern | Claude Code | Cursor |
+|---|---|---|
+| Subagent dispatch | `Agent` tool | `Task` / custom agents |
+| Structured questions | `AskUserQuestion` | `AskQuestion` (top-level) or numbered options |
+| Tool allowlists | `allowed-tools` frontmatter | Session permissions |
+| Local install | `~/.claude/plugins/conclave` symlink | `rsync` into `~/.cursor/plugins/local/conclave-cursor/` |
+| Board auto-refresh hook | `PostToolUse` | `afterFileEdit` (best-effort) |
+
+## Keeping packages in sync
+
+Methodology and templates are edited under `skills/conclave/`, then synced:
+
+```bash
+./scripts/sync-cursor-platform.sh
+./scripts/sync-cursor-platform.sh --check
+```
+
+See [Installation](/en/installation) for install steps on each runtime. **Cursor-only, first time?** Use [Cursor from scratch](/en/installation#cursor-from-scratch).

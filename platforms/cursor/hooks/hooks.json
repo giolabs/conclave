@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "./scripts/regenerate-board-data.sh"
+      }
+    ]
+  }
+}

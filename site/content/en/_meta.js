@@ -7,6 +7,7 @@ export default {
   },
   "getting-started": "Getting started",
   installation: "Installation",
+  platforms: "Platforms",
   workflow: "Workflow map",
   "team-example": "Team example",
 

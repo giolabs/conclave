@@ -1,24 +1,73 @@
 ---
 title: Installation
-description: Install Conclave as a Claude Code plugin.
+description: Install Conclave on Claude Code or Cursor.
 ---
 
 # Installation
 
-Conclave ships as a Claude Code plugin. Install it via a directory marketplace, the same mechanism used by other Claude Code plugins.
+Conclave ships two packages from the same repository. Pick your runtime (or install both — they share the target-repo `conclave/` contract). See also [Platforms](/en/platforms).
 
-## Via the marketplace
+## Cursor from scratch
+
+Use this path if you use **only Cursor** and have never installed Conclave.
+
+Two different directories are involved:
+
+| Directory | What it is |
+|---|---|
+| **Plugin repo** (`conclave`) | Where you install the Cursor package from — once per machine |
+| **Your app repo** | Where `/conclave-init` creates `conclave/` — once per project |
+
+### 1. Get the plugin (once per machine)
+
+```bash
+git clone https://github.com/giolabs/conclave.git
+cd conclave
+./scripts/install-cursor-local.sh
+```
+
+That copies `platforms/cursor/` into `~/.cursor/plugins/local/conclave-cursor/`.
+
+### 2. Activate in Cursor
+
+1. Enable **Include third-party Plugins, Skills, and other configs** if your Cursor build requires it.
+2. Run **Developer: Reload Window**.
+3. In Agent chat, confirm `/conclave-init` (and other `/conclave-*` commands) appear.
+
+On Team/Enterprise plans, org policy may block local plugins (`userLocal=false`). Ask your admin if commands never appear after a correct install.
+
+### 3. Bootstrap your project
+
+Open **your application repository** (not the plugin clone) in Cursor:
+
+```bash
+cd /path/to/your-app
+```
+
+In Agent chat:
+
+```text
+/conclave-init
+/conclave-spec "your product idea"
+/conclave-planning
+```
+
+Continue with `/conclave-dev`, `/conclave-qa`, etc. You do **not** need Claude Code. Next: [Getting started](/en/getting-started).
+
+Cursor Marketplace publish is not part of the v0.11.0 path — local install only for now. Maintainer details: `platforms/cursor/README.md` in the repo.
+
+## Claude Code
+
+### Via the marketplace
 
 ```bash
 claude plugin marketplace add lucasgio/conclave
 claude plugin install conclave@conclave
 ```
 
-Restart Claude Code. Type `/conclave` to see the seven shipped commands.
+Restart Claude Code. Type `/conclave` to see the shipped commands.
 
-## From source (local development)
-
-If you're working on Conclave itself, or want to run an unreleased version, symlink this repository into your local plugin folder instead:
+### From source (local development)
 
 ```bash
 ln -s "$(pwd)" ~/.claude/plugins/conclave
@@ -26,6 +75,23 @@ ln -s "$(pwd)" ~/.claude/plugins/conclave
 
 Restart Claude Code. You should now see `/conclave-init` and `/conclave-spec` in the slash-command list.
 
+## Cursor (already have the plugin repo)
+
+If you already cloned this repository and only need to (re)install the Cursor package:
+
+```bash
+./scripts/install-cursor-local.sh
+# equivalent:
+# ./scripts/sync-cursor-platform.sh
+# mkdir -p ~/.cursor/plugins/local
+# rsync -a --delete platforms/cursor/ ~/.cursor/plugins/local/conclave-cursor/
+```
+
+Then enable third-party/local plugins if required, and run **Developer: Reload Window**.
+
 ## Verifying the install
 
-Run `/conclave-init` inside any git repository. If the command exists and asks *"Is this just you, or a team?"*, the plugin is installed correctly. If nothing happens, double-check the plugin appears in `claude plugin list` (marketplace install) or that the symlink target is correct (local install), then restart Claude Code again.
+Run `/conclave-init` inside any **project** git repository (your app, not only the plugin clone). If the command exists and asks whether this is solo or a team, the plugin is installed correctly.
+
+- **Claude Code**: check `claude plugin list` or the symlink target, then restart.
+- **Cursor**: confirm `~/.cursor/plugins/local/conclave-cursor/.cursor-plugin/plugin.json` exists, then Reload Window.

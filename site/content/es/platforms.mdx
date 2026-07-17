@@ -1,0 +1,41 @@
+---
+title: Plataformas
+description: Corré Conclave en Claude Code o Cursor contra el mismo contrato conclave/.
+---
+
+# Plataformas
+
+Conclave publica **dos paquetes** desde un solo repositorio. Ambos leen y escriben el mismo directorio `conclave/` del repo target, así que el equipo puede mezclar Claude Code y Cursor sin migrar artefactos.
+
+| Runtime | Nombre del paquete | Ubicación en este repo |
+|---|---|---|
+| Claude Code | `conclave` | Raíz del repositorio (`.claude-plugin/`) |
+| Cursor | `conclave-cursor` | `platforms/cursor/` (`.cursor-plugin/`) |
+
+Arquitectura: ADR-002 en `docs/adr/ADR-002-cursor-platform-adaptation.md`.
+
+## Qué se comparte
+
+- Layout de `conclave/`, máquina de estados de stories/bugs, templates y metodología (`SKILL.md`)
+- Campo opcional `runtime: claude-code | cursor | both` en `conclave/config.md` (solo informativo)
+
+## Qué cambia
+
+| Tema | Claude Code | Cursor |
+|---|---|---|
+| Dispatch de subagentes | herramienta `Agent` | `Task` / agents custom |
+| Preguntas estructuradas | `AskUserQuestion` | `AskQuestion` (top-level) u opciones numeradas |
+| Allowlists de tools | frontmatter `allowed-tools` | permisos de sesión |
+| Install local | symlink en `~/.claude/plugins/conclave` | `rsync` a `~/.cursor/plugins/local/conclave-cursor/` |
+| Hook del board | `PostToolUse` | `afterFileEdit` (best-effort) |
+
+## Mantener los paquetes al día
+
+La metodología y los templates se editan en `skills/conclave/` y luego se sincronizan:
+
+```bash
+./scripts/sync-cursor-platform.sh
+./scripts/sync-cursor-platform.sh --check
+```
+
+Ver [Instalación](/es/installation) para los pasos en cada runtime. **¿Solo Cursor, primera vez?** Usá [Cursor desde cero](/es/installation#cursor-desde-cero).

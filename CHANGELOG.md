@@ -4,6 +4,19 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+## [0.11.0]
+
+### Added
+- **Cursor package (`conclave-cursor`)** under `platforms/cursor/` — full parity with the Claude Code plugin: all 11 `/conclave-*` commands, 7 role agents, synced `SKILL.md` + templates + `board-app`, best-effort `afterFileEdit` board hook. Same target-repo `conclave/` contract (ADR-002). Local install via `./scripts/install-cursor-local.sh` (`rsync` into `~/.cursor/plugins/local/conclave-cursor/`).
+- **`scripts/sync-cursor-platform.sh`** — copies canonical `skills/conclave/{SKILL.md,templates,board-app}` into the Cursor tree; `--check` mode for release/CI freshness.
+- **`scripts/generate-cursor-platform.py`** — regenerates Cursor command/agent ports from the Claude Code twins (Task / AskQuestion mapping).
+- **Optional `runtime: claude-code | cursor | both`** on `config.template.md` (informational; unset = either runtime OK).
+- Docs: dual-runtime README, `site/content/{en,es}/platforms.mdx`, installation + getting-started updates, end-to-end **Cursor from scratch** checklist (clone plugin → install → Reload → `/conclave-init` in your app repo).
+
+### Changed
+- `skills/conclave/SKILL.md` — platform-neutral wording (Claude Code **and** Cursor).
+- Plugin manifests (Claude Code + Cursor) and `conclave_version` → **0.11.0**.
+
 ## [0.10.0]
 
 ### Added

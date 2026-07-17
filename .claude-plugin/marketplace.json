@@ -4,15 +4,15 @@
     "name": "Conclave"
   },
   "metadata": {
-    "description": "Conclave — Scrum for Claude Code teams. Specialized AI subagents for every discipline (Tech Lead, Frontend, Backend, QA, Designer, DevOps) plus optional PM/SM process roles. All artifacts are plain markdown committed to git in a visible conclave/ directory.",
-    "version": "0.10.0"
+    "description": "Conclave — Scrum for Claude Code and Cursor teams. Specialized AI subagents for every discipline (Tech Lead, Frontend, Backend, QA, Designer, DevOps) plus optional PM/SM process roles. All artifacts are plain markdown committed to git in a visible conclave/ directory. Cursor package: platforms/cursor/ (conclave-cursor).",
+    "version": "0.11.0"
   },
   "plugins": [
     {
       "name": "conclave",
       "source": "./",
-      "description": "Scrum methodology for distributed engineering teams using Claude Code. Eleven shipped slash commands (/conclave-init, /conclave-spec, /conclave-planning, /conclave-dev, /conclave-qa, /conclave-pr-review, /conclave-board, /conclave-sprint, /conclave-story, /conclave-adr, /conclave-bug) cover the Day-0 founding-artifacts flow, the per-story delivery loop, a local visual Kanban board, a one-shot full-sprint runner, PM story grooming (new/edit/split/retire), TL ADR authoring (topic-directed or discovery), and post-merge bug reporting (report/list, mirrored as a GitHub issue, dev-ready immediately — bugs skip Sprint Planning and share the same /conclave-dev → /conclave-qa → /conclave-pr-review pipeline as stories). Discipline-first roster (Tech Lead, Frontend, Backend, QA, Designer, DevOps) with an explicit solo/team setup. Profile-aware (lean / full-scrum / custom). QA generates CI-run UAT test suites (Playwright, shared Postman/Newman collection, manual mobile checklists) from Gherkin acceptance criteria. Configurable per-role AI models. /conclave-dev supports autonomous (no-interaction) mode via commands.dev.interactive: false or --no-interaction CLI flag — never prompts, applies sensible defaults or aborts with a specific reason, appends a per-run report to the story file. /conclave-sprint Phase 2 always uses autonomous mode.",
-      "version": "0.10.0",
+      "description": "Scrum methodology for distributed engineering teams using Claude Code (Cursor sibling: platforms/cursor/ conclave-cursor). Eleven shipped slash commands (/conclave-init, /conclave-spec, /conclave-planning, /conclave-dev, /conclave-qa, /conclave-pr-review, /conclave-board, /conclave-sprint, /conclave-story, /conclave-adr, /conclave-bug) cover the Day-0 founding-artifacts flow, the per-story delivery loop, a local visual Kanban board, a one-shot full-sprint runner, PM story grooming (new/edit/split/retire), TL ADR authoring (topic-directed or discovery), and post-merge bug reporting (report/list, mirrored as a GitHub issue, dev-ready immediately — bugs skip Sprint Planning and share the same /conclave-dev → /conclave-qa → /conclave-pr-review pipeline as stories). Discipline-first roster (Tech Lead, Frontend, Backend, QA, Designer, DevOps) with an explicit solo/team setup. Profile-aware (lean / full-scrum / custom). QA generates CI-run UAT test suites (Playwright, shared Postman/Newman collection, manual mobile checklists) from Gherkin acceptance criteria. Configurable per-role AI models. /conclave-dev supports autonomous (no-interaction) mode via commands.dev.interactive: false or --no-interaction CLI flag — never prompts, applies sensible defaults or aborts with a specific reason, appends a per-run report to the story file. /conclave-sprint Phase 2 always uses autonomous mode.",
+      "version": "0.11.0",
       "author": {
         "name": "Conclave"
       },
@@ -22,7 +22,8 @@
         "sprint",
         "spec-driven",
         "team-coordination",
-        "subagents"
+        "subagents",
+        "cursor"
       ],
       "license": "MIT"
     }

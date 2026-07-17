@@ -1,24 +1,73 @@
 ---
 title: Instalación
-description: Instalá Conclave como un plugin de Claude Code.
+description: Instalá Conclave en Claude Code o Cursor.
 ---
 
 # Instalación
 
-Conclave se distribuye como un plugin de Claude Code. Instalalo mediante un marketplace de directorio, el mismo mecanismo que usan otros plugins de Claude Code.
+Conclave publica dos paquetes desde el mismo repositorio. Elegí tu runtime (o instalá ambos — comparten el contrato `conclave/` del repo target). Ver también [Plataformas](/es/platforms).
 
-## Vía el marketplace
+## Cursor desde cero
+
+Usá este camino si usás **solo Cursor** y nunca instalaste Conclave.
+
+Hay **dos directorios distintos**:
+
+| Directorio | Qué es |
+|---|---|
+| **Repo del plugin** (`conclave`) | De donde instalás el paquete Cursor — una vez por máquina |
+| **Repo de tu app** | Donde `/conclave-init` crea `conclave/` — una vez por proyecto |
+
+### 1. Obtener el plugin (una vez por máquina)
+
+```bash
+git clone https://github.com/giolabs/conclave.git
+cd conclave
+./scripts/install-cursor-local.sh
+```
+
+Eso copia `platforms/cursor/` a `~/.cursor/plugins/local/conclave-cursor/`.
+
+### 2. Activar en Cursor
+
+1. Habilitá **Include third-party Plugins, Skills, and other configs** si tu build de Cursor lo pide.
+2. Corré **Developer: Reload Window**.
+3. En Agent chat, confirmá que aparece `/conclave-init` (y el resto de `/conclave-*`).
+
+En planes Team/Enterprise, la org puede bloquear plugins locales (`userLocal=false`). Pedile al admin si los comandos no aparecen tras un install correcto.
+
+### 3. Inicializar tu proyecto
+
+Abrí el **repositorio de tu aplicación** (no el clone del plugin) en Cursor:
+
+```bash
+cd /ruta/a/tu-app
+```
+
+En Agent chat:
+
+```text
+/conclave-init
+/conclave-spec "tu idea de producto"
+/conclave-planning
+```
+
+Seguí con `/conclave-dev`, `/conclave-qa`, etc. **No** necesitás Claude Code. Siguiente: [Primeros pasos](/es/getting-started).
+
+La publicación en Cursor Marketplace no forma parte del path de v0.11.0 — solo install local por ahora. Detalles para maintainers: `platforms/cursor/README.md` en el repo.
+
+## Claude Code
+
+### Vía el marketplace
 
 ```bash
 claude plugin marketplace add lucasgio/conclave
 claude plugin install conclave@conclave
 ```
 
-Reiniciá Claude Code. Escribí `/conclave` para ver los siete comandos disponibles.
+Reiniciá Claude Code. Escribí `/conclave` para ver los comandos disponibles.
 
-## Desde el código fuente (desarrollo local)
-
-Si estás trabajando en Conclave mismo, o querés correr una versión no publicada, symlinkeá este repositorio en tu carpeta local de plugins en su lugar:
+### Desde el código fuente (desarrollo local)
 
 ```bash
 ln -s "$(pwd)" ~/.claude/plugins/conclave
@@ -26,6 +75,23 @@ ln -s "$(pwd)" ~/.claude/plugins/conclave
 
 Reiniciá Claude Code. Ahora deberías ver `/conclave-init` y `/conclave-spec` en la lista de slash commands.
 
+## Cursor (ya tenés el repo del plugin)
+
+Si ya clonaste este repositorio y solo necesitás (re)instalar el paquete Cursor:
+
+```bash
+./scripts/install-cursor-local.sh
+# equivalente:
+# ./scripts/sync-cursor-platform.sh
+# mkdir -p ~/.cursor/plugins/local
+# rsync -a --delete platforms/cursor/ ~/.cursor/plugins/local/conclave-cursor/
+```
+
+Después habilitá plugins de terceros/locales si aplica, y corré **Developer: Reload Window**.
+
 ## Verificando la instalación
 
-Corré `/conclave-init` dentro de cualquier repositorio git. Si el comando existe y pregunta *"¿Sos solo vos, o un equipo?"*, el plugin está instalado correctamente. Si no pasa nada, verificá que el plugin aparezca en `claude plugin list` (instalación por marketplace) o que el symlink apunte al lugar correcto (instalación local), y reiniciá Claude Code de nuevo.
+Corré `/conclave-init` dentro de cualquier repositorio git de **proyecto** (tu app, no solo el clone del plugin). Si el comando existe y pregunta si sos solo vos o un equipo, el plugin está instalado correctamente.
+
+- **Claude Code**: verificá `claude plugin list` o el symlink, y reiniciá.
+- **Cursor**: confirmá que exista `~/.cursor/plugins/local/conclave-cursor/.cursor-plugin/plugin.json` y hacé Reload Window.

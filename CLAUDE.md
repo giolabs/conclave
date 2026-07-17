@@ -4,28 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-This repository **is** the Conclave Claude Code plugin — it is not a project that *uses* Conclave. Conclave brings Scrum methodology to distributed engineering teams: every Scrum role (Product Manager, Tech Lead, Scrum Master, Developer, QA) is a markdown-defined subagent charter, invoked by slash commands, that reads/writes plain-markdown Scrum artifacts inside a `conclave/` directory in whatever *target* repo the plugin is installed into.
+This repository **is** the Conclave plugin — it is not a project that *uses* Conclave. Conclave brings Scrum methodology to distributed engineering teams: every Scrum role (Product Manager, Tech Lead, Scrum Master, Developer, QA) is a markdown-defined subagent charter, invoked by slash commands, that reads/writes plain-markdown Scrum artifacts inside a `conclave/` directory in whatever *target* repo the plugin is installed into.
 
-There are two things living in this repo:
-1. **The plugin itself** — `commands/`, `skills/conclave/` (plugin logic, this is the product).
-2. **The docs site** — `site/` (Next.js 16 + Nextra 4, single locale, static export to GitHub Pages at `https://giolabs.github.io/conclave/`, basePath `/conclave`).
+There are three things living in this repo:
+1. **The Claude Code plugin** — `commands/`, `skills/conclave/`, `.claude-plugin/` (plugin logic).
+2. **The Cursor plugin** — `platforms/cursor/` (`conclave-cursor`; synced methodology via `scripts/sync-cursor-platform.sh`). See ADR-002.
+3. **The docs site** — `site/` (Next.js 16 + Nextra 4, single locale pair EN/ES, static export to GitHub Pages at `https://giolabs.github.io/conclave/`, basePath `/conclave`).
 
 ## Repo layout
 
 ```
-commands/                        # slash commands (/conclave-init, /conclave-spec, /conclave-planning, /conclave-dev, /conclave-qa, /conclave-pr-review)
+commands/                        # Claude Code slash commands
+platforms/cursor/                # Cursor package (conclave-cursor)
 skills/conclave/
-  SKILL.md                       # the methodology spec — read this first, it's the source of truth for the whole system
-  agents/                        # role charters: product-manager.md, tech-lead.md, scrum-master.md, developer.md, qa.md, designer.md, devops.md
-  templates/                     # *.template.md files with {{placeholders}} filled in by commands when writing artifacts
+  SKILL.md                       # the methodology spec — read this first (canonical; synced to Cursor)
+  agents/                        # Claude Code role charters
+  templates/                     # *.template.md — shared via sync to Cursor
 docs/
   adr/                           # Architecture Decision Records
   specs/                         # implementation specs
-site/                            # Nextra docs site (separate npm project, see below)
-CHANGELOG.md                     # release notes — see "Release notes and doc updates" below
-.claude-plugin/
-  plugin.json                    # plugin manifest (name, version, description)
-  marketplace.json               # marketplace listing metadata
+scripts/
+  sync-cursor-platform.sh        # canonical skills → platforms/cursor
+  install-cursor-local.sh        # rsync Cursor package into ~/.cursor/plugins/local/
+  generate-cursor-platform.py    # re-port commands/agents for Cursor
+site/                            # Nextra docs site
+CHANGELOG.md
+.claude-plugin/                  # Claude Code manifest
 ```
 
 ## Development commands

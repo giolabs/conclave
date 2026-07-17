@@ -1,22 +1,83 @@
 # Conclave
 
-**Scrum for Claude Code teams.**
+**Scrum for Claude Code and Cursor teams.**
 
-Conclave is a Claude Code plugin that brings Scrum methodology to distributed engineering teams. Every Scrum role — Product Manager, Tech Lead, Scrum Master, Developer, QA — gets a specialized AI subagent that helps the human in that role execute their duties. The shared source of truth is plain markdown committed to git inside a visible `conclave/` directory at the root of your project.
+Conclave is a plugin that brings Scrum methodology to distributed engineering teams. Every Scrum role — Product Manager, Tech Lead, Scrum Master, Developer, QA — gets a specialized AI subagent that helps the human in that role execute their duties. The shared source of truth is plain markdown committed to git inside a visible `conclave/` directory at the root of your project.
 
-No central server, no proprietary format, no hidden state. The team coordinates through pull requests.
+This repository ships **two packages** (same `conclave/` contract — [ADR-002](docs/adr/ADR-002-cursor-platform-adaptation.md)):
+
+| Runtime | Package | Install |
+|---|---|---|
+| **Claude Code** | `conclave` (repo root) | symlink into `~/.claude/plugins/conclave` |
+| **Cursor** | `conclave-cursor` (`platforms/cursor/`) | `rsync` into `~/.cursor/plugins/local/conclave-cursor/` |
+
+No central server, no proprietary format, no hidden state. The team coordinates through pull requests. Members can mix Claude Code and Cursor on the same repo.
 
 ---
 
 ## Install
 
-Conclave is a Claude Code plugin. Install it by symlinking this directory into your local plugin folder:
+### Claude Code
 
 ```bash
 ln -s "$(pwd)" ~/.claude/plugins/conclave
 ```
 
 Restart Claude Code. You should now see `/conclave-init` and `/conclave-spec` in the slash-command list.
+
+### Cursor
+
+**New to Conclave and using only Cursor?** Follow [Cursor from scratch](#cursor-from-scratch) below.
+
+If you already have this repository checked out:
+
+```bash
+./scripts/install-cursor-local.sh
+# or: rsync -a --delete platforms/cursor/ ~/.cursor/plugins/local/conclave-cursor/
+```
+
+Enable third-party/local plugins if required, then **Developer: Reload Window**. Details and Team/Enterprise caveats: [`platforms/cursor/README.md`](platforms/cursor/README.md).
+
+### Cursor from scratch
+
+Two different directories are involved:
+
+| Directory | What it is |
+|---|---|
+| **Plugin repo** (`conclave`) | Where you install the Cursor package from — once per machine |
+| **Your app repo** | Where `/conclave-init` creates `conclave/` — once per project |
+
+**1. Get the plugin (once per machine)**
+
+```bash
+git clone https://github.com/giolabs/conclave.git
+cd conclave
+./scripts/install-cursor-local.sh
+```
+
+**2. Activate in Cursor**
+
+1. Enable **Include third-party Plugins, Skills, and other configs** if your Cursor build requires it.
+2. Run **Developer: Reload Window**.
+3. In Agent chat, confirm `/conclave-init` appears.
+
+On Team/Enterprise, if nothing loads after a correct install, ask your org admin to allow local plugins (`userLocal` may be false).
+
+**3. Bootstrap your project (in your app repo, not the plugin repo)**
+
+```bash
+cd /path/to/your-app
+```
+
+In Cursor Agent chat:
+
+```text
+/conclave-init
+/conclave-spec "your product idea"
+/conclave-planning
+```
+
+Then use `/conclave-dev`, `/conclave-qa`, etc. as usual. You do **not** need Claude Code.
 
 ---
 
