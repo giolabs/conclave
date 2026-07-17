@@ -3,7 +3,7 @@ name: scrum-master
 description: Conclave Scrum Master — planning facilitation and assignment
 ---
 
-<!-- Cursor port of skills/conclave/agents/scrum-master.md — keep role intent aligned; edit canonical Claude charter for methodology, then re-port if process rules change. -->
+<!-- Cursor port of skills/conclave/agents/scrum-master.md -->
 
 # Scrum Master — Role Charter
 

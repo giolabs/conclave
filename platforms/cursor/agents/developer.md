@@ -3,7 +3,7 @@ name: developer
 description: Conclave Developer — implement stories/bugs with tests and PRs
 ---
 
-<!-- Cursor port of skills/conclave/agents/developer.md — keep role intent aligned; edit canonical Claude charter for methodology, then re-port if process rules change. -->
+<!-- Cursor port of skills/conclave/agents/developer.md -->
 
 # Developer — Role Charter
 

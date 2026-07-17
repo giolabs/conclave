@@ -1,0 +1,60 @@
+---
+title: /conclave-sprint-board
+description: Genera un board HTML local autocontenido de roadmap (Roadmap / Tasks / Analytics) desde el estado de conclave/.
+---
+
+# /conclave-sprint-board
+
+Genera un board de **roadmap / analíticas de sprint** estático y offline a partir del directorio `conclave/` del repo. Escribe un snapshot derivado en `docs/sprint-board/` — se abre con doble clic (`file://`), sin npm, sin CDN, sin servidor obligatorio.
+
+```
+/conclave-sprint-board
+```
+
+Sin argumentos ni flags en esta versión. Las re-ejecuciones **sobrescriben** `index.html` y `README.md`.
+
+Este comando es **complementario** a [`/conclave-board`](/es/commands/board) (el Kanban Next.js de status). El Kanban responde “¿dónde está cada historia en el loop de entrega?”; este board responde “¿dónde estamos en el roadmap?”. Ninguno reemplaza al otro.
+
+## Qué hace
+
+1. Resuelve el workspace; requiere `conclave/config.md` (sugiere `/conclave-init` si falta).
+2. Descubre `conclave/sprints/SPRINT-*/meta.md` y `stories/US-*.md` (los bugs se omiten en v1).
+3. Mapea los status de Conclave a pills gruesas (`done` / `active` / `planned` / `retired`).
+4. Resuelve el color de acento: hex del prompt → `DESIGN.md` → `conclave/team/board.md` → fallback `#C45C26`.
+5. Rellena las plantillas HTML + README y escribe `docs/sprint-board/`.
+
+## Qué produce
+
+- `docs/sprint-board/index.html` — board autocontenido (pestañas: Roadmap, Tasks, Analytics).
+- `docs/sprint-board/README.md` — cómo abrirlo y cómo refrescarlo.
+
+## Ver el board
+
+```bash
+open docs/sprint-board/index.html          # macOS
+xdg-open docs/sprint-board/index.html      # Linux
+```
+
+Si el navegador restringe `file://`:
+
+```bash
+cd docs/sprint-board && python3 -m http.server 8080
+```
+
+## Cómo se mantiene actualizado
+
+**No hay auto-hook** para este board. Después de que las ceremonias cambien status de historias o sprints, volvé a correr `/conclave-sprint-board`. No modifica ningún archivo bajo `conclave/`.
+
+## Guardrails
+
+- Nunca escribe HTML bajo `conclave/` (contrato markdown-only).
+- Nunca inventa IDs de sprint o historia.
+- Nunca incluye artefactos `BUG-NNN` en v1.
+- Nunca modifica `conclave-board/` ni el frontmatter de historias/sprints.
+- No hace commit — revisá el snapshot y después `git add docs/sprint-board/` vos.
+
+## Qué no es
+
+- No reemplaza a [`/conclave-board`](/es/commands/board).
+- No es un path de escritura de vuelta a `conclave/`.
+- No es un board multiplayer en vivo — cada corrida es un snapshot local del checkout actual.

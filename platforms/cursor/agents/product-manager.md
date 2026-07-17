@@ -3,7 +3,7 @@ name: product-manager
 description: Conclave Product Manager — backlog, scope, story authoring
 ---
 
-<!-- Cursor port of skills/conclave/agents/product-manager.md — keep role intent aligned; edit canonical Claude charter for methodology, then re-port if process rules change. -->
+<!-- Cursor port of skills/conclave/agents/product-manager.md -->
 
 # Product Manager — Role Charter
 

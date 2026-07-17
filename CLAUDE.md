@@ -19,12 +19,14 @@ platforms/cursor/                # Cursor package (conclave-cursor)
 skills/conclave/
   SKILL.md                       # the methodology spec — read this first (canonical; synced to Cursor)
   agents/                        # Claude Code role charters
-  templates/                     # *.template.md — shared via sync to Cursor
+  templates/                     # *.template.md (+ sprint-board HTML) — synced to Cursor
+  board-app/                     # Next.js Kanban scaffold for /conclave-board
+  visual-sprint-board/           # skill for /conclave-sprint-board (synced to Cursor)
 docs/
   adr/                           # Architecture Decision Records
   specs/                         # implementation specs
 scripts/
-  sync-cursor-platform.sh        # canonical skills → platforms/cursor
+  sync-cursor-platform.sh        # canonical skills → platforms/cursor (incl. visual-sprint-board)
   install-cursor-local.sh        # rsync Cursor package into ~/.cursor/plugins/local/
   generate-cursor-platform.py    # re-port commands/agents for Cursor
 site/                            # Nextra docs site
@@ -91,6 +93,7 @@ Invariants any command touching this directory must respect (defined in `skills/
 - Append, don't clobber — a second `/conclave-spec` run creates `SPRINT-002/`, doesn't overwrite `SPRINT-001/`.
 - Every artifact-generating command snapshots its inputs to `conclave/context/`.
 - `SPRINT-NNN` / `US-NNN` IDs increment monotonically and are never reused.
+- Non-markdown views live **outside** `conclave/`: `conclave-board/` (Kanban scaffold) and `docs/sprint-board/` (offline HTML from `/conclave-sprint-board`).
 
 ### Team profiles and the two structural gates
 

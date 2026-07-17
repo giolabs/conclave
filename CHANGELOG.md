@@ -4,6 +4,21 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-07-17
+
+### Added
+- **`/conclave-sprint-board`** — generates a local, self-contained HTML roadmap board (tabs: Roadmap / Tasks / Analytics) from `conclave/sprints/**` into `docs/sprint-board/index.html` (+ `README.md`). Offline `file://`, no CDN, no npm. Complementary to `/conclave-board` (Next.js status Kanban); does not replace it and does not mutate story/sprint source files (ADR-003).
+- **Skill** `skills/conclave/visual-sprint-board/SKILL.md` — discovery order, status mapping (`done|verified` → done, etc.), accent cascade (prompt → DESIGN.md → `board.md` → `#C45C26`), one phase `Delivery`.
+- **Templates** `sprint-board.html.template`, `sprint-board-readme.template.md`.
+- Cursor twin + sync of `visual-sprint-board/` via `scripts/sync-cursor-platform.sh`.
+- Docs site: `site/content/{en,es}/commands/sprint-board.mdx`.
+
+### Changed
+- Plugin manifests (Claude Code + Cursor) and `conclave_version` → **0.12.0**.
+- `skills/conclave/SKILL.md` §7 documents both visual boards (Kanban vs roadmap HTML).
+- ADR-003 status → **accepted**.
+- Developer docs: `CLAUDE.md` layout/sync notes; site index EN/ES command count → twelve.
+
 ## [0.11.0]
 
 ### Added

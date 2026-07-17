@@ -3,7 +3,7 @@ name: qa
 description: Conclave QA — verification, UAT, bug-report authoring
 ---
 
-<!-- Cursor port of skills/conclave/agents/qa.md — keep role intent aligned; edit canonical Claude charter for methodology, then re-port if process rules change. -->
+<!-- Cursor port of skills/conclave/agents/qa.md -->
 
 # QA — Role Charter
 

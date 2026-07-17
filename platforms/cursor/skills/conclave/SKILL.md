@@ -86,6 +86,7 @@ conclave/                             # VISIBLE top-level directory, all markdow
 - **Roster schema degrades gracefully.** A `roster.md` written before v0.2.0 (no `Discipline` column) is not rejected — commands that read it treat every member as `multi`-discipline and print a one-time compatibility hint. No auto-migration is provided; a team opts into discipline-based assignment by re-running `/conclave-init` or hand-editing the roster.
 - **UAT config degrades gracefully.** A `testing-environments.md` that doesn't exist yet, or still has every row `TBD` (v0.2.0 installs, or a fresh `/conclave-init` before the team fills it in), is not a hard failure — `/conclave-qa` skips UAT generation entirely and verifies acceptance criteria exactly as it did before v0.3.0.
 - **`conclave-board/` (v0.5.0+) is application code, not part of this contract.** `/conclave-board` scaffolds a Next.js app as a *sibling* of `conclave/`, not inside it — the markdown-only invariant above applies only to `conclave/` itself. The board reads `conclave/` but never writes to it.
+- **`docs/sprint-board/` (v0.12.0+) is a derived HTML snapshot, not part of this contract.** `/conclave-sprint-board` writes offline `index.html` + `README.md` under `docs/sprint-board/`. It never writes HTML under `conclave/` and never mutates story/sprint source files.
 - **Bugs (v0.10.0+) skip Sprint Planning by design.** A `BUG-NNN` reported via `/conclave-bug report` is written directly in `status: ready` under `conclave/product/bugs/` — not under any `sprints/SPRINT-NNN/`. `/conclave-planning` and `/conclave-sprint` never look inside `conclave/product/bugs/`; a bug is picked up directly via `/conclave-dev BUG-NNN`.
 
 ---
@@ -151,6 +152,8 @@ Templates available:
 - `adr.template.md`
 - `autonomous-run.template.md`
 - `bug.template.md`
+- `sprint-board.html.template` — filled by `/conclave-sprint-board` (writes outside `conclave/`)
+- `sprint-board-readme.template.md` — filled by `/conclave-sprint-board`
 
 ---
 
@@ -220,16 +223,26 @@ The two always-required gates (`sprint_planning`, `qa_verification`) cannot be f
 
 ---
 
-## 7. The visual board (v0.5.0+)
+## 7. Visual boards
 
-`/conclave-board` is the one Conclave capability that is **not** a prose-orchestrated subagent — it's a one-time scaffold plus a deterministic background sync, with no `Agent` call anywhere in its update loop:
+Conclave ships **two complementary boards**. Neither replaces the other; neither writes story/sprint source-of-truth under `conclave/` (except `/conclave-board` may create `team/board.md` once).
 
-- **Scaffold, once**: `/conclave-board` copies a Next.js + shadcn/ui boilerplate into `conclave-board/` (a sibling of `conclave/`, not inside it — see the directory-layout invariants above) and renders `conclave/team/board.md` for branding. A second run refuses, same idempotency posture as `/conclave-init`.
-- **Stay current, automatically**: this plugin ships a `PostToolUse` hook (`hooks/hooks.json` + `hooks/regenerate-board-data.sh`) that fires on every `Write`/`Edit` tool call. If the touched path is under `conclave/` **and** the current repo has a scaffolded board, it re-runs `conclave-board/scripts/generate-data.mjs` — a plain Node script, no LLM involved — which re-parses every story/sprint/roster file into `conclave-board/data/board-data.generated.json`. The board's own dev server (`npm run dev`) hot-reloads to show it. In every other repo (no board scaffolded, or the touched path isn't under `conclave/`), the hook is a fast no-op and never fails the underlying tool call.
-- **Read-only**: the board never writes back to `conclave/`. Story-status changes still only happen through `/conclave-dev`, `/conclave-qa`, and `/conclave-pr-review`.
-- **Local only**: no CI pipeline, no hosting, no cross-machine sync. Each teammate's board reflects their own local `conclave/` checkout.
+### 7.1 Status Kanban — `/conclave-board` (v0.5.0+)
 
-See `docs/specs/conclave-board/spec.md` for the full design.
+`/conclave-board` is **not** a prose-orchestrated subagent — it's a one-time scaffold plus a deterministic background sync, with no `Agent`/`Task` call anywhere in its update loop:
+
+- **Scaffold, once**: copies a Next.js + shadcn/ui boilerplate into `conclave-board/` (a sibling of `conclave/`) and renders `conclave/team/board.md` for branding. A second run refuses, same idempotency posture as `/conclave-init`.
+- **Stay current, automatically**: a `PostToolUse` / Cursor `afterFileEdit` hook re-runs `conclave-board/scripts/generate-data.mjs` when paths under `conclave/` change and a board is scaffolded.
+- **Read-only** toward stories: status changes still only happen through `/conclave-dev`, `/conclave-qa`, and `/conclave-pr-review`.
+- **Local only**: no CI pipeline, no hosting, no cross-machine sync.
+
+See `docs/specs/conclave-board/spec.md`.
+
+### 7.2 Roadmap / analytics — `/conclave-sprint-board` (v0.12.0+)
+
+`/conclave-sprint-board` generates a **single offline HTML file** (Roadmap / Tasks / Analytics tabs) plus a short README under `docs/sprint-board/`. No npm, no CDN, openable via `file://`. Re-runs overwrite the snapshot. Discovery and design rules live in `skills/conclave/visual-sprint-board/SKILL.md`. Bugs (`BUG-NNN`) are omitted in v1. No auto-hook — refresh by re-running the command.
+
+See `docs/specs/conclave-sprint-board/spec.md` and ADR-003.
 
 ## Glossary
 

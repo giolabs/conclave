@@ -6,5 +6,6 @@ export default {
   qa: "/conclave-qa",
   "pr-review": "/conclave-pr-review",
   board: "/conclave-board",
+  "sprint-board": "/conclave-sprint-board",
   bug: "/conclave-bug",
 };

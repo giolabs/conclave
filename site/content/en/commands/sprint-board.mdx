@@ -1,0 +1,60 @@
+---
+title: /conclave-sprint-board
+description: Generate a local self-contained HTML roadmap board (Roadmap / Tasks / Analytics) from conclave/ state.
+---
+
+# /conclave-sprint-board
+
+Generate a **static, offline** roadmap / sprint-analytics board from this repo's `conclave/` directory. Writes a derived snapshot under `docs/sprint-board/` — openable with a double-click (`file://`), no npm, no CDN, no mandatory server.
+
+```
+/conclave-sprint-board
+```
+
+No arguments and no flags in this version. Re-runs **overwrite** `index.html` and `README.md`.
+
+This command is **complementary** to [`/conclave-board`](/en/commands/board) (the Next.js status Kanban). Kanban answers “where is each story in the delivery loop?”; this board answers “where are we on the roadmap?” Neither replaces the other.
+
+## What it does
+
+1. Resolves the workspace; requires `conclave/config.md` (suggests `/conclave-init` if missing).
+2. Discovers `conclave/sprints/SPRINT-*/meta.md` and `stories/US-*.md` (bugs omitted in v1).
+3. Maps Conclave statuses into coarse board pills (`done` / `active` / `planned` / `retired`).
+4. Resolves accent color: prompt hex → `DESIGN.md` → `conclave/team/board.md` → fallback `#C45C26`.
+5. Fills the HTML + README templates and writes `docs/sprint-board/`.
+
+## What it produces
+
+- `docs/sprint-board/index.html` — self-contained board (tabs: Roadmap, Tasks, Analytics).
+- `docs/sprint-board/README.md` — how to open and how to refresh.
+
+## Seeing the board
+
+```bash
+open docs/sprint-board/index.html          # macOS
+xdg-open docs/sprint-board/index.html      # Linux
+```
+
+If the browser restricts `file://`:
+
+```bash
+cd docs/sprint-board && python3 -m http.server 8080
+```
+
+## Staying current
+
+There is **no auto-hook** for this board. After ceremonies change story or sprint status, re-run `/conclave-sprint-board`. It does not modify any file under `conclave/`.
+
+## Guardrails
+
+- Never writes HTML under `conclave/` (markdown-only contract).
+- Never invents sprint or story IDs.
+- Never includes `BUG-NNN` artifacts in v1.
+- Never modifies `conclave-board/` or story/sprint frontmatter.
+- Does not commit — review the snapshot, then `git add docs/sprint-board/` yourself.
+
+## What this is not
+
+- Not a replacement for [`/conclave-board`](/en/commands/board).
+- Not a write path back into `conclave/`.
+- Not a live multiplayer board — each run is a local snapshot of the current checkout.

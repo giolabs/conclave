@@ -47,4 +47,4 @@ Cursor docs mention `ln -s … ~/.cursor/plugins/local/conclave-cursor`. Symlink
 
 ## Version
 
-Lockstep with the Claude Code plugin: **0.11.0**.
+Lockstep with the Claude Code plugin: **0.12.0**.

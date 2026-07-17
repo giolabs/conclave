@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sync canonical Conclave methodology into the Cursor plugin tree.
-# Source of truth: skills/conclave/{SKILL.md,templates/,board-app/}
+# Source of truth: skills/conclave/{SKILL.md,templates/,board-app/,visual-sprint-board/}
 # Destination:    platforms/cursor/skills/conclave/
 #
 # Usage:
@@ -43,6 +43,12 @@ if [[ -d "$SRC/board-app" ]]; then
     "$SRC/board-app/" "$stage/board-app/"
 fi
 
+# visual-sprint-board skill for /conclave-sprint-board
+if [[ -d "$SRC/visual-sprint-board" ]]; then
+  mkdir -p "$stage/visual-sprint-board"
+  rsync -a "$SRC/visual-sprint-board/" "$stage/visual-sprint-board/"
+fi
+
 # Allowlisted Cursor frontmatter tweak: keep name=conclave, ensure description
 # mentions Cursor (canonical already does after 0.11.0; re-assert for safety).
 python3 - "$stage/SKILL.md" <<'PY'
@@ -64,7 +70,7 @@ if [[ "$CHECK" -eq 1 ]]; then
     echo "error: missing $DST — run ./scripts/sync-cursor-platform.sh first" >&2
     exit 1
   fi
-  # Compare SKILL.md + templates (board-app may be large; still check existence)
+  # Compare SKILL.md + templates (board-app / visual-sprint-board may be large)
   diff -rq "$stage/SKILL.md" "$DST/SKILL.md" >/dev/null
   diff -rq "$stage/templates" "$DST/templates" >/dev/null
   if [[ -d "$stage/board-app" ]]; then
@@ -73,6 +79,13 @@ if [[ "$CHECK" -eq 1 ]]; then
       exit 1
     fi
     diff -rq "$stage/board-app" "$DST/board-app" >/dev/null
+  fi
+  if [[ -d "$stage/visual-sprint-board" ]]; then
+    if [[ ! -d "$DST/visual-sprint-board" ]]; then
+      echo "error: visual-sprint-board missing from Cursor tree" >&2
+      exit 1
+    fi
+    diff -rq "$stage/visual-sprint-board" "$DST/visual-sprint-board" >/dev/null
   fi
   echo "OK: platforms/cursor/skills/conclave is in sync with canonical skills/conclave"
   exit 0

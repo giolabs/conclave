@@ -3,7 +3,7 @@ name: designer
 description: Conclave Designer — design-discipline story execution
 ---
 
-<!-- Cursor port of skills/conclave/agents/designer.md — keep role intent aligned; edit canonical Claude charter for methodology, then re-port if process rules change. -->
+<!-- Cursor port of skills/conclave/agents/designer.md -->
 
 # Designer — Role Charter
 

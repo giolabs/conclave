@@ -24,7 +24,7 @@ La mayoría de las herramientas de "IA hace Scrum" inventan un formato de datos 
 ## Qué obtenés
 
 - **Siete charters de rol** (`skills/conclave/agents/*.md`) — Tech Lead, Developer (cubre Frontend y Backend), QA, Designer, DevOps, Product Manager, Scrum Master — cada uno un "system prompt" en markdown que un slash command carga al invocar un subagente para esa disciplina.
-- **Siete slash commands**: seis que cubren todo el ciclo desde el Día 0 hasta terminado (`/conclave-init`, `/conclave-spec`, `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`), más `/conclave-board` para un board Kanban visual y local.
+- **Doce slash commands** que cubren artefactos fundacionales del Día 0, el loop de entrega por historia, orquestación de sprint, authoring de stories/ADRs/bugs, más dos boards complementarios: [`/conclave-board`](/es/commands/board) (Kanban Next.js de status) y [`/conclave-sprint-board`](/es/commands/sprint-board) (HTML offline de roadmap / analíticas).
 - **Ceremonias conscientes del perfil.** Los equipos lean se saltan el daily standup, la revisión de pares y la retro. Los equipos full-scrum exigen todo. Dos gates estructurales — Sprint Planning y Verificación de QA — están siempre activos, sin importar el perfil.
 - **Amigable para solistas.** `/conclave-init` pregunta de entrada si sos vos solo o un equipo, y escala toda la configuración en consecuencia.
 
@@ -37,4 +37,4 @@ La mayoría de las herramientas de "IA hace Scrum" inventan un formato de datos 
 - [Perfiles de equipo](/es/profiles) — cómo escalar la sobrecarga de ceremonias al tamaño de tu equipo.
 - [Referencia de configuración](/es/configuration) — cada campo de `conclave/config.md` explicado.
 - [Máquina de estados de la historia](/es/state-machine) — cómo una historia pasa de `backlog` a `done`, según el perfil.
-- [Comandos](/es/commands/init) — referencia completa de cada uno de los siete slash commands.
+- [Comandos](/es/commands/init) — referencia completa de cada uno de los doce slash commands.

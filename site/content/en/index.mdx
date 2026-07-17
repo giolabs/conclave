@@ -24,7 +24,7 @@ Most "AI does Scrum" tools either invent a new proprietary data format or requir
 ## What you get
 
 - **Seven role charters** (`skills/conclave/agents/*.md`) — Tech Lead, Developer (covering Frontend and Backend), QA, Designer, DevOps, Product Manager, Scrum Master — each a markdown "system prompt" a slash command loads when it spawns a subagent for that discipline.
-- **Seven slash commands**: six covering the full Day-0-to-done loop (`/conclave-init`, `/conclave-spec`, `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`), plus `/conclave-board` for a local, visual Kanban board.
+- **Twelve slash commands** covering Day-0 founding artifacts, the per-story delivery loop, sprint orchestration, story/ADR/bug authoring, plus two complementary boards: [`/conclave-board`](/en/commands/board) (Next.js status Kanban) and [`/conclave-sprint-board`](/en/commands/sprint-board) (offline HTML roadmap / analytics).
 - **Profile-aware ceremonies.** Lean teams skip the daily standup, peer review, and retro. Full-scrum teams enforce everything. Two structural gates — Sprint Planning and QA Verification — are always on, regardless of profile.
 - **Solo-friendly.** `/conclave-init` asks up front whether it's just you or a team, and scales the whole setup accordingly.
 
@@ -37,4 +37,4 @@ Most "AI does Scrum" tools either invent a new proprietary data format or requir
 - [Team profiles](/en/profiles) — how to scale ceremony overhead to your team's size.
 - [Configuration reference](/en/configuration) — every field in `conclave/config.md` explained.
 - [Story state machine](/en/state-machine) — how a story moves from `backlog` to `done`, profile-aware.
-- [Commands](/en/commands/init) — full reference for each of the seven shipped slash commands.
+- [Commands](/en/commands/init) — full reference for each of the twelve shipped slash commands.

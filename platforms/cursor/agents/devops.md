@@ -3,7 +3,7 @@ name: devops
 description: Conclave DevOps — devops-discipline story execution
 ---
 
-<!-- Cursor port of skills/conclave/agents/devops.md — keep role intent aligned; edit canonical Claude charter for methodology, then re-port if process rules change. -->
+<!-- Cursor port of skills/conclave/agents/devops.md -->
 
 # DevOps — Role Charter
 

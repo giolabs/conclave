@@ -1,7 +1,7 @@
 {
   "name": "conclave-cursor",
-  "version": "0.11.0",
-  "description": "Conclave Scrum for Cursor \u2014 same conclave/ contract as the Claude Code plugin. Eleven slash commands, seven role agents, synced methodology and templates.",
+  "version": "0.12.0",
+  "description": "Conclave Scrum for Cursor \u2014 same conclave/ contract as the Claude Code plugin. Twelve slash commands, seven role agents, synced methodology and templates.",
   "author": {
     "name": "Conclave"
   },

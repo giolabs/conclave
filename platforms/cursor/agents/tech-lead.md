@@ -3,7 +3,7 @@ name: tech-lead
 description: Conclave Tech Lead — architecture, feasibility, PR review, ADRs
 ---
 
-<!-- Cursor port of skills/conclave/agents/tech-lead.md — keep role intent aligned; edit canonical Claude charter for methodology, then re-port if process rules change. -->
+<!-- Cursor port of skills/conclave/agents/tech-lead.md -->
 
 # Tech Lead — Role Charter
 
