@@ -88,5 +88,29 @@ No checkpoint file is introduced. Re-run the command and it picks up exactly whe
 
 - Phase 1 failure is a hard stop. All other failures are per-story isolated.
 - Never modifies files outside `conclave/` (except feature branches and `tests/uat/` written by the QA phase).
-- Never merges any PR — Tech Lead approval in Phase 4 is sufficient.
+- **Interactive mode never merges any PR** — Tech Lead approval in Phase 4 is sufficient.
 - Every skipped phase prints a skip notice with the reason.
+
+## Autonomous Sprint Loop (v0.13.0+)
+
+```
+/conclave-sprint --no-interaction
+/conclave-sprint --headless
+```
+
+Or set `commands.sprint.interactive: false` in `conclave/config.md`.
+
+**Prerequisite:** the [GitHub CLI](https://cli.github.com/) (`gh`) must be installed and authenticated (`gh auth login`) with an account that has access to this repository. Conclave does not install or configure `gh`.
+
+Hands-off delivery for lean/solo teams (ADR-004):
+
+1. Optional **schedule window** — outside the window → one-line no-op (exit 0, no report). Mid-run expiry drains after the in-flight gate.
+2. Writes `conclave/sprints/SPRINT-NNN/runs/RUN-NNN-autonomous-loop.md` at start (`in_progress` lock) and finalizes at end.
+3. **Serial** per-story loop: autonomous Dev → wait PR checks → headless QA → **forced Tech Lead PR review** (even if lean has peer review off) → **merge** into `repo.integration_branch` (prefer `develop`).
+4. Self-heal on CI / QA / TL failure until `budgets.max_attempts_per_story`.
+5. When every non-retired story is `done` → mechanical `meta.status: done`.
+6. Optional Slack summary via Incoming Webhook env var name (never store the URL in markdown).
+
+Budgets (`max_attempts_per_story`, `max_ci_wait_minutes`, `max_total_tokens`, `max_wall_clock_hours`) and models (`models:` block) are documented in [Configuration](/en/configuration) and [Scheduling](/en/scheduling).
+
+`--ignore-schedule` bypasses the window for one run. Interactive `/conclave-sprint` (no flag) keeps the one-pass, never-merge semantics above.

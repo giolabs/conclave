@@ -88,5 +88,27 @@ No se introduce ningún archivo de checkpoint. Volvé a correr el comando y reto
 
 - El fallo en Fase 1 es un stop duro. Todos los demás fallos se aíslan por historia.
 - Nunca modifica archivos fuera de `conclave/` (excepto branches de features y `tests/uat/` que escribe la fase de QA).
-- Nunca mergea ningún PR — la aprobación del Tech Lead en la Fase 4 es suficiente.
+- **El modo interactivo nunca mergea ningún PR** — la aprobación del Tech Lead en la Fase 4 es suficiente.
 - Cada fase salteada imprime un aviso de salteo con el motivo.
+
+## Autonomous Sprint Loop (v0.13.0+)
+
+```
+/conclave-sprint --no-interaction
+/conclave-sprint --headless
+```
+
+O bien `commands.sprint.interactive: false` en `conclave/config.md`.
+
+**Prerrequisito:** el [GitHub CLI](https://cli.github.com/) (`gh`) debe estar instalado y autenticado (`gh auth login`) con una cuenta que tenga acceso a este repositorio. Conclave no instala ni configura `gh`.
+
+Entrega hands-off para equipos lean/solo (ADR-004):
+
+1. Ventana de **schedule** opcional — fuera de la ventana → no-op de una línea (exit 0, sin reporte).
+2. Escribe `conclave/sprints/SPRINT-NNN/runs/RUN-NNN-autonomous-loop.md` al inicio (lock) y lo finaliza al terminar.
+3. Loop **serial** por historia: Dev autónomo → checks del PR → QA headless → **TL forzado** → **merge** a `repo.integration_branch` (preferí `develop`).
+4. Self-heal ante fallos de CI / QA / TL hasta `budgets.max_attempts_per_story`.
+5. Cuando todas las historias no-retired están `done` → `meta.status: done` mecánico.
+6. Slack opcional vía nombre de env var del Incoming Webhook (nunca guardes la URL en markdown).
+
+Presupuestos y modelos: [Configuración](/es/configuration) y [Scheduling](/es/scheduling). `--ignore-schedule` saltea la ventana en una sola corrida. El `/conclave-sprint` interactivo (sin flag) conserva el one-pass sin merge.

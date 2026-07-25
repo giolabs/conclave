@@ -1,0 +1,81 @@
+---
+title: Scheduling
+description: Run the Autonomous Sprint Loop over a weekend window with budgets, models, and an external trigger.
+---
+
+# Scheduling
+
+Conclave does **not** ship a background scheduler. The **Autonomous Sprint Loop** (`/conclave-sprint --no-interaction`) can **gate** on a time window and **budgets**; something outside Conclave must **invoke** the command (Claude Code `/loop` or `/schedule`, a Cursor Automation, or `cron`).
+
+Architecture: [ADR-004](https://github.com/giolabs/conclave/blob/main/docs/adr/ADR-004-autonomous-end-to-end-sprint-loop.md).
+
+## Prerequisites
+
+The Autonomous Sprint Loop uses the [GitHub CLI](https://cli.github.com/) for PRs, checks, and merge. Before running it:
+
+1. Install `gh`.
+2. Authenticate (`gh auth login`) with an account that has access to this repository (push, open/review PRs, and merge into the integration branch).
+
+Conclave does not install or configure `gh` for you.
+
+## Weekend recipe
+
+1. Ensure the sprint is `active` (or accept headless planning defaults if still `draft`).
+2. Configure `conclave/config.md`:
+
+```yaml
+repo:
+  integration_branch: develop
+commands:
+  sprint:
+    interactive: false
+    merge_method: squash
+    schedule:
+      window_start: "2026-07-25T19:00:00-03:00"
+      window_end:   "2026-07-27T07:00:00-03:00"
+      enforce: true
+    budgets:
+      max_attempts_per_story: 3
+      max_ci_wait_minutes: 20
+      max_total_tokens: 2000000
+      max_wall_clock_hours: 12
+models:
+  default: claude-sonnet-4-6
+  overrides:
+    developer: claude-haiku-4-5-20251001
+    tech_lead: claude-opus-4-6
+notifications:
+  slack:
+    enabled: true
+    webhook_env: SLACK_WEBHOOK_URL
+```
+
+3. Export `SLACK_WEBHOOK_URL` in the environment if Slack is enabled (never put the URL in markdown).
+4. Keep the machine awake and network available for the whole window (`gh` must already be installed and authenticated — see [Prerequisites](#prerequisites)).
+5. Start a **recurring trigger** that fires often enough to resume work (e.g. hourly):
+
+| Platform | Example trigger |
+|---|---|
+| Claude Code | `/loop 1h /conclave-sprint --no-interaction` (session must stay open), or `/schedule` where available (**research preview — do not rely on it alone**) |
+| Cursor | Automation on an interval, or the local interval loop skill, invoking `/conclave-sprint --no-interaction` |
+| Any | `cron` / `launchd` invoking your agent CLI with the same command |
+
+## What Conclave does on each firing
+
+| Situation | Behavior |
+|---|---|
+| Outside `[window_start, window_end]` | One-line no-op, exit 0, **no report**, no git writes |
+| Inside window, no in-progress lock | Run (or resume) the Autonomous Sprint Loop |
+| `in_progress` run younger than `max_wall_clock_hours` | Refuse — another loop is already working |
+| Budget or window exhausted mid-run | Drain after the in-flight gate; finalize report (`aborted_budget` / `partial`) |
+| `--ignore-schedule` | Bypass the window for this invocation; report records `schedule.bypassed: true` |
+
+## Token budget honesty
+
+`max_total_tokens` is a **best-effort ledger** (estimated and/or measured rows). It is a **guardrail, not a billing control**. The run report discloses precision (`estimated` / `measured` / `mixed`). Use provider-side limits for a hard spend cap. Budgets are **per run** — an hourly trigger can spend the token budget on every firing; size the **window** and **`max_wall_clock_hours`** to bound the weekend.
+
+## Reading the report
+
+Path: `conclave/sprints/SPRINT-NNN/runs/RUN-NNN-autonomous-loop.md`
+
+Look at `outcome`, the per-story table, the budget ledger, and `Stopped because`. Interactive `/conclave-sprint` (no flag) never merges and does not use this path.

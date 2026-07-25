@@ -94,6 +94,7 @@ Invariants any command touching this directory must respect (defined in `skills/
 - Every artifact-generating command snapshots its inputs to `conclave/context/`.
 - `SPRINT-NNN` / `US-NNN` IDs increment monotonically and are never reused.
 - Non-markdown views live **outside** `conclave/`: `conclave-board/` (Kanban scaffold) and `docs/sprint-board/` (offline HTML from `/conclave-sprint-board`).
+- **Autonomous Sprint Loop** (v0.13.0+, `/conclave-sprint --no-interaction`) may merge after QA+TL and writes run reports under `conclave/sprints/SPRINT-NNN/runs/`. Requires GitHub CLI (`gh`) installed and authenticated with repo access — Conclave does not install or configure it. See ADR-004 and the docs Scheduling page.
 
 ### Team profiles and the two structural gates
 

@@ -147,7 +147,18 @@ The orchestrator hands you:
 - **Never treat a CI failure or timeout as anything less disqualifying than a Gherkin scenario failing by inspection.** A `blocked` CI result (no run found, or it timed out) counts against the verdict exactly like `failed` — never silently `passed`.
 - **Never conflate `pending_uat` with `blocked`.** A mobile checklist awaiting a human, or just generated, is not a defect — word it as "awaiting completion," not as a failure.
 - **Never let the Postman-collection merge drop another story's requests.** Add or update only what this story's endpoints need.
-- **Never propose a CI pipeline change beyond the single job/step that runs `tests/uat/`**, and never write it without the orchestrator confirming with the human first.
+- **Never propose a CI pipeline change beyond the single job/step that runs `tests/uat/`**, and never write it without the orchestrator confirming with the human first — **except** when the orchestrator task prompt says you are inside the **Autonomous Sprint Loop**: then decline writing any new workflow (proceed Gherkin-only if possible) and never invent CI secrets.
+
+---
+
+## How you operate in the Autonomous Sprint Loop (v0.13.0+)
+
+When the orchestrator's task prompt begins with `Autonomous sprint loop` (or otherwise states headless QA inside `/conclave-sprint --no-interaction`):
+
+1. **Never call `AskQuestion` / `AskQuestion`.** The story ID, branch fetch, and CI-job decisions are already resolved by the orchestrator (or defaulted: fetch branch yes; decline new workflow writes).
+2. Treat `peer_pr_review` as **effectively required** for status transitions on this run (orchestrator forces it) — on a behavioral pass, move the story to `verified`, not directly to `done`.
+3. `pending_uat` (mobile checklist awaiting a human) remains a stop signal for the loop — do not invent checklist completion.
+4. Payload / verdict shape is otherwise unchanged from interactive `/conclave-qa`.
 
 ---
 

@@ -9,7 +9,7 @@ stack:
 repo_url: "{{repo_url}}"
 claude_md_path: "CLAUDE.md"
 initialized_at: "{{iso_date}}"
-conclave_version: "0.12.0"
+conclave_version: "0.13.0"
 
 # Optional. Which agent runtime(s) this install expects. Informational only —
 # unset means either Claude Code or Cursor is fine (mixed teams OK).
@@ -53,12 +53,41 @@ ceremonies:
 #     # devops: claude-sonnet-4-6
 #     # qa: claude-sonnet-4-6
 
+# Optional integration branch for PRs / Autonomous Sprint Loop merges (default: develop, then main).
+# repo:
+#   integration_branch: develop
+
 # Command behavior (optional). Omit this block entirely to keep interactive mode for every command.
-# Only /conclave-dev honors this in v0.9.0; other commands ignore the block. /conclave-sprint Phase 2
-# always forces dev.interactive: false regardless of what is set here.
+# /conclave-dev honors commands.dev.interactive (v0.9.0+).
+# /conclave-sprint honors commands.sprint.interactive (v0.13.0+) — false enables Autonomous Sprint Loop
+# (self-heal → QA → forced TL → merge). Interactive /conclave-sprint Phase 2 still forces
+# dev.interactive: false for batched Dev regardless of commands.dev.interactive.
 # commands:
 #   dev:
 #     interactive: true                # false = never call AskUserQuestion; apply sensible defaults or abort with a reason
+#   sprint:
+#     interactive: true                # false = Autonomous Sprint Loop (merge allowed after QA+TL)
+#     merge_method: squash             # squash | merge | rebase
+#     schedule:                        # optional weekend / off-hours window — Conclave gates; you supply the trigger
+#       window_start: "2026-07-25T19:00:00-03:00"   # ISO-8601 with explicit offset
+#       window_end:   "2026-07-27T07:00:00-03:00"
+#       enforce: true                  # default true when the schedule block is present
+#     budgets:
+#       max_attempts_per_story: 3
+#       max_ci_wait_minutes: 20        # falls back to ceremonies.qa_verification.ci_wait_timeout_minutes
+#       max_total_tokens: 2000000      # best-effort ledger; not a billing guarantee
+#       max_wall_clock_hours: 12       # exact backstop
+#       # token_estimates:             # optional per-dispatch proxy costs
+#       #   planning: 60000
+#       #   developer: 180000
+#       #   qa: 90000
+#       #   tech_lead: 70000
+
+# Optional Slack delivery for Autonomous Sprint Loop run reports (webhook URL via env var NAME only).
+# notifications:
+#   slack:
+#     enabled: false
+#     webhook_env: SLACK_WEBHOOK_URL   # name of the env var holding the Incoming Webhook URL — never paste the URL here
 ---
 
 # Conclave configuration
@@ -138,7 +167,7 @@ To activate, uncomment the `models:` block in the frontmatter above and fill in 
 
 ## Command configuration
 
-The optional `commands:` block controls per-command interaction behavior. In v0.9.0 only `/conclave-dev` honors it; other commands ignore the block.
+The optional `commands:` block controls per-command interaction behavior.
 
 ### `commands.dev.interactive` (v0.9.0+)
 
@@ -148,7 +177,7 @@ Default: `true` (interactive — the historical behavior). When set to `false`, 
 - **Ambiguous decisions with no safe default abort.** The Developer subagent returns `AUTONOMOUS_ABORT: <one-line reason>` — no test framework detected, new dependency required that no ADR authorised, ambiguous Gherkin scenario, architecture change required. The story resets to `status: ready`; nothing is pushed.
 - **Per-run report appended to the story file** — `## Autonomous run — <ISO>` section with outcome (`done`/`blocked`/`aborted`), decisions taken, files touched, test/lint summary, and blockers if any.
 
-Set to `false` when running `/conclave-dev` from CI, from `/conclave-sprint` (Phase 2 forces autonomous regardless of this setting), or when you want a hands-off "just run it" flow. Interactive mode remains the default for direct terminal use where a human is watching.
+Set to `false` when running `/conclave-dev` from CI, from `/conclave-sprint` (interactive Phase 2 forces autonomous regardless of this setting), or when you want a hands-off "just run it" flow. Interactive mode remains the default for direct terminal use where a human is watching.
 
 **Ad-hoc override** — force autonomous for a single invocation without editing this file:
 
@@ -170,6 +199,55 @@ There is no CLI flag to force interactive when the config is autonomous — the 
 | `0` | `false` | yes |
 | any other value | `true` (fallback) | yes |
 | field absent | `true` (silent default) | no |
+
+### `commands.sprint.interactive` (v0.13.0+)
+
+Default: `true` (interactive one-pass runner — **never merges**). When set to `false`, `/conclave-sprint` runs the **Autonomous Sprint Loop** (ADR-004):
+
+- Zero `AskUserQuestion` / `AskQuestion` prompts.
+- Serial per-story pipeline: Dev → PR checks → QA → **forced Tech Lead PR review** (even when lean has `peer_pr_review.required: false`) → **merge** into `repo.integration_branch` (prefer `develop`).
+- Self-heal on CI / QA / TL failure until `budgets.max_attempts_per_story`.
+- Writes `conclave/sprints/SPRINT-NNN/runs/RUN-NNN-autonomous-loop.md` (lock + audit).
+- Closes the sprint (`meta.status: done`) when every non-retired story is `done`.
+
+**Prerequisite:** install the [GitHub CLI](https://cli.github.com/) (`gh`) and authenticate (`gh auth login`) with an account that has access to this repository. Conclave does not install or configure `gh`.
+
+**Ad-hoc override:**
+
+```
+/conclave-sprint --no-interaction
+/conclave-sprint --headless
+/conclave-sprint --no-interaction --ignore-schedule   # bypass window gate for this run
+```
+
+Interactive `/conclave-sprint` (no flag, `interactive: true`) keeps the pre-0.13.0 one-pass semantics and **must not merge**.
+
+## Scheduling and budgets (v0.13.0+)
+
+`commands.sprint.schedule` is an optional **window gate**. Conclave does **not** start itself on a timer — you supply a trigger (Claude Code `/loop` or `/schedule`, Cursor Automation, `cron`). When the schedule block is present and `enforce: true` (default), invocations outside `[window_start, window_end]` exit as a cheap no-op (exit 0, no report). Mid-run, crossing `window_end` drains after the in-flight gate.
+
+`commands.sprint.budgets` caps the loop:
+
+| Key | Strength | Default |
+|---|---|---|
+| `max_attempts_per_story` | Exact | `3` |
+| `max_ci_wait_minutes` | Exact | `20` (or `ceremonies.qa_verification.ci_wait_timeout_minutes`) |
+| `max_wall_clock_hours` | Exact | `12` |
+| `max_total_tokens` | **Best-effort** ledger | `2000000` |
+
+`max_total_tokens` is a **guardrail, not a billing control**. The run report discloses whether totals were `estimated`, `measured`, or `mixed`. Set provider-side limits if you need a hard spend cap. Budgets are **per run** — an hourly trigger can spend the token budget on every firing; size the window + wall-clock to bound the weekend.
+
+The loop reuses the existing `models:` block for per-role routing. There is no `commands.sprint.models` schema.
+
+See the docs site **Scheduling** page for a weekend recipe.
+
+## Notifications (v0.13.0+)
+
+`notifications.slack.enabled: true` posts the Autonomous Sprint Loop run-report summary (including aborts) to a Slack Incoming Webhook. Put only the **env var name** in `webhook_env` (default `SLACK_WEBHOOK_URL`). Never paste the webhook URL or any secret into `conclave/` markdown. If enabled but the env var is unset, the run still succeeds and records `slack_delivery: failed` (or `skipped`).
+
+## Repo / integration branch
+
+`repo.integration_branch` (optional) — branch Autonomous Sprint Loop merges into and that Dev/QA target for PRs when resolved by the loop. Prefer `develop`. If unset, the orchestrator tries `develop`, then `main`.
 
 ## How to update this file
 

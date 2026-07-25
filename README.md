@@ -109,6 +109,11 @@ In your project repo:
 # Or: run the entire sprint in one shot (steps 3–6 above, automated)
 /conclave-sprint
 
+# Autonomous Sprint Loop — zero prompts; self-heal; merge to develop; run report
+/conclave-sprint --no-interaction
+# Or set commands.sprint.interactive: false in conclave/config.md
+# Optional weekend window + budgets + Slack: see Scheduling docs / config.template.md
+
 # Autonomous /conclave-dev — no prompts, run report appended to the story file
 /conclave-dev --no-interaction US-042    # ad-hoc CLI override
 # Or set commands.dev.interactive: false in conclave/config.md to make it the default
@@ -239,7 +244,7 @@ Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251
 - `/conclave-board` — one-time scaffold of a local, branded Kanban board (Next.js + shadcn/ui) at `conclave-board/`, a sibling of `conclave/`. Columns mirror the story state machine; cards show ID, title, discipline, assignee, priority, and estimate. A plugin hook regenerates the board's data automatically whenever `conclave/` changes — no CI, no server, no LLM in the update loop. Read-only; never writes back to `conclave/`.
 - `/conclave-sprint-board` — generate a **self-contained offline HTML** roadmap board (Roadmap / Tasks / Analytics) at `docs/sprint-board/`. No npm, no CDN, openable via `file://`. Complementary to `/conclave-board` (Kanban); re-runs overwrite the snapshot; never mutates `conclave/` stories or sprints.
 
-- `/conclave-sprint` — run an entire active sprint end-to-end: planning → dev all ready stories → QA all review stories → Tech Lead PR review (if required). Each phase is profile-aware and failure-isolated per story.
+- `/conclave-sprint` — run an entire active sprint end-to-end. **Interactive** (default): planning → batched Dev → QA → TL PR review (if required); never merges. **Autonomous Sprint Loop** (`--no-interaction` / `commands.sprint.interactive: false`): serial self-heal Dev→CI→QA→forced TL→**merge** to `develop` (or `repo.integration_branch`); schedule window + budgets; run report + optional Slack; closes the sprint when all stories are `done` (ADR-004).
 - `/conclave-story <new | edit US-NNN | split US-NNN | retire US-NNN>` — Product Manager mid-sprint story authoring, in every team mode. `new` allocates the next monotonic ID and lands the story in backlog (default) or the active sprint; `edit` revises a `ready`/`backlog` story; `split` decomposes a parent into 2–4 children (with a hard scenario-coverage safety rule enforced by the PM subagent); `retire` is a mechanical status change with no LLM call. Introduces the `retired` terminal state — retired stories are excluded from every command's collection queries.
 - `/conclave-adr [topic]` — Tech Lead ADR authoring. Topic-directed: `/conclave-adr "<decision>"` researches and writes a standalone ADR at `conclave/product/adr/ADR-NNN-<slug>.md`. Discovery: `/conclave-adr` (no args) has the TL propose 1–3 candidate decisions from sprint activity + architecture gaps, then authors the one the user picks. On first run in a repo with inline ADRs, migrates them to standalone files (atomic per ADR, resumable, idempotent). Every new ADR is `status: proposed`; the team promotes to `accepted` on PR merge.
 - `/conclave-bug <report [text|url] | list>` — report a post-merge bug or list the open backlog. `report` turns free text (or a URL/ID from a connected logging/error-tracking MCP tool, detected generically — never a hardcoded vendor) into a `BUG-NNN` artifact with Gherkin repro steps and an explicit `severity`, mirrors it as a GitHub issue, and hands it straight to `/conclave-dev` — bugs are written directly `ready`, skipping Sprint Planning entirely. `list` is mechanical, no LLM call. `/conclave-dev`/`/conclave-qa` accept `BUG-NNN` IDs anywhere they accept `US-NNN`, including mixed batches; the Developer reproduces a bug via its repro steps before fixing it, and the PR includes `Fixes #<issue>` to auto-close the mirrored issue on merge.
@@ -255,11 +260,24 @@ Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251
 #   dev:
 #     interactive: false
 
-# Sprint runs always use autonomous mode (Phase 2 forces it regardless of config.md)
+# Interactive sprint Phase 2 always uses autonomous Dev (batched)
 /conclave-sprint
 ```
 
-Autonomous mode never calls `AskUserQuestion`. Every prompt site applies a documented default (assignee takeover, branch recreate for stale local branches, branch resume when there is prior story work, refuse when another dev's commits are on the branch); ambiguities without a safe default abort with `AUTONOMOUS_ABORT: <reason>` and reset the story to `status: ready`. Every autonomous run appends a `## Autonomous run — <ISO>` section to the story file with outcome (`done` / `blocked` / `aborted`), decisions taken, files touched, test/lint summary, and blockers if any. This makes `/conclave-sprint` and CI-driven story runs hands-off without giving up auditability.
+Autonomous mode never calls `AskUserQuestion`. Every prompt site applies a documented default (assignee takeover, branch recreate for stale local branches, branch resume when there is prior story work, refuse when another dev's commits are on the branch); ambiguities without a safe default abort with `AUTONOMOUS_ABORT: <reason>` and reset the story to `status: ready`. Every autonomous run appends a `## Autonomous run — <ISO>` section to the story file with outcome (`done` / `blocked` / `aborted`), decisions taken, files touched, test/lint summary, and blockers if any.
+
+### Autonomous Sprint Loop (v0.13.0+)
+
+```bash
+/conclave-sprint --no-interaction
+# commands.sprint.interactive: false in config.md
+
+# Weekend window example (Conclave gates; you supply the trigger):
+# commands.sprint.schedule.window_start / window_end
+# /loop 1h /conclave-sprint --no-interaction   # Claude Code
+```
+
+Runs the full delivery loop per story (Dev → checks → QA → forced TL → merge), writes `conclave/sprints/SPRINT-NNN/runs/RUN-*.md`, optionally posts to Slack, and closes the sprint when every non-retired story is `done`. Requires the GitHub CLI (`gh`) installed and authenticated with access to the repository. Interactive `/conclave-sprint` still never merges. See the docs site **Scheduling** page.
 
 Sprint closeout ceremonies (review, retro) and stack-specific sub-specs are next.
 

@@ -4,6 +4,22 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-07-25
+
+### Added
+- **Autonomous Sprint Loop** on `/conclave-sprint` (`--no-interaction` / `--headless`, or `commands.sprint.interactive: false`) — serial self-heal Dev → PR checks → QA → **forced Tech Lead review** → **merge** into `repo.integration_branch` (prefer `develop`); mechanical sprint close when all non-retired stories are `done`; run report at `conclave/sprints/SPRINT-NNN/runs/RUN-NNN-autonomous-loop.md`; optional Slack Incoming Webhook via env var name (ADR-004).
+- **Schedule window** `commands.sprint.schedule.window_start` / `window_end` / `enforce` — Conclave gates; external trigger (`/loop`, `/schedule`, Cursor Automation, `cron`) starts the command. `--ignore-schedule` bypasses for one run. Outside-window invocations are a cheap no-op (exit 0, no report).
+- **Budgets** `commands.sprint.budgets` — `max_attempts_per_story`, `max_ci_wait_minutes`, `max_total_tokens` (best-effort ledger), `max_wall_clock_hours` (exact).
+- Template `sprint-run-report.template.md`; docs: Scheduling pages EN/ES.
+
+### Changed
+- Interactive `/conclave-sprint` (default) unchanged: one-pass, **never merges**.
+- Plugin manifests + `conclave_version` → **0.13.0**.
+- `SKILL.md` §3/§5/§6 — loop catalog, merge-policy exception, schedule/budget note.
+- QA charter — headless defaults inside the Autonomous Sprint Loop.
+- ADR-004 → **accepted**.
+- Docs note: Autonomous Sprint Loop requires GitHub CLI (`gh`) installed and authenticated with repo access — Conclave does not install or configure it.
+
 ## [0.12.0] — 2026-07-17
 
 ### Added
