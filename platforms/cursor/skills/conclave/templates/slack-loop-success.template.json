@@ -1,0 +1,38 @@
+{
+  "text": "Conclave delivery loop completed — {{sprint_id}} {{run_id}}: {{done_count}} stories approved and ready for you to merge.",
+  "blocks": [
+    {
+      "type": "header",
+      "text": { "type": "plain_text", "text": "Delivery loop completed — {{sprint_id}}", "emoji": false }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*{{done_count}} of {{item_count}} stories* are approved and waiting for a human merge. Conclave does not merge — these PRs are yours to land."
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Run*\n{{run_id}} ({{scope}})" },
+        { "type": "mrkdwn", "text": "*Duration*\n{{wall_clock_hours}} h of {{max_wall_clock_hours}} h" },
+        { "type": "mrkdwn", "text": "*Tokens*\n{{tokens_total}} of {{max_total_tokens}} ({{tokens_precision}})" },
+        { "type": "mrkdwn", "text": "*Attempts*\n{{attempts_total}} (cap {{max_attempts_per_story}}/story)" },
+        { "type": "mrkdwn", "text": "*First pass*\n{{first_pass_count}} of {{item_count}} stories, no rework" },
+        { "type": "mrkdwn", "text": "*Rework*\nQA→Dev {{reentries_qa_total}} · TL→Dev {{reentries_tl_total}}" }
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*Ready to merge*\n{{prs_ready_mrkdwn_list}}" }
+    },
+    {
+      "type": "context",
+      "elements": [
+        { "type": "mrkdwn", "text": "Full report: `{{report_path}}` · base branch `{{integration_branch}}` · sprint left open" }
+      ]
+    }
+  ]
+}

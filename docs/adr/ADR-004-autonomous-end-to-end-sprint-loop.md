@@ -1,8 +1,9 @@
 # ADR-004: Autonomous End-to-End Sprint Loop with Merge, Scheduling Windows, and Budgets
 
-- **Status**: accepted
+- **Status**: accepted, partially superseded by ADR-006
 - **Date**: 2026-07-24
 - **Amended**: 2026-07-24 — added scheduling windows, run budgets (attempts / CI wait / tokens / wall clock), and explicit model routing for loop mode. Status unchanged (`proposed`).
+- **Amended**: 2026-07-26 (0.15.0) — **the delivery-loop semantics of this ADR are superseded by ADR-006.** `/conclave-sprint --no-interaction` is no longer a self-healing, merging loop: it reverts to headless one-pass (planning defaults + batched Dev/QA/TL, no merge, no schedule gate, no budgets), and the single autonomous delivery loop is `/conclave-dev --loop` (three waves, no auto-merge). What survives from this ADR: the budget ledger and its precision disclosure, per-role model routing, the run-report-as-concurrency-lock protocol, the opt-in Slack surface, and the "Conclave gates, an external trigger fires" stance. What does not: auto-merge after QA+TL, serial-per-story delivery on the sprint command, the one-shot `window_start`/`window_end` schedule, and mechanical sprint close from a loop.
 - **Deciders**: lucasgio, Iosvany Alvarez, Giolabs, <author>
 - **Tags**: autonomous-loop, sprint-orchestration, merge-policy, self-healing, run-report, scheduling, budgets, token-budget, model-routing, slack-opt-in, lean, dual-platform
 - **Stack**: Conclave Claude Code / Cursor plugin (markdown commands + prose-orchestrated subagents); target-repo `conclave/` markdown contract; GitHub CLI (`gh`) for PR/CI/merge; `date` for wall-clock accounting; optional Slack Incoming Webhook via env var name in config. Optional external triggers: Claude Code `/loop` (local interval) and `/schedule` (cloud, research preview), Cursor Automations / local interval skill. Docs site: Next.js 16 + Nextra 4 (`site/`). No plugin application runtime.

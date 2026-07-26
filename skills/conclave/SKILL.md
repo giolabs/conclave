@@ -65,14 +65,19 @@ conclave/                             # VISIBLE top-level directory, all markdow
 │   ├── claude-md.snapshot.md
 │   ├── skills.inventory.md
 │   └── rules.inventory.md
+├── runs/                             # delivery-loop run reports, only in repos with no sprint at all
+│   └── RUN-NNN-dev-loop.md           # written by /conclave-dev --loop on a bug-only repo
 └── sprints/
     └── SPRINT-NNN/
         ├── meta.md                   # name, dates, goal, status
         ├── spec.md                   # sprint plan
         ├── stories/
         │   └── US-NNN-<slug>.md
-        └── acceptance/
-            └── AC-US-NNN.md
+        ├── acceptance/
+        │   └── AC-US-NNN.md
+        └── runs/                     # delivery-loop run reports
+            └── RUN-NNN-dev-loop.md   # /conclave-dev --loop (v0.15.0+; RUN-NNN-autonomous-loop.md
+                                      # files from 0.13.0/0.14.0 stay on disk, never rewritten)
 ```
 
 ### Invariants every Conclave command must respect
@@ -87,7 +92,9 @@ conclave/                             # VISIBLE top-level directory, all markdow
 - **UAT config degrades gracefully.** A `testing-environments.md` that doesn't exist yet, or still has every row `TBD` (v0.2.0 installs, or a fresh `/conclave-init` before the team fills it in), is not a hard failure — `/conclave-qa` skips UAT generation entirely and verifies acceptance criteria exactly as it did before v0.3.0.
 - **`conclave-board/` (v0.5.0+) is application code, not part of this contract.** `/conclave-board` scaffolds a Next.js app as a *sibling* of `conclave/`, not inside it — the markdown-only invariant above applies only to `conclave/` itself. The board reads `conclave/` but never writes to it.
 - **`docs/sprint-board/` (v0.12.0+) is a derived HTML snapshot, not part of this contract.** `/conclave-sprint-board` writes offline `index.html` + `README.md` under `docs/sprint-board/`. It never writes HTML under `conclave/` and never mutates story/sprint source files.
-- **Bugs (v0.10.0+) skip Sprint Planning by design.** A `BUG-NNN` reported via `/conclave-bug report` is written directly in `status: ready` under `conclave/product/bugs/` — not under any `sprints/SPRINT-NNN/`. `/conclave-planning` and `/conclave-sprint` never look inside `conclave/product/bugs/`; a bug is picked up directly via `/conclave-dev BUG-NNN`.
+- **Bugs (v0.10.0+) skip Sprint Planning by design.** A `BUG-NNN` reported via `/conclave-bug report` is written directly in `status: ready` under `conclave/product/bugs/` — not under any `sprints/SPRINT-NNN/`. `/conclave-planning` and `/conclave-sprint` never look inside `conclave/product/bugs/`; a bug is picked up directly via `/conclave-dev BUG-NNN`, and driven all the way to an approved PR via `/conclave-dev --loop BUG-NNN` (v0.15.0+).
+- **Run reports are append-only and double as locks.** `runs/RUN-NNN-*.md` files are never deleted or rewritten by a later run; `RUN-NNN` increments monotonically within its directory. A report with `outcome: in_progress` blocks a second run whose scope overlaps it. `conclave/runs/` exists only as the fallback home for a dev-loop report in a repo that has no `sprints/` at all (bug-only work) — when any sprint exists, reports live under that sprint.
+- **No command merges a pull request.** Since v0.15.0 (ADR-006) nothing in Conclave runs `gh pr merge`. QA verification and Tech Lead approval are gates; landing the code is a human action.
 
 ---
 
@@ -100,12 +107,12 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review, Wave 1), `/conclave-story` (new / edit / split — `retire` is mechanical and skips this agent) | `/conclave-groom`, `/conclave-review` |
 | `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility review + discipline assignment, Wave 1), `/conclave-pr-review` (code review + approval), `/conclave-adr` (topic-directed and discovery ADR authoring) | `/conclave-substack` |
 | `agents/scrum-master.md` | `/conclave-planning` (facilitator + assignment, Wave 2 — runs after PM/TL) | `/conclave-standup`, `/conclave-review`, `/conclave-retro` |
-| `agents/developer.md` | `/conclave-dev US-NNN\|BUG-NNN [US-NNN\|BUG-NNN ...]` (items with `discipline: frontend \| backend \| mobile \| multi`, or unset) — one Agent call per item, ≤ 3 concurrent per batch, story and bug IDs may be mixed in one invocation. For a `BUG-NNN`, reproduces via the bug file's inline Gherkin repro steps before fixing, and the rendered PR body includes `Fixes #<github_issue_number>` (v0.10.0+). **Autonomous mode (v0.9.0+)**: `--no-interaction` CLI flag or `commands.dev.interactive: false` in `config.md` makes the command run headless — no `AskUserQuestion` prompts; defaults or `AUTONOMOUS_ABORT: <reason>`; per-run report appended to the file. `/conclave-sprint` Phase 2 always forces autonomous (stories only — see below). | — |
+| `agents/developer.md` | `/conclave-dev US-NNN\|BUG-NNN [US-NNN\|BUG-NNN ...]` (items with `discipline: frontend \| backend \| mobile \| multi`, or unset) — one Agent call per item, ≤ 3 concurrent per batch, story and bug IDs may be mixed in one invocation. For a `BUG-NNN`, reproduces via the bug file's inline Gherkin repro steps before fixing, and the rendered PR body includes `Fixes #<github_issue_number>` (v0.10.0+). **Autonomous mode (v0.9.0+)**: `--no-interaction` CLI flag or `commands.dev.interactive: false` in `config.md` makes the command run headless — no `AskUserQuestion` prompts; defaults or `AUTONOMOUS_ABORT: <reason>`; per-run report appended to the file; ends at `review`, never merges. `/conclave-sprint` Phase 2 always forces autonomous (stories only — see below). **Autonomous Three-Wave Delivery Loop (v0.15.0+)**: `--loop` or `commands.dev.loop: true` takes the active sprint (or the IDs passed) and runs **W1 Dev + green CI → W2 QA → W3 forced TL review**, with any wave failure returning the affected stories to W1; W0 orders the scope by `dependencies:` and serializes file overlaps. Recurring local-time schedule + budgets from `commands.dev.*`, run report `RUN-NNN-dev-loop.md` with token and agent-productivity statistics, Slack templates. Implies autonomous; accepts `BUG-NNN`; **never merges**; never closes a sprint. See ADR-006. | — |
 | `agents/designer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: design`) | — |
 | `agents/devops.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: devops`) | — |
 | `agents/qa.md` | `/conclave-qa US-NNN\|BUG-NNN [US-NNN\|BUG-NNN ...]` — one Agent call per item, ≤ 3 concurrent per batch, story and bug IDs may be mixed. A bug's repro steps are verified exactly like a story's Gherkin scenarios. | — |
 | `agents/qa.md` (again) | `/conclave-bug report` (v0.10.0+) — one Agent call per invocation, authors Gherkin repro steps + an advisory severity note from the report's raw input. `/conclave-bug list` is mechanical (frontmatter-only) and skips the agent, same precedent as `/conclave-story retire`. | — |
-| *(all of the above)* | `/conclave-sprint` — **Interactive** (default): sequential four-phase one-pass runner (Planning → Dev batch-of-3 → QA batch-of-3 → PR review if `peer_pr_review.required`); **never merges**. **Autonomous Sprint Loop** (v0.13.0+, `--no-interaction` / `commands.sprint.interactive: false`): serial self-heal Dev→CI→QA→**forced TL**→**merge** into `repo.integration_branch`; schedule window + budgets; run report under `sprints/SPRINT-NNN/runs/`; optional Slack. Each Agent/Task call uses the role model from `models:`. | — |
+| *(all of the above)* | `/conclave-sprint` — sequential four-phase one-pass runner (Planning → Dev batch-of-3 → QA batch-of-3 → PR review if `peer_pr_review.required`). **Headless one-pass** (`--no-interaction` / `commands.sprint.interactive: false`) is the same pass with documented planning defaults and zero prompts. Neither mode merges, self-heals, reads a schedule, or spends a budget — since v0.15.0 unattended delivery is `/conclave-dev --loop` (ADR-006). Each Agent/Task call uses the role model from `models:`. | — |
 | `agents/product-manager.md` (again) | `/conclave-story <new\|edit\|split>` — one Agent call per invocation. `/conclave-story retire` is mechanical (frontmatter-only) and skips the agent. Available in every `team_mode` (solo, lean, full-scrum). | — |
 | `agents/tech-lead.md` (again) | `/conclave-adr [topic]` — topic-directed mode writes a full ADR to `conclave/product/adr/ADR-NNN-<slug>.md`; discovery mode (no args) proposes 1–3 candidates then authors the picked one. Migrates any pre-0.8.0 inline ADRs in `architecture.md` on first run (per-ADR atomic, resumable, idempotent). Available in every `team_mode`. | — |
 
@@ -152,7 +159,10 @@ Templates available:
 - `adr.template.md`
 - `autonomous-run.template.md`
 - `bug.template.md`
-- `sprint-run-report.template.md` — filled by `/conclave-sprint` Autonomous Sprint Loop
+- `sprint-run-report.template.md` — filled by `/conclave-dev --loop` (`mode: autonomous-dev-three-wave`, `scope: sprint` or the invoked IDs); carries the token ledger, agent-productivity table, conflicts, and the PRs awaiting a human merge
+- `slack-loop-success.template.json` — posted when the loop completes with everything approved
+- `slack-loop-partial.template.json` — posted when the loop finishes with stories incomplete or drained on budget/schedule
+- `slack-loop-hitl.template.json` — posted the moment a blocker needs a human (structural abort, dependency cycle, missing `gh`, attempts exhausted, `pending_uat`)
 - `sprint-board.html.template` — filled by `/conclave-sprint-board` (writes outside `conclave/`)
 - `sprint-board-readme.template.md` — filled by `/conclave-sprint-board`
 
@@ -176,11 +186,21 @@ Conclave separates two distinct checks on a finished story:
 1. **QA verification** — does the implementation match the acceptance criteria behaviorally? Owned by the QA role, run via `/conclave-qa US-NNN`. Always required.
 2. **Tech Lead PR approval** — does the code meet the architecture, ADRs, and code-level DoD items? Owned by the Tech Lead role, run via `/conclave-pr-review US-NNN`. Required only when `ceremonies.peer_pr_review.required: true`.
 
-The two gates do NOT collapse. QA never runs `gh pr review --approve`. The TL does. When the flag is off (typical for `lean`), QA's pass implicitly approves the PR because there is no separate technical gate — **except** under the **Autonomous Sprint Loop** (v0.13.0+): that mode **ephemerally forces** TL review for the run (without rewriting `config.md`) and, after QA pass + TL approve, **may merge** the PR into `repo.integration_branch` (prefer `develop`). Interactive `/conclave-sprint` and standalone ceremony commands **must not merge**. See ADR-004.
+The two gates do NOT collapse. QA never runs `gh pr review --approve`. The TL does. When the flag is off (typical for `lean`), QA's pass implicitly approves the PR because there is no separate technical gate — **except** in the **three-wave delivery loop** (`/conclave-dev --loop`, v0.15.0+, ADR-006), which **ephemerally forces** TL review for the run without rewriting `config.md`.
 
-### Autonomous Sprint Loop scheduling and budgets (v0.13.0+)
+**Neither gate authorizes a merge.** Since v0.15.0 no Conclave command runs `gh pr merge`: the loop's terminal state is an approved PR listed in the run report, and a human lands it.
 
-`/conclave-sprint --no-interaction` (or `commands.sprint.interactive: false`) may gate on an optional `commands.sprint.schedule` window and enforce `commands.sprint.budgets` (attempts, CI wait, wall-clock, best-effort token ledger). Conclave does not ship a scheduler — an external trigger (Claude `/loop`/`/schedule`, Cursor Automation, `cron`) invokes the command; outside the window the command no-ops. Budget/window aborts still write a run report under `conclave/sprints/SPRINT-NNN/runs/`.
+### The three-wave delivery loop: waves, scheduling, budgets (v0.15.0+)
+
+`/conclave-dev --loop` (or `commands.dev.loop: true`) is the only autonomous delivery loop. It runs **W0** conflict ordering, **W1** Dev to green CI, **W2** headless QA, **W3** forced Tech Lead review, and returns any failing story to W1 — a Tech Lead asking for changes invalidates the QA verdict that preceded it, so QA always re-runs after Dev. Waves never overlap; batch-of-3 concurrency exists only inside W1 for stories with no dependency or file overlap between them.
+
+`commands.dev.schedule` is a **recurring local-time gate**: `timezone` (IANA), `days`, `start_time` / `end_time` (may cross midnight), `duration_days`, `active_from`, `enforce`. Outside the window the command no-ops with no writes at all. The pre-0.15.0 `window_start` / `window_end` pair is refused with a migration message rather than reinterpreted. `commands.dev.budgets` caps attempts, CI wait, wall-clock, and a best-effort token ledger; the report discloses whether token totals are `estimated`, `measured`, or `mixed`.
+
+Conclave still ships **no scheduler** — an external trigger (Claude `/loop` / `/schedule`, a Cursor Automation, `cron`) invokes the command and the gate decides whether it does anything. Budget and window aborts still finalize the run report at `SPRINT-NNN/runs/RUN-NNN-dev-loop.md` (or `conclave/runs/` in a repo with no sprint). A report with `outcome: in_progress` is the concurrency lock; two loops with non-overlapping scopes may run at once.
+
+Slack is optional and template-driven: success, partial, and human-in-the-loop. HITL alerts are posted **at the moment** the blocker occurs so the operator can act while the run continues elsewhere. Only the env var *name* lives in config; a delivery failure never fails the run.
+
+The loop requires the GitHub CLI (`gh`) installed and authenticated with repo access (push, PRs, review). Conclave declares the tools it uses but does not install or configure `gh`, and does not manage repository permissions.
 
 ### Story status transitions, profile-aware
 

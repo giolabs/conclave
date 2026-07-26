@@ -1,8 +1,10 @@
 # `/conclave-sprint` Autonomous Sprint Loop
 
+> **Superseded for delivery semantics as of 0.15.0 (ADR-006).** `/conclave-sprint --no-interaction` is now a headless one-pass runner: no self-heal, no schedule, no budgets, no merge, no sprint close. The autonomous delivery loop lives on `/conclave-dev --loop` as three waves (Dev → QA → Tech Lead) that leave approved PRs for a human, with a recurring local-time schedule under `commands.dev.schedule`. Read this file for the parts ADR-006 kept — the budget ledger and its precision disclosure, per-role model routing, the run-report-as-lock protocol, and the "Conclave gates, an external trigger fires" stance — and read `docs/adr/ADR-006-three-wave-dev-delivery-loop.md` for everything about waves, scope, scheduling, and the report's current shape.
+>
 > **Status:** PENDING PROPOSAL/CHANGE — no OpenSpec change has been generated yet. Run `/openspec-propose` (or `/opsx:propose`) using this spec as input.
 >
-> **ADR:** `docs/adr/ADR-004-autonomous-end-to-end-sprint-loop.md` (**accepted** — shipped in 0.13.0)
+> **ADR:** `docs/adr/ADR-004-autonomous-end-to-end-sprint-loop.md` (**accepted** — shipped in 0.13.0; delivery-loop semantics superseded by ADR-006)
 >
 > **Amended 2026-07-24** — scheduling windows, run budgets (attempts / CI wait / tokens / wall clock), and explicit model routing added per the ADR-004 amendment. The flat `max_story_iterations` / `pr_checks_timeout_minutes` keys from the first draft are superseded by the `budgets:` block; nothing has shipped, so no migration is needed.
 >
@@ -370,14 +372,17 @@ conclave/sprints/SPRINT-NNN/runs/RUN-NNN-autonomous-loop.md
 
 Written at run start with `outcome: in_progress` (evidence + concurrency lock) and finalized in place at run end.
 
+> **v0.14.0 (ADR-005)**: this template is shared with the item-scoped Autonomous Delivery Loop on `/conclave-dev --loop`. The `scope` and `mode` fields below distinguish the two, and `sprint_closed` is always `false` for a dev-loop run. The shape is otherwise identical, which is the point — one report format, one lock protocol, two entry points.
+
 ```markdown
 ---
 id: "{{run_id}}"
 sprint_id: "{{sprint_id}}"
+scope: "{{scope}}"                       # sprint | comma-separated IDs (v0.14.0+, /conclave-dev --loop)
 started_at: "{{started_at}}"
 finished_at: "{{finished_at}}"          # empty while in_progress
 outcome: "{{outcome}}"                   # in_progress | completed | partial | aborted_budget | aborted
-mode: autonomous-sprint-loop
+mode: "{{mode}}"                         # autonomous-sprint-loop | autonomous-dev-loop (v0.14.0+)
 runner: "{{runner}}"
 integration_branch: "{{integration_branch}}"
 peer_pr_review_forced: true
@@ -403,20 +408,21 @@ models:
 slack_delivery: "{{slack_delivery}}"     # skipped | sent | failed | disabled
 ---
 
-# Sprint run report — {{run_id}} ({{sprint_id}})
+# Run report — {{run_id}} ({{sprint_id}})
 
 ## Summary
 
-- Stories targeted: {{story_count}}
+- Scope: {{scope}}
+- Items targeted: {{item_count}}
 - Completed (done + merged): {{done_count}}
 - Incomplete: {{incomplete_count}}
 - Sprint closed: {{sprint_closed}}
 - Stopped because: {{primary_stop_reason}}
 
-## Per-story results
+## Per-item results
 
-| Story | Final status | Attempts | PR | Merge | Notes |
-|-------|--------------|----------|----|-------|-------|
+| Item | Final status | Attempts | PR | Merge | Notes |
+|------|--------------|----------|----|-------|-------|
 | US-NNN | done | 2 | url | sha | |
 
 ## Budget ledger

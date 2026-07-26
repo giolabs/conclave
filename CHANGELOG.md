@@ -4,6 +4,53 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-07-26
+
+**Breaking:** Conclave no longer merges pull requests, and the delivery loop moved to `/conclave-dev --loop` with a new wave structure and a new schedule schema. If you configured a loop in 0.13.0 or 0.14.0, read "Changed" and "Migration" below before upgrading.
+
+### Added
+- **Autonomous Three-Wave Delivery Loop on `/conclave-dev`** (`--loop`, or `commands.dev.loop: true`) — the single autonomous delivery loop. It takes the **active sprint** (or the IDs you pass, bugs included) and runs **W0** conflict ordering → **W1** Dev to green CI → **W2** headless QA → **W3** forced Tech Lead review. Any wave failure returns the affected stories to **W1**, because changed code invalidates the QA verdict that preceded it. Waves never overlap; batch-of-3 concurrency exists only inside W1 for stories with no dependency or file overlap. `--loop` implies `--no-interaction` (ADR-006).
+- **Wave 0 conflict analysis** — the loop now reads each story's `dependencies:` and orders the scope accordingly, serializes stories observed to touch the same paths (`conflict: path_overlap`), and **aborts the run on a dependency cycle** rather than inventing an order.
+- **Recurring local-time schedule** `commands.dev.schedule` — `timezone` (IANA), `days` (`mon`..`sun`), `start_time` / `end_time` (may cross midnight), `duration_days`, `active_from`, `enforce`. A weekend campaign is now expressible once instead of two ISO timestamps per weekend.
+- **Agent-productivity statistics in the run report** — per role: dispatches, stories touched, first-pass success rate, rework caused, average tokens per story, outcome mix. Plus per-story wave-entry counts, `QA→Dev` / `TL→Dev` re-entry heatmap, cycle time, accumulated CI wait, conflicts handled, and the list of **PRs ready for human merge** with copyable merge commands.
+- **Versioned Slack templates** — `slack-loop-success.template.json`, `slack-loop-partial.template.json`, `slack-loop-hitl.template.json` (Block Kit, with an `mrkdwn` fallback retry). HITL alerts are emitted **at the moment** the blocker occurs — structural `AUTONOMOUS_ABORT`, dependency cycle, another dev's commits, missing/unauthenticated `gh`, CI still red after the attempt cap, `pending_uat` — so an operator can act while the run continues elsewhere. New optional toggles `notifications.slack.on_success` / `on_partial` / `on_hitl`.
+
+### Changed
+- **No Conclave command merges a pull request.** `gh pr merge` is gone from every `allowed-tools` list and every step. QA verification and Tech Lead approval are gates, not merge authorizations; the loop's terminal state is an approved, open PR (ADR-006).
+- **`/conclave-sprint --no-interaction` is now headless one-pass only** — planning with documented defaults, then batched Dev/QA/TL, with zero prompts. No self-heal, no schedule gate, no budgets, no run report, no merge, no mechanical sprint close. It prints a line pointing at `/conclave-dev --loop`, and `--ignore-schedule` is accepted but ignored.
+- `commands.sprint.schedule`, `commands.sprint.budgets`, and `commands.sprint.merge_method` are **ignored no-ops** that print one line each — kept so an upgraded config does not error.
+- `commands.dev.merge_method` is likewise an ignored no-op.
+- `sprint-run-report.template.md` rewritten for the loop: `mode: autonomous-dev-three-wave`, `merged: none (by design)`, `sprint_closed: false` always, new `waves`, `conflicts_detected`, `prs_ready_for_human_merge`, and `ci_wait_minutes` fields, plus the productivity and conflict sections. Reports written by 0.13.0/0.14.0 loops stay on disk untouched.
+- QA charter — the headless section is now "Wave 2 of the three-wave loop": a `blocked` verdict goes back to Dev (write blockers a Developer subagent can act on without you), the same item may be verified more than once per run, and nothing in the loop merges.
+- `SKILL.md` — directory contract, the new "no command merges" invariant, the §3 rows for `/conclave-dev` and `/conclave-sprint`, the §5 template list (run report + three Slack templates), and the rewritten §6 loop/scheduling section.
+- Docs EN/ES — Scheduling rewritten around the three waves, the recurring window, report contents, and worked Slack message examples; `/conclave-dev`, `/conclave-sprint`, and Configuration pages updated to match.
+- Plugin manifests (Claude Code + Cursor) and `conclave_version` → **0.15.0**.
+- ADR-006 → **accepted**. ADR-005 → **superseded**. ADR-004 → amended: its delivery-loop semantics are superseded, while its budget ledger, model routing, report-as-lock protocol, and "Conclave gates, an external trigger fires" stance carry over.
+
+### Migration from 0.13.0 / 0.14.0
+- Replace `commands.sprint.schedule` / `budgets` / `merge_method` with `commands.dev.schedule` / `commands.dev.budgets`. The old `window_start` / `window_end` pair is **not** honored: the loop prints a migration message and stops rather than guessing a recurring window from a one-shot pair.
+- Point any recurring trigger at `/conclave-dev --loop` instead of `/conclave-sprint --no-interaction`.
+- Expect approved PRs instead of merged ones. The run report and the Slack success message list what to merge.
+
+## [0.14.0] — 2026-07-25
+
+### Added
+- **Autonomous Delivery Loop on `/conclave-dev`** (`--loop`, or `commands.dev.loop: true`) — ADR-004's loop machinery narrowed to exactly the IDs you pass: serial Dev → PR checks → QA → **forced Tech Lead review** → **merge** into `repo.integration_branch` (prefer `develop`), self-healing until the attempt budget runs out. `--loop` implies `--no-interaction` (ADR-005).
+- **Bugs can now be delivered hands-off.** `/conclave-dev --loop BUG-004` is the only path from a reported bug to a merged fix without human steps — `/conclave-sprint` deliberately never collects `BUG-NNN`.
+- **`--ignore-schedule` on `/conclave-dev`**, and schedule/budget gating for the dev loop: `commands.dev.schedule`, `commands.dev.budgets`, `commands.dev.merge_method` — each optional and **inheriting the `commands.sprint.*` value when absent**, so one weekend window and one token ceiling cover both loops.
+- **Dev-loop run report** `RUN-NNN-dev-loop.md` under the active sprint's `runs/`, or `conclave/runs/` in a repo with no sprint at all. Doubles as the concurrency lock: a run whose ID scope intersects a live run is refused, while non-overlapping scopes may run in parallel.
+
+### Changed
+- `sprint-run-report.template.md` now serves both loops: new `scope` and `mode` frontmatter fields (`autonomous-sprint-loop` | `autonomous-dev-loop`), `per_story_rows` → `per_item_rows`, `story_count` → `item_count`, heading "Sprint run report" → "Run report".
+- `/conclave-dev` guardrails: **"do not merge"** now reads "except in loop mode, and only with green CI + QA pass + TL approval"; loop mode is serial (no batch-of-3), forces the TL gate ephemerally, and **never closes a sprint** — it prints a hint pointing at `/conclave-sprint`.
+- `/conclave-dev` `allowed-tools` extended with the `gh` PR checks/review/merge, `git fetch/add/commit/diff`, `mkdir`, and `curl` subcommands the loop needs (plus `gh pr edit`, which Step 7 already used).
+- In loop mode, `INTEGRATION_BRANCH` (`repo.integration_branch` → `develop` → `main`) replaces Step 4's `main`/`master` detection, so an item forks from the branch it merges back into.
+- QA charter — the headless section now covers both loops (`Autonomous sprint loop` / `Autonomous delivery loop` prompts), handles `BUG-NNN`, and restates that a QA pass never authorises a merge.
+- `SKILL.md` — `runs/` in the directory contract (including the `conclave/runs/` fallback), run-report append-only/lock invariant, merge-policy exception covering both loops, `/conclave-dev` row in §3, template note in §5.
+- Plugin manifests (Claude Code + Cursor) and `conclave_version` → **0.14.0**.
+- Docs: `/conclave-dev`, Configuration, and Scheduling pages EN/ES document the loop, the config inheritance, and the `commands.dev.loop: true` blast-radius warning.
+- ADR-005 → **accepted**.
+
 ## [0.13.0] — 2026-07-25
 
 ### Added

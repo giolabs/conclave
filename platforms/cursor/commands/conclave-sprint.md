@@ -1,6 +1,6 @@
 ---
 name: conclave-sprint
-description: Drive an entire active sprint end-to-end. Interactive (default): one-pass planning → batched Dev/QA/PR review — never merges. Autonomous Sprint Loop (--no-interaction / commands.sprint.interactive: false): serial self-heal Dev→CI→QA→forced TL→merge, schedule window, budgets, run report, optional Slack (ADR-004).
+description: Drive an entire active sprint end-to-end in one pass. Interactive (default): planning → batched Dev/QA/PR review. Headless (--no-interaction / commands.sprint.interactive: false): the same one pass with zero prompts and documented planning defaults. Neither mode merges, self-heals, or reads a schedule — unattended delivery lives in /conclave-dev --loop (ADR-006).
 ---
 
 # /conclave-sprint
@@ -20,15 +20,16 @@ Drive an entire active (or draft) sprint end-to-end in a single invocation.
 /conclave-sprint
 /conclave-sprint --no-interaction
 /conclave-sprint --headless
-/conclave-sprint --no-interaction --ignore-schedule
 ```
 
 ## Modes
 
 | Mode | How | Behavior |
 |---|---|---|
-| **Interactive** (default) | No flag; `commands.sprint.interactive` absent or `true` | One-pass Phases 1–4 (batch-of-3). **Never merges.** |
-| **Autonomous Sprint Loop** (v0.13.0+) | `--no-interaction` / `--headless`, or `commands.sprint.interactive: false` | Serial self-heal per story → forced TL → **merge** → sprint close + run report. Zero Ask prompts. |
+| **Interactive** (default) | No flag; `commands.sprint.interactive` absent or `true` | One-pass Phases 1–4 (batch-of-3). |
+| **Headless one-pass** | `--no-interaction` / `--headless`, or `commands.sprint.interactive: false` | The same one pass with zero prompts and documented planning defaults. |
+
+**Neither mode merges a PR, self-heals a failure, reads a schedule, or spends a token budget.** Up to 0.14.0 `--no-interaction` ran a self-healing loop that merged into the integration branch; ADR-006 moved unattended delivery to `/conclave-dev --loop`, which runs three waves (Dev → QA → Tech Lead) and leaves approved PRs for a human. This command keeps ownership of the sprint ceremony: planning, one pass over the phases, and the summary.
 
 Follow these steps in order.
 
@@ -38,19 +39,20 @@ Follow these steps in order.
 
 1. From the invocation argument list, extract (and remove) flags:
    - `--no-interaction` or `--headless` → `CLI_FORCE_AUTONOMOUS = true`
-   - `--ignore-schedule` → `IGNORE_SCHEDULE = true` (default `false`)
+   - `--ignore-schedule` → accepted and **ignored** with one line: *"`--ignore-schedule` has no effect on /conclave-sprint since 0.15.0 — schedules belong to /conclave-dev --loop."*
 2. Read `$REPO_ROOT` later in Step 1; for INTERACTIVE resolution you need `conclave/config.md`. If the workspace is not yet resolved, resolve it first with Step 1 items 1–2 only, then return here.
 3. Read `commands.sprint.interactive` from config (same coercion table as `commands.dev.interactive` in `config.template.md`). Absent → `true`.
 4. Resolve:
    - If `CLI_FORCE_AUTONOMOUS` → `INTERACTIVE = false`
    - Else → `INTERACTIVE =` coerced config value
 5. There is **no** flag to force interactive when config is autonomous.
-6. If `INTERACTIVE = false`, print `Mode: autonomous-sprint-loop` and continue with **Autonomous Sprint Loop** (Steps A1–A14 below), skipping Interactive Steps 4–11.
-7. If `INTERACTIVE = true`, print nothing about Mode (silent default) and continue with Interactive Steps 1–11 (unchanged one-pass semantics).
+6. If `INTERACTIVE = false`, print `Mode: headless-one-pass` plus the redirect line from §"Headless one-pass mode", then run Steps 1–11 with the headless substitutions described there.
+7. If `INTERACTIVE = true`, print nothing about Mode (silent default) and continue with Steps 1–11 unchanged.
+8. If `commands.sprint.schedule`, `commands.sprint.budgets`, or `commands.sprint.merge_method` is present in config, print one line each: *"`commands.sprint.<key>` is ignored since 0.15.0 — configure `commands.dev.<key>` for the delivery loop."* They are no-ops, not errors.
 
 ---
 
-# Interactive mode (one-pass — never merge)
+# One-pass phases (never merge)
 
 ## Step 1 — Resolve the workspace
 
@@ -185,164 +187,49 @@ git add conclave/
 git commit -m "conclave: sprint run complete — ${SPRINT_ID}"
 ```
 
----
+If any story ended somewhere other than `done`, add one line:
 
-# Autonomous Sprint Loop (v0.13.0+ — ADR-004)
-
-**Prerequisite:** the GitHub CLI (`gh`) must be installed and authenticated (`gh auth login`) with an account that has access to this repository (push, PRs, merge). Conclave does not install or configure `gh`.
-
-Execute these steps **instead of** Interactive Steps 4–11 when `INTERACTIVE = false`. Steps 1–3 (workspace, models, sprint resolve) still apply first. Then:
-
-## Step A1 — Schedule gate
-
-Read `commands.sprint.schedule` if present:
-
-- No `schedule` block → no gating; continue.
-- `enforce: false` → print the window as informational; continue.
-- `IGNORE_SCHEDULE = true` → print `Schedule: bypassed (--ignore-schedule)`; set `SCHEDULE_BYPASSED = true`; continue.
-- Else (`enforce` true or absent-with-block → treat as true):
-  - Parse `window_start` / `window_end` as ISO-8601 with explicit offset. Invalid → hard abort with a clear error (do not invent a window).
-  - `now = date` (same offset context as the window strings when possible).
-  - If `now < window_start`: print `Outside schedule window (starts <ts>); nothing to do.` → **exit 0**. Write nothing. Stop.
-  - If `now > window_end`: print `Schedule window ended <ts>; nothing to do.` → **exit 0**. Write nothing. Stop.
-  - Else: inside window → continue.
-
-## Step A2 — Resolve loop config
-
-Set:
-
-- `EFFECTIVE_PEER_PR_REVIEW = true` (ephemeral for this run — **do not** rewrite `config.md`)
-- `INTEGRATION_BRANCH` = `repo.integration_branch` → else prefer `develop` if it exists on origin → else `main`. Print it.
-- `MERGE_METHOD` = `commands.sprint.merge_method` ∈ {`squash`,`merge`,`rebase`} → default `squash`. Invalid → warn + `squash`.
-- Budgets (warn + default if invalid / ≤0 / non-numeric):
-  - `max_attempts_per_story` default `3`
-  - `max_ci_wait_minutes` default `ceremonies.qa_verification.ci_wait_timeout_minutes` else `20`
-  - `max_total_tokens` default `2000000`
-  - `max_wall_clock_hours` default `12`
-  - `token_estimates` — use config overrides or built-ins: `planning: 60000`, `developer: 180000`, `qa: 90000`, `tech_lead: 70000` (and designer/devops → developer estimate when those roles dispatch)
-- Slack: `notifications.slack.enabled` (default false); `webhook_env` default `SLACK_WEBHOOK_URL`
-- `STARTED_AT` = now (ISO-8601); start wall-clock timer
-- `TOKENS_TOTAL = 0`; `TOKENS_PRECISION = estimated`; empty ledger list; `ATTEMPTS_TOTAL = 0`
-
-Print one line summarizing budgets, window (or `none`), models, integration branch, merge method.
-
-## Step A3 — Concurrency lock + open run report
-
-1. `mkdir -p $SPRINT_PATH/runs`
-2. Glob existing `RUN-*-*.md`. If any has frontmatter `outcome: in_progress` and `started_at` younger than `max_wall_clock_hours` ago → refuse: *"Autonomous sprint loop already in progress (RUN-NNN). Wait for it to finish or mark the stale report aborted."* Stop without touching stories.
-3. If a stale `in_progress` report is older than `max_wall_clock_hours` → note it in the new report's stop conditions later; proceed.
-4. Allocate next monotonic `RUN_ID` (`RUN-001`, `RUN-002`, …).
-5. Fill `skills/conclave/templates/sprint-run-report.template.md` with `outcome: in_progress`, empty `finished_at`, known config snapshot, placeholder tables. Write `$SPRINT_PATH/runs/${RUN_ID}-autonomous-loop.md` **immediately** (lock + evidence).
-
-## Step A4 — Headless Planning (if draft)
-
-If sprint is already `active` → print `Phase 1 — Planning: skipped (sprint already active)` and go to A5.
-
-If `draft`:
-1. **No `AskQuestion`.** Defaults:
-   - Sprint start = today (UTC date); end = start + `ceremonies` sprint length if present, else +14 days.
-   - Facilitator = first roster member (or sole solo row).
-   - Coverage gaps → assign Tech Lead as temporary fallback; record in planning notes.
-2. Run Wave 1 (PM + TL) and Wave 2 (SM) as in Interactive Step 4, with models from Step 2. Prepend each task: `Autonomous sprint loop — no AskQuestion; use defaults.`
-3. Ledger += one row per planning dispatch (`estimated` unless measured usage is available). Checkpoint budgets (A13 helpers).
-4. Sprint must become `active` or **hard-abort**: finalize report `outcome: aborted`, reason `planning_failed`, Slack if enabled, stop.
-
-## Step A5 — Collect target stories
-
-Re-read stories under `$SPRINT_PATH/stories/`. Target = every non-`retired` story where `status != done` and `status != backlog`. **Never** include `BUG-NNN`. Order by story id ascending. Record starting statuses for the report.
-
-If empty → finalize report `outcome: completed` (nothing to do), optionally close sprint if all non-retired are already `done` (A11), Slack, stop.
-
-## Step A6 — Serial delivery loop (per story)
-
-For each story in the target list:
-
-1. `attempts = 0`. Story result bucket: `{ attempts, pr_url, merge_sha, notes, final_status }`.
-2. While story frontmatter `status != done` and `attempts < max_attempts_per_story`:
-   1. **Checkpoint** (A13): if window elapsed or any budget exhausted → drain (finish in-flight writes only), break out of both loops, go to A11 with the appropriate stop reason.
-   2. `attempts++`; `ATTEMPTS_TOTAL++`
-   3. Re-read story status. Apply re-entry:
-      - `ready` / `in-progress` → needs Dev
-      - `review` → skip Dev; wait checks if PR exists; then QA
-      - `verified` → skip Dev/QA; TL only
-      - `done` → break inner loop
-      - `retired` / `backlog` → should not happen; skip story
-   4. **Dev** (when needed): dispatch autonomous Dev for this single story (same encapsulation as Interactive Phase 2, but **serial**, one story). Config source string: `forced by /conclave-sprint autonomous loop`. Model by discipline. Ledger += developer (or designer/devops) row. On structural `AUTONOMOUS_ABORT` (no test framework, etc.) → mark story incomplete, **do not** burn remaining attempts on retries; break to next story. On other failure → continue loop if attempts remain.
-   5. **PR checks**: resolve PR URL from story/branch via `gh pr view`. Poll `gh pr checks` until all success, any failure, or `max_ci_wait_minutes` / wall-clock / window. Failure or timeout → note; continue (Dev again next attempt). Success → continue.
-   6. **QA (headless)**: encapsulate `/conclave-qa` for this story with **no AskQuestion**:
-      - ID known → no picker
-      - Missing local branch → `git fetch` then switch (default yes)
-      - CI job proposal → **decline** writing new workflow; proceed Gherkin-only if possible; record in notes
-      - Model `MODEL_FOR_QA`. Ledger += qa.
-      - `blocked` → continue (Dev fix next attempt)
-      - `pending_uat` (mobile) → incomplete; break (do not spin)
-      - pass → story moves to `verified` (because EFFECTIVE_PEER_PR_REVIEW) or follow QA command semantics with peer review forced true for this run
-   7. **TL PR review (always)**: encapsulate `/conclave-pr-review` with model `MODEL_FOR_TL`. Ledger += tech_lead. `request_changes` / malformed → continue. Approve → story `done` (frontmatter).
-   8. **Merge** (only after QA pass + TL approve and status `done`):  
-      `gh pr merge <pr> --<MERGE_METHOD> --delete-branch` into `INTEGRATION_BRANCH`.  
-      On failure (conflicts, branch protection) → incomplete; **never** `--admin` / force. Break.
-3. If still not `done` after max attempts → leave frontmatter as-is; mark `incomplete` in report notes; continue to next story.
-
-## Step A7–A10 — (reserved)
-
-(Intentionally unused — kept for readable step numbering vs Interactive mode.)
-
-## Step A11 — Close sprint if complete
-
-Re-read all non-retired stories. If **every** one is `status: done`:
-- Set `$SPRINT_PATH/meta.md` frontmatter `status: done` (mechanical close — not a full `/conclave-review` ceremony).
-- Set `sprint_closed: true` in the report.
-
-Else leave sprint `active`; `sprint_closed: false`.
-
-## Step A12 — Finalize run report + Slack
-
-1. Compute `finished_at`, wall-clock hours, `tokens_total`, `tokens_precision`.
-2. Determine `outcome`:
-   - `completed` — all targeted stories done (+ sprint closed when applicable)
-   - `partial` — some incomplete, or stop reason `schedule_window_elapsed`
-   - `aborted_budget` — `token_budget_exhausted` or `wall_clock_exhausted`
-   - `aborted` — planning failure or other hard abort
-3. Rewrite the RUN file in place (same path) with final tables/ledger/stop conditions.
-4. **Slack** (if `notifications.slack.enabled`):
-   - Read webhook URL from env named by `webhook_env`. If unset → warn; `slack_delivery: failed`; do not fail the run.
-   - Else `curl -sS -X POST -H 'Content-type: application/json' --data '{"text":"<summary>"}' "$WEBHOOK_URL"` with a short summary (sprint id, outcome, done/incomplete counts, stop reason, path to report). **Never** echo or write the webhook URL into `conclave/` or the terminal transcript beyond a redacted success/fail line.
-   - Success → `slack_delivery: sent`; curl fail → `failed`.
-   - If Slack disabled → `slack_delivery: disabled`.
-
-## Step A13 — Budget / window checkpoint helper
-
-Call before each new dispatch and during CI polling:
-
-1. If `enforce` schedule and `now > window_end` and not bypassed → stop reason `schedule_window_elapsed`; drain.
-2. If wall-clock hours ≥ `max_wall_clock_hours` → `wall_clock_exhausted`; drain.
-3. Before adding an estimated dispatch cost: if `TOKENS_TOTAL + next_estimate > max_total_tokens` → `token_budget_exhausted`; drain **without** starting that dispatch. After a measured row, if `TOKENS_TOTAL > max_total_tokens` → same (allow in-flight write to finish first).
-4. Drain means: no new Dev/QA/TL dispatches; finalize report; Slack; stop.
-
-When appending a ledger row: use measured usage if the runtime exposes it for that Task call; else estimate. If any row is measured and any estimated → `tokens_precision: mixed`.
-
-## Step A14 — Terminal summary
-
-Print `## Autonomous sprint loop complete — ${SPRINT_ID} (${RUN_ID})` with per-story table, budget usage, path to the run report, and:
-
-```bash
-git add conclave/
-git commit -m "conclave: autonomous sprint loop ${RUN_ID} — ${SPRINT_ID}"
+```
+Stories still in flight: US-002, US-005. Run /conclave-dev --loop to drive them to an
+approved PR unattended (Dev → QA → Tech Lead, no merge).
 ```
 
-Do **not** commit for the user.
+---
+
+# Headless one-pass mode
+
+Runs when `INTERACTIVE = false` (`--no-interaction` / `--headless` / `commands.sprint.interactive: false`). It is the **same** Steps 1–11 above with prompts replaced by documented defaults — not a different pipeline.
+
+Right after the `Mode: headless-one-pass` line, print:
+
+```
+Note: this is a single pass — no self-heal, no schedule, no budgets, no merge.
+Unattended delivery lives in /conclave-dev --loop (three waves, leaves approved PRs for you).
+```
+
+Substitutions:
+
+1. **Step 4 (Planning), `draft` sprint** — no `AskQuestion`. Apply:
+   - Sprint start = today (UTC date); end = start + the sprint length in `ceremonies` if present, else +14 days.
+   - Facilitator = the first roster member (or the sole solo row).
+   - Coverage gaps → assign the Tech Lead as a temporary fallback and record it in the planning notes.
+   - Prepend each Agent task with `Headless sprint run — no AskQuestion; use defaults.`
+   - The sprint must be `active` afterwards; otherwise abort exactly as the interactive path does.
+2. **Steps 5–11** run unchanged, including batch-of-3 concurrency. Phase 4 still honors `ceremonies.peer_pr_review.required` — headless mode does **not** force the Tech Lead gate. (`/conclave-dev --loop` does, for its own run.)
+3. **Nothing is merged**, no run report is written, no story is retried. A story that fails Dev or is blocked by QA is reported and left where it is.
+
+To pick those stories up unattended, run `/conclave-dev --loop` afterwards: it re-enters them at the right wave and drives them to an approved PR.
 
 ---
 
 ## Guardrails
 
 - **Phase 1 / Planning failure is a hard stop** in both modes.
-- **Interactive mode: Do not merge any PR.** Approval in Phase 4 is sufficient; merging is a human action.
-- **Autonomous Sprint Loop: may merge** only after QA pass + TL approve for that story's PR, into `INTEGRATION_BRANCH`, using configured `merge_method`. Never force-push; never `--admin` bypass in v1. See ADR-004.
-- **Autonomous Sprint Loop: force TL review** for the run even when `ceremonies.peer_pr_review.required: false`. Do not permanently mutate that flag in `config.md`.
-- **Never collect `BUG-NNN`** into any `/conclave-sprint` mode.
-- **Do not modify any file outside `$REPO_ROOT/conclave/`** except story feature branches, `tests/uat/` paths QA may write, and git operations on those branches / merges via `gh`.
-- **Never print a phase skip silently** (interactive). Loop mode prints checkpoints and stop reasons explicitly.
-- **Re-runs are safe.** Story `status` frontmatter is the recovery mechanism. A new autonomous run creates a new `RUN-NNN` file; prior runs are preserved. Budgets reset per run.
-- **Never store Slack webhook URLs or tokens** in any `conclave/` file.
-- **Schedule no-ops** outside the window must exit 0 with one line and **no** report file.
+- **Never merge a PR, in either mode.** Approval in Phase 4 is sufficient; merging is a human action. No path in this command runs `gh pr merge` (ADR-006).
+- **This command is not a delivery loop.** No self-heal, no schedule gate, no budgets, no run report, no token ledger — those belong to `/conclave-dev --loop`. `commands.sprint.schedule` / `budgets` / `merge_method` are ignored no-ops kept only so an upgraded config does not error.
+- **Headless mode does not force the Tech Lead gate.** Phase 4 follows `ceremonies.peer_pr_review.required` as written.
+- **Never collect `BUG-NNN`** into any `/conclave-sprint` phase.
+- **Do not modify any file outside `$REPO_ROOT/conclave/`** except story feature branches, `tests/uat/` paths QA may write, and git operations on those branches.
+- **Never print a phase skip silently.**
+- **Re-runs are safe.** Story `status` frontmatter is the recovery mechanism.
+- **Sprint close stays a ceremony.** This command does not mechanically close a sprint; `/conclave-review` does.

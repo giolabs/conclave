@@ -1,0 +1,40 @@
+{
+  "text": "Conclave delivery loop finished partially — {{sprint_id}} {{run_id}}: {{done_count}} ready to merge, {{incomplete_count}} need attention ({{primary_stop_reason}}).",
+  "blocks": [
+    {
+      "type": "header",
+      "text": { "type": "plain_text", "text": "Delivery loop finished partially — {{sprint_id}}", "emoji": false }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*{{done_count}} of {{item_count}} stories* are approved and ready for a human merge. *{{incomplete_count}}* did not get there.\nStopped because: *{{primary_stop_reason}}* (reached wave {{wave_reached}} of 3)."
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Run*\n{{run_id}} ({{scope}})" },
+        { "type": "mrkdwn", "text": "*Duration*\n{{wall_clock_hours}} h of {{max_wall_clock_hours}} h" },
+        { "type": "mrkdwn", "text": "*Tokens*\n{{tokens_total}} of {{max_total_tokens}} ({{tokens_precision}})" },
+        { "type": "mrkdwn", "text": "*Attempts*\n{{attempts_total}} (cap {{max_attempts_per_story}}/story)" }
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*Needs attention*\n{{incomplete_mrkdwn_list}}" }
+    },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*Ready to merge*\n{{prs_ready_mrkdwn_list}}" }
+    },
+    {
+      "type": "context",
+      "elements": [
+        { "type": "mrkdwn", "text": "Full report: `{{report_path}}` · re-run `/conclave-dev --loop` to resume the incomplete stories" }
+      ]
+    }
+  ]
+}

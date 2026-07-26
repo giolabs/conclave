@@ -90,38 +90,47 @@ models:
 | `models.default` | Fallback model for any role whose override is absent. Must be a known model ID. |
 | `models.overrides.<role>` | Model for one specific role. Takes precedence over `models.default`. |
 
-### Command configuration block (optional, v0.9.0+ / v0.13.0+)
+### Command configuration block (optional)
 
-Assign per-command interaction behavior.
+Assign per-command interaction behavior, and configure the delivery loop.
 
 ```yaml
 # commands:
 #   dev:
-#     interactive: false          # /conclave-dev autonomous (v0.9.0+)
-#   sprint:
-#     interactive: false          # Autonomous Sprint Loop (v0.13.0+) — may merge after QA+TL
-#     merge_method: squash
-#     schedule:
-#       window_start: "2026-07-25T19:00:00-03:00"
-#       window_end:   "2026-07-27T07:00:00-03:00"
+#     interactive: false          # /conclave-dev autonomous (v0.9.0+) — ends at review
+#     loop: false                 # Three-Wave Delivery Loop (v0.15.0+); implies interactive: false
+#     schedule:                   # recurring local-time gate
+#       timezone: "America/Argentina/Buenos_Aires"   # IANA; required when schedule is present
+#       days: [fri, sat, sun]                        # mon..sun
+#       start_time: "19:00"                          # local wall clock
+#       end_time: "07:00"                            # may cross midnight
+#       duration_days: 3                             # campaign length
+#       active_from: "2026-07-31"                    # local start date; omit = first eligible day
 #       enforce: true
 #     budgets:
-#       max_attempts_per_story: 3
+#       max_attempts_per_story: 3        # counts every return to Wave 1
 #       max_ci_wait_minutes: 20
-#       max_total_tokens: 2000000      # best-effort ledger — not a billing guarantee
-#       max_wall_clock_hours: 12       # exact weekend backstop
+#       max_total_tokens: 2000000        # best-effort ledger — not a billing guarantee
+#       max_wall_clock_hours: 12         # exact backstop
+#   sprint:
+#     interactive: false          # headless one-pass; never merges, no schedule, no budgets
 # notifications:
 #   slack:
 #     enabled: false
 #     webhook_env: SLACK_WEBHOOK_URL   # env var NAME only — never paste the URL here
+#     on_success: true
+#     on_partial: true
+#     on_hitl: true                    # sent the moment a blocker needs a human
 # repo:
-#   integration_branch: develop
+#   integration_branch: develop        # PR base branch; Conclave never merges into it
 ```
 
-- **`commands.dev.interactive`** — `true` (default) or `false` (autonomous `/conclave-dev`). See [`/conclave-dev`](/en/commands/dev).
-- **`commands.sprint.interactive`** (v0.13.0+) — `true` (default one-pass, **never merges**) or `false` (**Autonomous Sprint Loop**: serial self-heal → forced TL → merge → run report). CLI: `/conclave-sprint --no-interaction`. See [`/conclave-sprint`](/en/commands/sprint) and [Scheduling](/en/scheduling).
-- **`commands.sprint.budgets.max_total_tokens`** — best-effort dispatch ledger with disclosed precision (`estimated` / `measured` / `mixed`). Set provider-side limits for a hard spend cap. Budgets are **per run**.
-- **`commands.sprint.schedule`** — optional window gate; Conclave does not start itself — you supply `/loop`, Automation, or `cron`.
+- **`commands.dev.interactive`** — `true` (default) or `false` (autonomous `/conclave-dev`, ending at `review`). See [`/conclave-dev`](/en/commands/dev).
+- **`commands.dev.loop`** (v0.15.0+) — `false` (default) or `true` (**Three-Wave Delivery Loop**: W1 Dev + green CI → W2 QA → W3 forced Tech Lead, failures return to W1, run report, **no merge**, never closes the sprint). Implies `interactive: false`. CLI: `/conclave-dev --loop`. Note this key makes **every** `/conclave-dev` run in the repo a full three-wave run — prefer the flag.
+- **`commands.dev.schedule`** — recurring local-time gate (see [Scheduling](/en/scheduling)). Conclave does not start itself — you supply `/loop`, an Automation, or `cron`. The pre-0.15.0 `window_start` / `window_end` pair is no longer honored: the loop prints a migration message and stops.
+- **`commands.dev.budgets.max_total_tokens`** — best-effort dispatch ledger with disclosed precision (`estimated` / `measured` / `mixed`). Set provider-side limits for a hard spend cap. Budgets are **per run**.
+- **`commands.sprint.interactive`** — `true` (default) or `false` (headless one-pass with documented planning defaults). Since 0.15.0 it is not a delivery loop: no self-heal, no schedule, no budgets, no merge. `commands.sprint.schedule` / `budgets` / `merge_method` are ignored no-ops. See [`/conclave-sprint`](/en/commands/sprint).
+- **Model routing** — the loop reuses the top-level `models:` block (`developer`, `designer`, `devops`, `qa`, `tech_lead`). There is no `commands.dev.models` schema.
 
 **Coercion table** — a mis-typed boolean falls back with a warning:
 
@@ -135,7 +144,9 @@ Assign per-command interaction behavior.
 | any other value | `true` (safe fallback) | yes |
 | absent | `true` (silent default) | no |
 
-**Ad-hoc CLI override** — `/conclave-dev --no-interaction US-042` or `/conclave-sprint --no-interaction` (also `--headless`). There is no `--force-interaction` flag.
+`commands.dev.loop` uses the same table with **inverted polarity**: absent or unrecognised resolves to `false` (no loop), because the safe default is a single dev pass rather than an unattended three-wave run.
+
+**Ad-hoc CLI override** — `/conclave-dev --no-interaction US-042`, `/conclave-dev --loop`, or `/conclave-sprint --no-interaction` (also `--headless`). There is no `--force-interaction` flag, and no flag to disable a configured loop.
 
 ### Conventions block
 

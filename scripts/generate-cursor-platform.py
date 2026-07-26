@@ -110,11 +110,12 @@ def main() -> int:
 
     manifest = {
         "name": "conclave-cursor",
-        "version": "0.13.0",
+        "version": "0.15.0",
         "description": (
             "Conclave Scrum for Cursor — same conclave/ contract as the Claude Code "
-            "plugin. Twelve slash commands, seven role agents, Autonomous Sprint Loop, "
-            "synced methodology and templates."
+            "plugin. Twelve slash commands, seven role agents, the three-wave "
+            "delivery loop on /conclave-dev (never merges), synced methodology "
+            "and templates."
         ),
         "author": {"name": "Conclave"},
         "keywords": [

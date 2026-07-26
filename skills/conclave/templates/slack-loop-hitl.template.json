@@ -1,0 +1,38 @@
+{
+  "text": "Needs human — Conclave delivery loop {{run_id}} is blocked on {{blocked_subject}}: {{blocker_reason}}",
+  "blocks": [
+    {
+      "type": "header",
+      "text": { "type": "plain_text", "text": "Needs human — {{blocked_subject}}", "emoji": false }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "The delivery loop hit something it must not decide on its own.\n\n*Reason*\n> {{blocker_reason}}"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Run*\n{{run_id}} ({{sprint_id}})" },
+        { "type": "mrkdwn", "text": "*Wave*\n{{blocked_wave}}" },
+        { "type": "mrkdwn", "text": "*Trigger*\n{{hitl_trigger}}" },
+        { "type": "mrkdwn", "text": "*Attempts spent*\n{{blocked_attempts}} of {{max_attempts_per_story}}" }
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*What was left untouched*\n{{untouched_summary}}\n\n*Suggested next step*\n{{suggested_next_step}}"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        { "type": "mrkdwn", "text": "{{loop_continues_note}} · Report: `{{report_path}}`" }
+      ]
+    }
+  ]
+}

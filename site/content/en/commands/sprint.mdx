@@ -88,10 +88,10 @@ No checkpoint file is introduced. Re-run the command and it picks up exactly whe
 
 - Phase 1 failure is a hard stop. All other failures are per-story isolated.
 - Never modifies files outside `conclave/` (except feature branches and `tests/uat/` written by the QA phase).
-- **Interactive mode never merges any PR** — Tech Lead approval in Phase 4 is sufficient.
+- **No mode merges any PR** — Tech Lead approval in Phase 4 is sufficient; merging is a human action.
 - Every skipped phase prints a skip notice with the reason.
 
-## Autonomous Sprint Loop (v0.13.0+)
+## Headless one-pass
 
 ```
 /conclave-sprint --no-interaction
@@ -100,17 +100,16 @@ No checkpoint file is introduced. Re-run the command and it picks up exactly whe
 
 Or set `commands.sprint.interactive: false` in `conclave/config.md`.
 
-**Prerequisite:** the [GitHub CLI](https://cli.github.com/) (`gh`) must be installed and authenticated (`gh auth login`) with an account that has access to this repository. Conclave does not install or configure `gh`.
+This is the **same** single pass as interactive mode, with prompts replaced by documented defaults:
 
-Hands-off delivery for lean/solo teams (ADR-004):
+- Planning on a `draft` sprint uses today as the start date, the configured sprint length (else 14 days), the first roster member as facilitator, and the Tech Lead as a fallback for coverage gaps.
+- Phases 2–4 run unchanged, including batch-of-3 concurrency. Phase 4 still honors `ceremonies.peer_pr_review.required`.
+- Nothing is merged, nothing is retried, no run report is written.
 
-1. Optional **schedule window** — outside the window → one-line no-op (exit 0, no report). Mid-run expiry drains after the in-flight gate.
-2. Writes `conclave/sprints/SPRINT-NNN/runs/RUN-NNN-autonomous-loop.md` at start (`in_progress` lock) and finalizes at end.
-3. **Serial** per-story loop: autonomous Dev → wait PR checks → headless QA → **forced Tech Lead PR review** (even if lean has peer review off) → **merge** into `repo.integration_branch` (prefer `develop`).
-4. Self-heal on CI / QA / TL failure until `budgets.max_attempts_per_story`.
-5. When every non-retired story is `done` → mechanical `meta.status: done`.
-6. Optional Slack summary via Incoming Webhook env var name (never store the URL in markdown).
+A story that fails Dev or is blocked by QA is reported and left where it is. Pick those up with `/conclave-dev --loop`.
 
-Budgets (`max_attempts_per_story`, `max_ci_wait_minutes`, `max_total_tokens`, `max_wall_clock_hours`) and models (`models:` block) are documented in [Configuration](/en/configuration) and [Scheduling](/en/scheduling).
+> **Changed in 0.15.0.** Up to 0.14.0 this flag ran a self-healing loop that merged into the integration branch, closed the sprint, and honored `commands.sprint.schedule` / `budgets` / `merge_method`. ADR-006 moved unattended delivery to `/conclave-dev --loop`; those three config keys are now ignored no-ops, and `--ignore-schedule` has no effect here.
 
-`--ignore-schedule` bypasses the window for one run. Interactive `/conclave-sprint` (no flag) keeps the one-pass, never-merge semantics above.
+### Unattended delivery: `/conclave-dev --loop`
+
+To drive a sprint (or a subset, or a `BUG-NNN` this command never collects) unattended, use [`/conclave-dev --loop`](/en/commands/dev#autonomous-three-wave-delivery-loop-v0150) (v0.15.0+, ADR-006). It runs three ordered waves — Dev + green CI, then QA, then a forced Tech Lead review — sends failures back to Dev, gates on a recurring local-time window with budgets, writes a run report with agent-productivity statistics, and leaves **approved PRs for you to merge**. It never closes the sprint; it prints a hint pointing back here.

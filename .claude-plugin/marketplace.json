@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Conclave — Scrum for Claude Code and Cursor teams. Specialized AI subagents for every discipline (Tech Lead, Frontend, Backend, QA, Designer, DevOps) plus optional PM/SM process roles. All artifacts are plain markdown committed to git in a visible conclave/ directory. Cursor package: platforms/cursor/ (conclave-cursor).",
-    "version": "0.13.0"
+    "version": "0.15.0"
   },
   "plugins": [
     {
       "name": "conclave",
       "source": "./",
-      "description": "Scrum methodology for distributed engineering teams using Claude Code (Cursor sibling: platforms/cursor/ conclave-cursor). Twelve shipped slash commands (/conclave-init, /conclave-spec, /conclave-planning, /conclave-dev, /conclave-qa, /conclave-pr-review, /conclave-board, /conclave-sprint-board, /conclave-sprint, /conclave-story, /conclave-adr, /conclave-bug). /conclave-sprint supports Autonomous Sprint Loop (--no-interaction): self-heal Dev→CI→QA→forced TL→merge, schedule windows, budgets, run reports, optional Slack (ADR-004). Also covers Day-0 founding artifacts, per-story delivery, Kanban + offline roadmap boards, PM/TL authoring, and post-merge bugs. Discipline-first roster; lean / full-scrum / custom; UAT via Playwright/Newman; per-role models; /conclave-dev autonomous mode.",
-      "version": "0.13.0",
+      "description": "Scrum methodology for distributed engineering teams using Claude Code (Cursor sibling: platforms/cursor/ conclave-cursor). Twelve shipped slash commands (/conclave-init, /conclave-spec, /conclave-planning, /conclave-dev, /conclave-qa, /conclave-pr-review, /conclave-board, /conclave-sprint-board, /conclave-sprint, /conclave-story, /conclave-adr, /conclave-bug). One autonomous delivery loop: /conclave-dev --loop runs the active sprint (or just the IDs you pass, bugs included) through three waves — Dev+CI, QA, forced Tech Lead — with a recurring local-time schedule, budgets, a run report with agent-productivity stats, and Slack templates. It never merges: approved PRs are left for a human (ADR-006). Also covers Day-0 founding artifacts, per-story delivery, Kanban + offline roadmap boards, PM/TL authoring, and post-merge bugs. Discipline-first roster; lean / full-scrum / custom; UAT via Playwright/Newman; per-role models.",
+      "version": "0.15.0",
       "author": {
         "name": "Conclave"
       },

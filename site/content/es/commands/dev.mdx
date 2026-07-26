@@ -1,18 +1,28 @@
 ---
 title: /conclave-dev
-description: Tomá una o más historias, implementá cada una con tests, abrí un PR por historia — ruteado por disciplina. Múltiples historias corren en batches concurrentes de ≤ 3.
+description: Tomá una o más historias o bugs, implementá cada uno con tests, abrí un PR por ítem — ruteado por disciplina. Múltiples ítems corren en batches concurrentes de ≤ 3, o por el loop de entrega de tres waves con --loop.
 ---
 
-# /conclave-dev US-NNN [US-NNN ...]
+# /conclave-dev [--no-interaction] [--loop] [US-NNN|BUG-NNN ...]
 
-Toma una o más historias de usuario del sprint activo y lleva cada una a través de la implementación. Cuando termina, cada historia queda en `status: review` con su propia feature branch y PR listo para verificación de QA.
+Toma historias de usuario del sprint activo (o bugs del backlog de bugs) y las lleva a través de la implementación. Cuando termina, cada ítem queda en `status: review` con su propia feature branch y PR listo para verificación de QA — o, con `--loop`, en `done` con un **PR aprobado esperando que vos lo mergees**.
 
 ```
 /conclave-dev US-001                    # historia única — comportamiento idéntico al anterior
 /conclave-dev US-001 US-002 US-003      # tres historias en paralelo, cada una su branch y PR
+/conclave-dev --no-interaction US-001   # headless; termina en review
+/conclave-dev --loop                    # tres waves sobre el sprint activo: Dev → QA → Tech Lead
 ```
 
-Se requiere al menos un argumento `US-NNN`; todos deben coincidir con archivos de historia bajo el sprint activo. Cuando se dan múltiples IDs, las historias se procesan en batches concurrentes de ≤ 3 y cada una obtiene una branch y un PR independientes. El camino de historia única es completamente retrocompatible.
+Fuera del modo loop se requiere al menos un argumento `US-NNN`/`BUG-NNN`; cada `US-NNN` debe coincidir con un archivo de historia bajo el sprint activo, y cada `BUG-NNN` con uno bajo `conclave/product/bugs/`. Múltiples IDs se procesan en batches concurrentes de ≤ 3, cada uno con branch y PR independientes. En modo loop la lista de argumentos es opcional — sin IDs, el loop toma el sprint activo. El camino de ítem único es completamente retrocompatible.
+
+| Modo | Cómo | Comportamiento |
+|---|---|---|
+| **Interactivo** (default) | Sin flag | Pregunta donde hace falta. Termina en `review`. |
+| **Autónomo** (v0.9.0+) | `--no-interaction` / `--headless`, o `commands.dev.interactive: false` | Cero prompts, defaults documentados, sección de run report por ítem. Termina en `review`. |
+| **Loop de entrega de tres waves** (v0.15.0+) | `--loop`, o `commands.dev.loop: true` | W1 Dev + CI → W2 QA → W3 Tech Lead forzado, los fallos vuelven a W1, más un reporte de run. Implica autónomo. |
+
+**Ningún modo mergea un PR.** Desde 0.15.0 nada en Conclave corre `gh pr merge` — bajar el código es tuyo (ADR-006).
 
 ## Comportamiento multi-historia
 
@@ -166,8 +176,84 @@ Para outcomes `blocked` y `aborted`, la sección adicionalmente incluye una subs
 
 ### Asimetría: sin flag `--force-interaction`
 
-Intencionalmente no hay un flag CLI para forzar modo interactivo cuando `config.md` dice autónomo. Un job de CI con `interactive: false` en su fork de `config.md` no debe poder colgarse por un flag suelto. Para debuggear, editá `config.md` localmente o usá otro repo/branch.
+Intencionalmente no hay un flag CLI para forzar modo interactivo cuando `config.md` dice autónomo. Un job de CI con `interactive: false` en su fork de `config.md` no debe poder colgarse por un flag suelto. Para debuggear, editá `config.md` localmente o usá otro repo/branch. La misma asimetría aplica a `--loop`: no hay flag para desactivar un loop configurado en una invocación puntual.
+
+## Loop de entrega de tres waves (v0.15.0+)
+
+El modo autónomo de arriba termina en `status: review`. **El modo loop sigue adelante** — toma el sprint activo (o los IDs que le pases) y lo corre por tres waves ordenadas, terminando con PRs aprobados que mergea una persona:
+
+```bash
+/conclave-dev --loop                           # todas las historias no-done del sprint activo
+/conclave-dev --loop US-042 US-043             # un subconjunto
+/conclave-dev --loop BUG-004                   # los bugs se aceptan cuando se pasan explícitos
+/conclave-dev --loop --ignore-schedule US-042  # saltea la ventana de agenda en este run
+
+# Default del repo (ver la advertencia abajo):
+# commands:
+#   dev:
+#     loop: true
+```
+
+`--loop` **implica `--no-interaction`** — un loop que pregunta no es un loop.
+
+### Las tres waves
+
+| Wave | Qué hace | Avanza cuando | Si falla |
+|---|---|---|---|
+| **0 — Conflictos** | Ordena el scope por `dependencies:`; serializa historias que chocarían en los mismos archivos | Existe un orden de ejecución | Un ciclo de dependencias aborta el run, nombrando el ciclo |
+| **1 — Dev** | Implementa, pushea, abre el PR contra `repo.integration_branch`, pollea CI | Todas las historias quedan en `review` con checks verdes | Reintenta hasta `budgets.max_attempts_per_story` |
+| **2 — QA** | `/conclave-qa` headless: sin prompts, se niega a escribir workflows de CI nuevos | Todas quedan en `verified` | Vuelven a Wave 1 con los blockers de QA |
+| **3 — Tech Lead** | `/conclave-pr-review`, forzado incluso con `peer_pr_review.required: false` — de forma efímera, `config.md` nunca se reescribe | Todas quedan en `done` con review aprobatoria | Vuelven a Wave 1 con el feedback, y después Wave 2 otra vez |
+
+Una wave arranca solo cuando la anterior se resolvió para todo el scope. **Todo fallo vuelve a Wave 1**: el código que cambia invalida el veredicto de QA que lo precedía, así que QA siempre re-corre después de Dev en lugar de que el Tech Lead apruebe algo que QA no vio en su estado actual.
+
+Un `AUTONOMOUS_ABORT` estructural (sin test framework, dependencia no autorizada, Gherkin ambiguo, cambio arquitectónico necesario) corta los reintentos de esa historia de inmediato y alerta a una persona — un reintento no puede resolver una decisión que la necesita.
+
+### Nunca mergea
+
+El estado terminal es un PR abierto y aprobado. Desde 0.15.0 ningún camino de Conclave corre `gh pr merge`. El reporte de run y el mensaje de Slack listan los PRs que te esperan, cada uno con un comando de merge copiable. `repo.integration_branch` es solo la rama base de los PRs.
+
+Para un `BUG-NNN`, la línea `Fixes #<n>` del cuerpo del PR cierra el issue espejado en GitHub cuando **vos** mergeás.
+
+### Alcance, agenda y presupuestos
+
+`commands.dev.schedule` es una ventana local recurrente (`timezone`, `days`, `start_time`, `end_time`, `duration_days`, `active_from`) y `commands.dev.budgets` limita intentos, espera de CI, wall-clock y un ledger best-effort de tokens. Ya no hay herencia desde `commands.sprint.*` — el comando de sprint no tiene agenda de entrega. Ver [Scheduling](/es/scheduling) y [Configuración](/es/configuration).
+
+### Qué *no* hace
+
+- **Nunca mergea.** Los PRs aprobados son la salida.
+- **Nunca cierra el sprint.** Cuando todas las historias no `retired` quedan en `done`, imprime un aviso; cerrar queda en `/conclave-review`.
+- **Nunca corre waves en paralelo.** El batch de 3 existe solo dentro de Wave 1, y solo entre historias sin dependencia ni solape de archivos.
+- **Nunca saltea QA.** El gate es la Wave 2, ejecutada headless.
+
+### Reporte de run
+
+Se escribe al inicio con `outcome: in_progress` y se finaliza in place al terminar:
+
+| Situación | Ruta |
+|---|---|
+| Existe un sprint (`active` o `draft`) | `conclave/sprints/SPRINT-NNN/runs/RUN-NNN-dev-loop.md` |
+| No existe ningún sprint (repo solo de bugs) | `conclave/runs/RUN-NNN-dev-loop.md` |
+
+El reporte también es el **lock de concurrencia**: un run cuyo `scope` comparta un ID con un run vivo se rechaza, mientras que alcances sin intersección pueden correr en paralelo. Un solo reporte cubre todo el loop, reentradas incluidas — PRs esperando merge, entradas por wave y cycle time por historia, productividad por rol (dispatches, éxito a la primera, retrabajo provocado, tokens por historia), el ledger de tokens, los conflictos, el uso de presupuesto y `sprint_closed: false`.
+
+Slack, cuando está activado, recibe un mensaje de éxito, parcial o "needs human" con esas mismas cifras — ver [Scheduling](/es/scheduling#notificaciones-de-slack).
+
+### Prerrequisito
+
+El loop necesita el [GitHub CLI](https://cli.github.com/) (`gh`) instalado y autenticado (`gh auth login`) con acceso a este repositorio — push, PRs y reviews. Conclave no instala ni configura `gh`, y se rehúsa a arrancar el loop sin él.
+
+> **`commands.dev.loop: true` convierte toda invocación de `/conclave-dev` de ese repo en una corrida completa de tres waves**, incluso una rápida de una sola historia. Preferí el flag `--loop` salvo que el repo exista para ser manejado sin supervisión.
+
+Arquitectura: [ADR-006](https://github.com/giolabs/conclave/blob/main/docs/adr/ADR-006-three-wave-dev-delivery-loop.md).
 
 ## Después de que corre
 
-- QA verifica: [`/conclave-qa US-NNN`](/es/commands/qa).
+- **Interactivo / autónomo (sin `--loop`)**: QA verifica con [`/conclave-qa US-NNN`](/es/commands/qa), después el Tech Lead con [`/conclave-pr-review`](/es/commands/pr-review) cuando peer review está activo.
+- **Modo loop**: QA y el Tech Lead ya corrieron. Abrí `RUN-NNN-dev-loop.md`, revisá los PRs aprobados y mergealos vos:
+
+```bash
+gh pr merge <n> --squash --delete-branch
+```
+
+Receta completa de fin de semana (config, trigger, Slack, merge): [Scheduling](/es/scheduling).

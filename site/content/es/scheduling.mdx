@@ -1,81 +1,216 @@
 ---
 title: Scheduling
-description: Corré el Autonomous Sprint Loop en una ventana de fin de semana con presupuestos, modelos y un disparador externo.
+description: Corré el loop de entrega de tres waves sin supervisión, en una ventana local recurrente, con presupuestos, modelos y notificaciones de Slack.
 ---
 
 # Scheduling
 
-Conclave **no** trae un scheduler en background. El **Autonomous Sprint Loop** (`/conclave-sprint --no-interaction`) puede **gatear** por ventana de tiempo y **presupuestos**; algo externo debe **invocar** el comando (Claude Code `/loop` o `/schedule`, Automation de Cursor, o `cron`).
+Conclave **no** trae un scheduler en background. El loop de entrega puede **gatear** por una ventana recurrente y por **presupuestos**; algo externo debe **invocarlo** (Claude Code `/loop` o `/schedule`, una Automation de Cursor, o `cron`).
 
-Arquitectura: [ADR-004](https://github.com/giolabs/conclave/blob/main/docs/adr/ADR-004-autonomous-end-to-end-sprint-loop.md).
+Hay un solo loop: `/conclave-dev --loop`. Toma el sprint activo (o los IDs que le pases) y corre tres waves ordenadas.
+
+| Wave | Qué hace | Avanza cuando | Si falla |
+|---|---|---|---|
+| **1 — Dev** | Implementa, pushea, abre el PR, pollea CI | Todas las historias quedan en `review` con checks verdes | Reintenta hasta `max_attempts_per_story` |
+| **2 — QA** | `/conclave-qa` headless por historia | Todas quedan en `verified` | Vuelve a Wave 1 con los blockers de QA |
+| **3 — Tech Lead** | `/conclave-pr-review` por historia | Todas quedan en `done`, PR aprobado | Vuelve a Wave 1 con el feedback, y después QA de nuevo |
+
+**Ningún PR se mergea.** El loop termina con PRs aprobados, listados en el reporte y en Slack, esperándote.
+
+Arquitectura: [ADR-006](https://github.com/giolabs/conclave/blob/main/docs/adr/ADR-006-three-wave-dev-delivery-loop.md). Reemplaza a ADR-005 y a la mitad "loop de entrega" de ADR-004 — hasta 0.14.0 `/conclave-sprint --no-interaction` era un loop que mergeaba; ahora es un runner headless de una sola pasada.
 
 ## Prerrequisitos
 
-El Autonomous Sprint Loop usa el [GitHub CLI](https://cli.github.com/) para PRs, checks y merge. Antes de correrlo:
+El loop usa el [GitHub CLI](https://cli.github.com/) para PRs, checks y reviews. Antes de correrlo:
 
 1. Instalá `gh`.
-2. Autenticá (`gh auth login`) con una cuenta que tenga acceso a este repositorio (push, abrir/revisar PRs y mergear a la rama de integración).
+2. Autenticá (`gh auth login`) con una cuenta que pueda pushear, abrir PRs y revisarlos en este repositorio.
 
-Conclave no instala ni configura `gh` por vos.
+Conclave no instala ni configura `gh` por vos. El loop se niega a arrancar sin él: sin PR no hay estado en el que pueda terminar.
 
 ## Receta de fin de semana
 
-1. Asegurate de que el sprint esté `active` (o aceptá defaults de planning headless si sigue en `draft`).
+1. Asegurate de que el sprint esté `active` y las historias que querés estén en `ready` (si no, corré `/conclave-planning` primero).
 2. Configurá `conclave/config.md`:
 
 ```yaml
 repo:
-  integration_branch: develop
+  integration_branch: develop        # rama base de los PRs; Conclave nunca mergea a ella
+
 commands:
-  sprint:
+  dev:
     interactive: false
-    merge_method: squash
+    loop: true
     schedule:
-      window_start: "2026-07-25T19:00:00-03:00"
-      window_end:   "2026-07-27T07:00:00-03:00"
+      timezone: "America/Argentina/Buenos_Aires"
+      days: [fri, sat, sun]
+      start_time: "19:00"
+      end_time: "07:00"              # cruza la medianoche
+      duration_days: 3
+      active_from: "2026-07-31"
       enforce: true
     budgets:
       max_attempts_per_story: 3
       max_ci_wait_minutes: 20
       max_total_tokens: 2000000
       max_wall_clock_hours: 12
+
 models:
   default: claude-sonnet-4-6
   overrides:
     developer: claude-haiku-4-5-20251001
+    qa: claude-sonnet-4-6
     tech_lead: claude-opus-4-6
+
 notifications:
   slack:
     enabled: true
     webhook_env: SLACK_WEBHOOK_URL
+    on_success: true
+    on_partial: true
+    on_hitl: true
 ```
 
-3. Exportá `SLACK_WEBHOOK_URL` en el entorno si Slack está habilitado (nunca pegues la URL en markdown).
-4. Mantené la máquina despierta y con red durante toda la ventana (`gh` ya debe estar instalado y autenticado — ver [Prerrequisitos](#prerrequisitos)).
-5. Arrancá un **disparador recurrente** (p. ej. cada hora):
+3. Exportá `SLACK_WEBHOOK_URL` en el entorno si activás Slack — nunca pongas la URL en markdown.
+4. Dejá la máquina despierta y con red durante toda la ventana.
+5. Arrancá un **disparador recurrente** que dispare seguido para retomar trabajo, típicamente cada hora:
 
-| Plataforma | Ejemplo |
+| Plataforma | Ejemplo de disparador |
 |---|---|
-| Claude Code | `/loop 1h /conclave-sprint --no-interaction` (la sesión debe quedar abierta), o `/schedule` si está disponible (**research preview — no dependas solo de eso**) |
-| Cursor | Automation por intervalo, o el skill local de loop, invocando `/conclave-sprint --no-interaction` |
-| Cualquiera | `cron` / `launchd` invocando el CLI del agente con el mismo comando |
+| Claude Code | `/loop 1h /conclave-dev --loop` (la sesión debe quedar abierta), o `/schedule` donde esté disponible (**research preview — no dependas solo de eso**) |
+| Cursor | Una Automation por intervalo, o el skill de loop local, invocando `/conclave-dev --loop` |
+| Cualquiera | `cron` / `launchd` invocando tu CLI de agente con el mismo comando |
 
-## Qué hace Conclave en cada disparo
+El disparador solo *invoca* el comando; la agenda de abajo decide si hace algo.
+
+Para acotar la corrida a unos pocos IDs en lugar del sprint entero, pasalos — bugs incluidos:
+
+```bash
+/loop 1h /conclave-dev --loop US-042 US-043
+/loop 1h /conclave-dev --loop BUG-004
+```
+
+## Cómo funciona la ventana recurrente
+
+Una activación corre solo si se cumplen las tres condiciones, evaluadas en hora local de `timezone`:
+
+1. La fecha local está dentro de `[active_from, active_from + duration_days)`.
+2. El día de la semana local está en `days`.
+3. La hora local está dentro de `[start_time, end_time)`.
+
+Cuando `end_time` es anterior a `start_time`, la ventana cruza la medianoche y **el día listado es el día en que la ventana abre**. En el ejemplo de arriba, `days: [fri, sat, sun]` con `19:00–07:00` significa viernes 19:00 → sábado 07:00, sábado 19:00 → domingo 07:00, y domingo 19:00 → lunes 07:00.
+
+| Clave | Significado | Default |
+|---|---|---|
+| `timezone` | Nombre IANA (`Europe/Madrid`, `America/Bogota`) | obligatorio si hay bloque `schedule` |
+| `days` | Cualquier subconjunto de `mon`..`sun` | los siete |
+| `start_time` / `end_time` | Hora local en formato 24h | `00:00` / `23:59` |
+| `duration_days` | Duración de la campaña en días calendario | `1` |
+| `active_from` | Fecha local en que arranca la campaña | primer día elegible |
+| `enforce` | `false` imprime la ventana y corre igual | `true` |
+
+> **Si venís de 0.13.0 / 0.14.0:** el par ISO `window_start` / `window_end` ya no se lee. El loop imprime un mensaje de migración y se detiene en lugar de adivinar una ventana recurrente a partir de dos timestamps — adivinar mal ensancharía una corrida desatendida que gasta tokens. Reescribí el bloque con las claves de arriba.
+
+`commands.dev.loop: true` es el equivalente fijo de `--loop`, pero convierte **toda** invocación de `/conclave-dev` en el repo en una corrida completa de tres waves, incluso una rápida de una sola historia. Preferí el flag en el disparador salvo que el repo exista para correr desatendido.
+
+## Qué hace Conclave en cada activación
 
 | Situación | Comportamiento |
 |---|---|
-| Fuera de `[window_start, window_end]` | No-op de una línea, exit 0, **sin reporte** |
-| Dentro de la ventana, sin lock | Corre (o retoma) el Autonomous Sprint Loop |
-| Run `in_progress` más joven que `max_wall_clock_hours` | Se rehúsa — ya hay un loop en curso |
-| Presupuesto o ventana agotados a mitad | Drena tras el gate en vuelo; finaliza el reporte |
-| `--ignore-schedule` | Saltea la ventana en esta invocación |
+| Fuera de la ventana | No-op de una línea, exit 0, **sin reporte**, sin escrituras en git |
+| Dentro de la ventana, sin lock in-progress | Corre, o retoma donde quedó la activación anterior |
+| Hay un run `in_progress` más nuevo que `max_wall_clock_hours` | Se niega si los scopes se **intersectan**; scopes sin relación pueden correr en paralelo |
+| Presupuesto o ventana agotados a mitad de run | Drena después del dispatch en vuelo y finaliza el reporte (`aborted_budget` / `partial`) |
+| `--ignore-schedule` | Saltea la ventana para esa invocación; el reporte registra `schedule.bypassed: true` |
 
-## Honestidad del presupuesto de tokens
+La reanudación la maneja el `status` en el frontmatter de cada historia, así que una activación que cae a mitad del pipeline retoma donde quedó: `review` saltea Dev y espera los checks, `verified` va directo al Tech Lead.
 
-`max_total_tokens` es un **ledger best-effort**. Es un **guardarraíl, no un control de facturación**. El reporte declara la precisión. Usá límites del provider si necesitás un tope duro de gasto. Los presupuestos son **por run**.
+## Honestidad sobre el presupuesto de tokens
+
+`max_total_tokens` es un **ledger best-effort** (filas estimadas y/o medidas). Es un **guardrail, no un control de facturación**. El reporte declara la precisión (`estimated` / `measured` / `mixed`). Usá límites del proveedor si necesitás un tope duro de gasto. Los presupuestos son **por run** — un disparador horario puede gastar el presupuesto completo en cada activación; dimensioná la ventana y `max_wall_clock_hours` para acotar la campaña.
 
 ## Cómo leer el reporte
 
-Ruta: `conclave/sprints/SPRINT-NNN/runs/RUN-NNN-autonomous-loop.md`
+`conclave/sprints/SPRINT-NNN/runs/RUN-NNN-dev-loop.md` — o `conclave/runs/RUN-NNN-dev-loop.md` en un repo sin ningún sprint.
 
-Mirá `outcome`, la tabla por historia, el ledger y `Stopped because`. El `/conclave-sprint` interactivo (sin flag) nunca mergea y no usa este path.
+Un solo reporte cubre todo el loop, incluidas las reentradas. Además de `outcome` y `Stopped because`, trae:
+
+- **PRs listos para merge humano** — el punto de la corrida, cada uno con una línea `gh pr merge` copiable.
+- **Resultados por historia** — entradas por wave, reentradas `QA→Dev` y `TL→Dev`, cycle time.
+- **Productividad de agentes** — por rol: dispatches, historias tocadas, tasa de éxito a la primera, retrabajo provocado, tokens promedio por historia, mezcla de resultados.
+- **Ledger de tokens** — una fila por dispatch, etiquetada con su wave.
+- **Conflictos** — dependencias ordenadas y solapes de archivos serializados en Wave 0.
+
+`sprint_closed` es siempre `false`: mergear y cerrar el sprint quedan de tu lado. `/conclave-dev` interactivo, `/conclave-dev --no-interaction` sin `--loop`, y `/conclave-sprint` en cualquiera de sus modos nunca escriben estos reportes.
+
+## Notificaciones de Slack
+
+Tres plantillas, todas en Block Kit, publicadas al webhook nombrado por `webhook_env`:
+
+| Mensaje | Cuándo | Toggle |
+|---|---|---|
+| **Delivery loop completed** | Todas las historias del scope aprobadas y esperando merge | `on_success` |
+| **Delivery loop finished partially** | Quedaron historias incompletas, o el run drenó por presupuesto/agenda | `on_partial` |
+| **Needs human** | Un blocker que el loop no debe decidir — se manda en el momento en que ocurre | `on_hitl` |
+
+El mensaje de éxito está pensado para ser accionable sin abrir el reporte:
+
+```
+Delivery loop completed — SPRINT-004
+
+3 of 3 stories are approved and waiting for a human merge.
+Conclave does not merge — these PRs are yours to land.
+
+Run       RUN-002 (sprint)        Duration  4.2 h of 12 h
+Tokens    812k of 2M (estimated)  Attempts  4 (cap 3/story)
+First pass 2 of 3 stories         Rework    QA→Dev 1 · TL→Dev 0
+
+Ready to merge
+• US-041 — Checkout validation → PR #142
+• US-042 — Retry failed payments → PR #143
+• US-043 — Order confirmation email → PR #144
+
+Full report: conclave/sprints/SPRINT-004/runs/RUN-002-dev-loop.md
+```
+
+Una alerta de human-in-the-loop nombra el blocker y el próximo paso, y se dispara mientras el run sigue con las demás historias:
+
+```
+Needs human — US-045
+
+The delivery loop hit something it must not decide on its own.
+
+Reason
+> AUTONOMOUS_ABORT: no test framework detected; acceptance criteria require
+> integration tests
+
+Run    RUN-002 (SPRINT-004)   Wave      1 (Dev)
+Trigger structural_abort      Attempts  1 of 3
+
+What was left untouched
+Branch feat/US-045-refunds was not pushed; no PR was opened.
+
+Suggested next step
+Add a test runner, or run /conclave-dev US-045 interactively to decide.
+
+The loop continues with the remaining stories · Report: …/RUN-002-dev-loop.md
+```
+
+En `conclave/config.md` solo aparece el **nombre** de la variable de entorno. Un fallo de Slack se registra como `slack_delivery: failed` en el reporte y nunca hace fallar el run.
+
+## Después del loop — vos mergeás
+
+Cuando el run termina (o Slack dice **Ready to merge**), abrí el reporte y bajá cada PR vos. Conclave nunca corre `gh pr merge`.
+
+```bash
+# De la tabla "PRs ready for human merge" del reporte:
+gh pr merge 142 --squash --delete-branch
+gh pr merge 143 --squash --delete-branch
+gh pr merge 144 --squash --delete-branch
+
+# O uno por uno desde la página del PR en el navegador.
+```
+
+Las historias ya están en `done` con una review aprobatoria; mergear solo baja el código a `repo.integration_branch`. Cuando todas las historias no-retired del sprint estén en `done` **y** hayas mergeado lo que querés, cerrá el sprint con `/conclave-review` (cuando esa ceremonia exista) — el loop nunca lo cierra.
+
+Las historias incompletas quedan donde las dejó la última wave (`review`, `verified`, o de vuelta en `ready` tras un abort). Re-corré `/conclave-dev --loop` (o pasá sus IDs) en la próxima ventana, o levantalas en modo interactivo.

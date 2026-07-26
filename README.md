@@ -109,14 +109,18 @@ In your project repo:
 # Or: run the entire sprint in one shot (steps 3–6 above, automated)
 /conclave-sprint
 
-# Autonomous Sprint Loop — zero prompts; self-heal; merge to develop; run report
+# Headless one-pass — zero prompts, planning defaults, no merge
 /conclave-sprint --no-interaction
 # Or set commands.sprint.interactive: false in conclave/config.md
-# Optional weekend window + budgets + Slack: see Scheduling docs / config.template.md
 
-# Autonomous /conclave-dev — no prompts, run report appended to the story file
+# Autonomous /conclave-dev — no prompts, run report appended to the story file (stops at review)
 /conclave-dev --no-interaction US-042    # ad-hoc CLI override
 # Or set commands.dev.interactive: false in conclave/config.md to make it the default
+
+# Three-Wave Delivery Loop — Dev+CI → QA → Tech Lead, leaves approved PRs for you to merge
+/conclave-dev --loop                     # the whole active sprint
+/conclave-dev --loop US-042 BUG-004      # or a subset, bugs included
+# Recurring weekend window + budgets + Slack: see Scheduling docs / config.template.md
 
 # Mid-sprint story authoring — new, edit, split, retire
 /conclave-story new                    # PM authors a new story
@@ -238,13 +242,13 @@ Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251
 - `/conclave-init` — bootstrap the `conclave/` workspace, pick a team profile.
 - `/conclave-spec <idea>` — produce the Product Backlog, Architectural Foundation, and Sprint 1 draft from an idea plus the project's `CLAUDE.md`, installed Skills, and detected stack signals.
 - `/conclave-planning` — run Sprint Planning: confirm the goal, assign stories, validate the DoR, compute capacity, lock the sprint. Profile-aware: depth of the ceremony scales with `team_profile`.
-- `/conclave-dev US-NNN` — Developer picks up a story: branches, implements with tests against each Gherkin scenario, opens a PR. Profile-aware peer-review tagging.
+- `/conclave-dev US-NNN|BUG-NNN [...]` — Developer picks up a story or bug: branches, implements with tests against each Gherkin scenario, opens a PR. Profile-aware peer-review tagging. Multiple IDs run in concurrent batches of ≤ 3. With `--loop` it instead runs the **Three-Wave Delivery Loop** over the active sprint (or the IDs given) — W1 Dev + green CI → W2 QA → W3 forced TL, failures return to W1 — under a recurring schedule and budgets, leaving approved PRs for a human to merge (ADR-006).
 - `/conclave-qa US-NNN` — QA verifies a story in `status: review` adversarially: re-derives PASS/FAIL per scenario, probes edge cases, appends a verification report, leaves a PR comment with the verdict. Moves story to `verified` (when TL gate is on) or `done` (when off). **Structurally required — cannot be skipped by any profile.** QA does NOT approve the PR itself. When `conclave/team/testing-environments.md` is configured, QA also generates UAT test artifacts from the story's Gherkin scenarios — a Playwright spec (`frontend`/`multi`), the shared project-wide Postman collection run via Newman (`backend`/`multi`), or a manual functional checklist (`mobile`) — pushes them, and gates the verdict on the target repo's own CI actually running them (never executed locally by QA). A `mobile` checklist awaiting a human produces a distinct `pending_uat` outcome, not a failure.
 - `/conclave-pr-review US-NNN` — Tech Lead reviews the code against the architecture, ADRs, and code-level DoD items, then runs `gh pr review --approve` or `--request-changes`. Only runs when `ceremonies.peer_pr_review.required: true`. Story moves from `verified` to `done` on approve.
 - `/conclave-board` — one-time scaffold of a local, branded Kanban board (Next.js + shadcn/ui) at `conclave-board/`, a sibling of `conclave/`. Columns mirror the story state machine; cards show ID, title, discipline, assignee, priority, and estimate. A plugin hook regenerates the board's data automatically whenever `conclave/` changes — no CI, no server, no LLM in the update loop. Read-only; never writes back to `conclave/`.
 - `/conclave-sprint-board` — generate a **self-contained offline HTML** roadmap board (Roadmap / Tasks / Analytics) at `docs/sprint-board/`. No npm, no CDN, openable via `file://`. Complementary to `/conclave-board` (Kanban); re-runs overwrite the snapshot; never mutates `conclave/` stories or sprints.
 
-- `/conclave-sprint` — run an entire active sprint end-to-end. **Interactive** (default): planning → batched Dev → QA → TL PR review (if required); never merges. **Autonomous Sprint Loop** (`--no-interaction` / `commands.sprint.interactive: false`): serial self-heal Dev→CI→QA→forced TL→**merge** to `develop` (or `repo.integration_branch`); schedule window + budgets; run report + optional Slack; closes the sprint when all stories are `done` (ADR-004).
+- `/conclave-sprint` — run an entire active sprint end-to-end in one pass: planning → batched Dev → QA → TL PR review (if required). **Headless** (`--no-interaction` / `commands.sprint.interactive: false`) is the same pass with documented planning defaults and zero prompts. Neither mode merges, self-heals, or reads a schedule — unattended delivery is `/conclave-dev --loop` (ADR-006).
 - `/conclave-story <new | edit US-NNN | split US-NNN | retire US-NNN>` — Product Manager mid-sprint story authoring, in every team mode. `new` allocates the next monotonic ID and lands the story in backlog (default) or the active sprint; `edit` revises a `ready`/`backlog` story; `split` decomposes a parent into 2–4 children (with a hard scenario-coverage safety rule enforced by the PM subagent); `retire` is a mechanical status change with no LLM call. Introduces the `retired` terminal state — retired stories are excluded from every command's collection queries.
 - `/conclave-adr [topic]` — Tech Lead ADR authoring. Topic-directed: `/conclave-adr "<decision>"` researches and writes a standalone ADR at `conclave/product/adr/ADR-NNN-<slug>.md`. Discovery: `/conclave-adr` (no args) has the TL propose 1–3 candidate decisions from sprint activity + architecture gaps, then authors the one the user picks. On first run in a repo with inline ADRs, migrates them to standalone files (atomic per ADR, resumable, idempotent). Every new ADR is `status: proposed`; the team promotes to `accepted` on PR merge.
 - `/conclave-bug <report [text|url] | list>` — report a post-merge bug or list the open backlog. `report` turns free text (or a URL/ID from a connected logging/error-tracking MCP tool, detected generically — never a hardcoded vendor) into a `BUG-NNN` artifact with Gherkin repro steps and an explicit `severity`, mirrors it as a GitHub issue, and hands it straight to `/conclave-dev` — bugs are written directly `ready`, skipping Sprint Planning entirely. `list` is mechanical, no LLM call. `/conclave-dev`/`/conclave-qa` accept `BUG-NNN` IDs anywhere they accept `US-NNN`, including mixed batches; the Developer reproduces a bug via its repro steps before fixing it, and the PR includes `Fixes #<issue>` to auto-close the mirrored issue on merge.
@@ -264,20 +268,73 @@ Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251
 /conclave-sprint
 ```
 
-Autonomous mode never calls `AskUserQuestion`. Every prompt site applies a documented default (assignee takeover, branch recreate for stale local branches, branch resume when there is prior story work, refuse when another dev's commits are on the branch); ambiguities without a safe default abort with `AUTONOMOUS_ABORT: <reason>` and reset the story to `status: ready`. Every autonomous run appends a `## Autonomous run — <ISO>` section to the story file with outcome (`done` / `blocked` / `aborted`), decisions taken, files touched, test/lint summary, and blockers if any.
+Autonomous mode never calls `AskUserQuestion`. Every prompt site applies a documented default (assignee takeover, branch recreate for stale local branches, branch resume when there is prior story work, refuse when another dev's commits are on the branch); ambiguities without a safe default abort with `AUTONOMOUS_ABORT: <reason>` and reset the story to `status: ready`. Every autonomous run appends a `## Autonomous run — <ISO>` section to the story file with outcome (`done` / `blocked` / `aborted`), decisions taken, files touched, test/lint summary, and blockers if any. It stops at `status: review` and never merges.
 
-### Autonomous Sprint Loop (v0.13.0+)
+### Three-Wave Delivery Loop (v0.15.0+)
+
+```bash
+/conclave-dev --loop                           # every non-done story in the active sprint
+/conclave-dev --loop US-042 BUG-004            # or a subset, bugs included
+/conclave-dev --loop --ignore-schedule US-042  # bypass the window for this run
+
+# Repo default (makes every /conclave-dev run a full three-wave run — prefer the flag):
+# commands:
+#   dev:
+#     loop: true
+```
+
+The one autonomous delivery loop in Conclave. It orders the scope by declared `dependencies:` and file overlaps, then runs three ordered waves: **W1 Dev** (implement, push, PR, poll CI to green), **W2 QA** (headless `/conclave-qa`), **W3 Tech Lead** (`/conclave-pr-review`, forced even when peer review is off). A failure in any wave sends the affected stories back to W1 — changed code invalidates the QA verdict that preceded it.
+
+**It never merges.** The run ends with approved PRs listed for a human, each with a copyable merge command. `commands.dev.schedule` is a recurring local-time window (`timezone`, `days`, `start_time`, `end_time`, `duration_days`), `commands.dev.budgets` caps attempts, CI wait, wall clock, and a best-effort token ledger, and the run report at `RUN-NNN-dev-loop.md` carries the ledger plus per-role productivity (dispatches, first-pass success, rework caused, tokens per story). Slack, when enabled, gets a success, partial, or "needs human" message — the last one the moment the blocker happens. Requires the GitHub CLI (`gh`) installed and authenticated with access to the repository. Never closes the sprint (ADR-006).
+
+**Developer walkthrough (weekend campaign)** — full recipe with Slack examples: [Scheduling](https://giolabs.github.io/conclave/en/scheduling). Minimal config:
+
+```yaml
+# conclave/config.md
+repo:
+  integration_branch: develop
+
+commands:
+  dev:
+    schedule:
+      timezone: "America/Argentina/Buenos_Aires"
+      days: [fri, sat, sun]
+      start_time: "19:00"
+      end_time: "07:00"
+      duration_days: 3
+      active_from: "2026-07-31"
+      enforce: true
+    budgets:
+      max_attempts_per_story: 3
+      max_ci_wait_minutes: 20
+      max_total_tokens: 2000000
+      max_wall_clock_hours: 12
+
+notifications:
+  slack:
+    enabled: true
+    webhook_env: SLACK_WEBHOOK_URL
+```
+
+```bash
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."   # env only — never in markdown
+gh auth status                                                    # must be able to push + review
+/conclave-planning                                                # sprint must be active first
+/loop 1h /conclave-dev --loop                                     # Claude Code; or a Cursor Automation / cron
+
+# When Slack says "Ready to merge" (or the run report lists PRs):
+gh pr merge 142 --squash --delete-branch
+gh pr merge 143 --squash --delete-branch
+```
+
+### Headless one-pass `/conclave-sprint`
 
 ```bash
 /conclave-sprint --no-interaction
 # commands.sprint.interactive: false in config.md
-
-# Weekend window example (Conclave gates; you supply the trigger):
-# commands.sprint.schedule.window_start / window_end
-# /loop 1h /conclave-sprint --no-interaction   # Claude Code
 ```
 
-Runs the full delivery loop per story (Dev → checks → QA → forced TL → merge), writes `conclave/sprints/SPRINT-NNN/runs/RUN-*.md`, optionally posts to Slack, and closes the sprint when every non-retired story is `done`. Requires the GitHub CLI (`gh`) installed and authenticated with access to the repository. Interactive `/conclave-sprint` still never merges. See the docs site **Scheduling** page.
+The same single pass as interactive mode with documented planning defaults and zero prompts. Since 0.15.0 it is **not** a delivery loop: no self-heal, no schedule, no budgets, no merge. Stories it leaves in flight are picked up by `/conclave-dev --loop`. See the docs site **Scheduling** page.
 
 Sprint closeout ceremonies (review, retro) and stack-specific sub-specs are next.
 
