@@ -10,7 +10,7 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
-    "next": "^16.2.10",
+    "next": "^16.2.12",
     "nextra": "4.5.1",
     "nextra-theme-docs": "4.5.1",
     "react": "^19.1.0",
