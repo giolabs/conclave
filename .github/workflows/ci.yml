@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  docs-build:
+    name: Docs site build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build docs site
+        run: npm run build
+
+  validate-frontmatter:
+    name: Validate command frontmatter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check every command has description and allowed-tools
+        run: |
+          failed=0
+          for f in commands/conclave-*.md; do
+            if ! grep -q "^description:" "$f"; then
+              echo "MISSING description: $f"
+              failed=1
+            fi
+            if ! grep -q "^allowed-tools:" "$f"; then
+              echo "MISSING allowed-tools: $f"
+              failed=1
+            fi
+          done
+          exit $failed

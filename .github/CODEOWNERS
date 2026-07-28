@@ -1,0 +1,18 @@
+# CODEOWNERS — every PR requires review from a maintainer.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default: all files require maintainer review
+* @lucasgio
+
+# Prompt files — AI instructions executed by Claude; highest-scrutiny zone.
+# Changes here are reviewed with extra care for prompt injection risks.
+/commands/ @lucasgio
+/skills/ @lucasgio
+/platforms/cursor/skills/ @lucasgio
+/platforms/cursor/commands/ @lucasgio
+
+# Plugin manifests — version and capability declarations
+/.claude-plugin/ @lucasgio
+
+# CI/CD workflows — changes here affect automation and deployment
+/.github/workflows/ @lucasgio

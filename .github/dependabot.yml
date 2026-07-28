@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /site
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Montevideo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
+    ignore:
+      # nextra and nextra-theme-docs are pinned to exact versions with a patch
+      # applied via patch-package. Do not auto-bump them without re-checking
+      # whether site/patches/ still applies cleanly.
+      - dependency-name: nextra
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+      - dependency-name: nextra-theme-docs
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
