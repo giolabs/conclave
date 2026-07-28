@@ -47,6 +47,33 @@ Use `find $REPO_ROOT -maxdepth 3 -type f -name '<pattern>'` for the rules invent
 
 Run the file reads in parallel.
 
+## Step 3b — Detect an existing sprint plan document
+
+Before asking the user for clarifications, check whether a sprint plan document already exists anywhere in the repo. A "sprint plan document" is any file that describes user stories, a backlog, epics, features, or functional requirements in a structured way. Look for:
+
+```bash
+find $REPO_ROOT -maxdepth 4 -type f \
+  \( -name "*.md" -o -name "*.txt" -o -name "*.csv" -o -name "*.xlsx" -o -name "*.pdf" \) \
+  -not -path "*/.git/*" \
+  -not -path "*/node_modules/*" \
+  -not -path "*/conclave/*" \
+  | xargs grep -l -i \
+    "user stor\|backlog\|sprint\|epics\|feature\|requirements\|acceptance criteria\|as a user\|given.*when.*then" \
+    2>/dev/null | head -10
+```
+
+**If matching files are found:** read the top candidates (up to 3 files, capped at ~200 lines each) and extract story/feature/requirement information. Carry the extracted content as `EXISTING_PLAN` — it will be fed to the PM and TL subagents in Step 5 as additional context to shape the backlog and architecture around existing commitments.
+
+**If no matching files are found:** pause here and use `AskUserQuestion` to ask:
+
+> "No sprint plan or requirements document was found in this repo. Do you have one to share? If so, paste the content directly in your next message or upload the file. **Markdown format is strongly recommended** — it minimizes token usage and lets the PM and TL agents read it accurately. If you don't have one yet, choose 'Continue without a plan' and the agents will work from the product idea and your answers in the next step."
+
+Options to offer:
+- `I'll paste it now` — wait for the user to provide the document content; carry it as `EXISTING_PLAN`.
+- `Continue without a plan` — set `EXISTING_PLAN = null` and continue.
+
+Do NOT proceed to Step 4 until either `EXISTING_PLAN` is set or the user explicitly chooses to continue without one.
+
 ## Step 4 — Clarify the idea with the user
 
 Use `AskUserQuestion` to ask:
@@ -67,7 +94,7 @@ Issue **two `Agent` tool calls in a single message** so they run concurrently:
 - **Model**: `MODEL_FOR_TL` (omit if null).
 - Prompt prefix: the full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/tech-lead.md`.
 - Task: produce the **Architectural Foundation** document following the structure in `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/architecture.template.md`.
-- Inputs to embed in the task prompt: the user's `<idea>` argument, the `CLARIFICATIONS`, and the contents of the context snapshots (CLAUDE.md, skills inventory, rules inventory).
+- Inputs to embed in the task prompt: the user's `<idea>` argument, the `CLARIFICATIONS`, the contents of the context snapshots (CLAUDE.md, skills inventory, rules inventory), and `EXISTING_PLAN` (if non-null, prefix it with `## Existing sprint plan / requirements — treat this as the source of truth for stories and constraints:`).
 - Output: the full architecture document as markdown text. The orchestrator writes it to `conclave/product/architecture.md`.
 
 ### Agent B — Product Manager
@@ -75,7 +102,7 @@ Issue **two `Agent` tool calls in a single message** so they run concurrently:
 - **Model**: `MODEL_FOR_PM` (omit if null).
 - Prompt prefix: the full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/product-manager.md`.
 - Task: produce the **Product Backlog** in the structure described in that charter.
-- Inputs to embed in the task prompt: the user's `<idea>` argument, the `CLARIFICATIONS`, and the contents of the context snapshots. (Do not wait for the TL's output; the PM works from the idea + constraints.)
+- Inputs to embed in the task prompt: the user's `<idea>` argument, the `CLARIFICATIONS`, the contents of the context snapshots, and `EXISTING_PLAN` (if non-null, prefix it with `## Existing sprint plan / requirements — derive stories from this document first, supplementing only where gaps exist:`). (Do not wait for the TL's output; the PM works from the idea + constraints.)
 - Output: the full backlog markdown. The orchestrator parses it into per-story files.
 
 Wait for both to return. If either errors, surface the error to the user and stop.

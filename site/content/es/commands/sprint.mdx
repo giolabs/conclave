@@ -1,6 +1,6 @@
 ---
 title: /conclave-sprint
-description: Ejecutá un sprint activo completo — planning, dev, QA y PR review — en una sola invocación.
+description: Ejecutá un sprint activo completo — planning, dev, QA y PR review — en una sola invocación. Genera reporte de cierre, guía UAT y snapshot DORA al completarse.
 ---
 
 # /conclave-sprint
@@ -84,12 +84,48 @@ Re-ejecutar `/conclave-sprint` después de un fallo parcial es seguro. El frontm
 
 No se introduce ningún archivo de checkpoint. Volvé a correr el comando y retoma exactamente donde quedó el frontmatter.
 
+## Cierre de sprint — Pasos 12 y 13 (v0.16.0+)
+
+Cuando todas las historias alcanzan un estado terminal (`done` o explícitamente carriedover), el comando ejecuta dos pasos adicionales antes de marcar el sprint como cerrado:
+
+### Paso 12 — Gate de bug crítico
+
+Escanea `conclave/sprints/SPRINT-NNN/bugs/` buscando cualquier archivo cuyo frontmatter tenga `severity: critical` y `status` distinto de `done`. Si hay algún bug crítico abierto:
+
+```
+Sprint close BLOCKED: 2 critical bug(s) open in conclave/sprints/SPRINT-NNN/bugs/.
+Resolve BUG-001-auth-bypass and BUG-003-data-loss before closing.
+```
+
+Este chequeo corre incondicionalmente — no se puede eludir en modo headless o `--no-interaction`. El sprint no puede cerrarse hasta que todos los bugs críticos estén resueltos.
+
+### Paso 13 — Reportes de cierre
+
+Se generan tres archivos bajo `conclave/report/SPRINT-NNN/` a partir de las plantillas correspondientes:
+
+| Archivo | Plantilla | Contenido |
+|---|---|---|
+| `report.md` | `sprint-closing-report.template.md` | Velocidad, tabla de resultados de historias, conteo de bugs, cobertura de aceptación, carryover, recomendaciones |
+| `UAT.md` | `sprint-uat-summary.template.md` | Escenarios Gherkin por historia, pasos de test manuales, checklist de regresión, tabla de firma |
+| `dora-data.yml` | (inline) | Snapshot DORA pre-computado: timestamps de deploy, lead times, CFR, datos brutos de MTTR para la agregación de `/conclave-dora` |
+
+El status del sprint en `meta.md` se setea en `done` **después** de que el Paso 13 termine, así los reportes de cierre siempre reflejan el estado final.
+
+## Qué produce (lista completa)
+
+- Artefactos de las Fases 1–4 (historias, PRs, reportes de verificación, acta de planning).
+- `conclave/sprints/SPRINT-NNN/bugs/BUG-NNN-*.md` — bugs del sprint escritos por la fase de QA cuando la verificación queda bloqueada.
+- `conclave/report/SPRINT-NNN/report.md` — reporte de cierre del sprint.
+- `conclave/report/SPRINT-NNN/UAT.md` — guía de UAT funcional.
+- `conclave/report/SPRINT-NNN/dora-data.yml` — snapshot de métricas DORA (consumido por `/conclave-dora`).
+
 ## Guardrails
 
 - El fallo en Fase 1 es un stop duro. Todos los demás fallos se aíslan por historia.
 - Nunca modifica archivos fuera de `conclave/` (excepto branches de features y `tests/uat/` que escribe la fase de QA).
 - **Ningún modo mergea un PR** — la aprobación del Tech Lead en la Fase 4 es suficiente; mergear es una acción humana.
 - Cada fase salteada imprime un aviso de salteo con el motivo.
+- **El sprint no puede cerrarse con bugs críticos abiertos** — el Paso 12 hace cumplir esto incondicionalmente.
 
 ## Headless one-pass
 
@@ -104,7 +140,8 @@ Es **la misma** pasada única del modo interactivo, con los prompts reemplazados
 
 - El Planning sobre un sprint `draft` usa hoy como fecha de inicio, la duración configurada del sprint (o 14 días), el primer integrante del roster como facilitador y el Tech Lead como fallback ante gaps de cobertura.
 - Las fases 2–4 corren sin cambios, batch de 3 incluido. La Fase 4 sigue respetando `ceremonies.peer_pr_review.required`.
-- No mergea nada, no reintenta nada, no escribe reporte de run.
+- El gate de bug crítico (Paso 12) y los reportes de cierre (Paso 13) corren normalmente.
+- No mergea nada, no reintenta nada.
 
 Una historia que falla en Dev o que QA bloquea se reporta y queda donde está. Levantalas con `/conclave-dev --loop`.
 

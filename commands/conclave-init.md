@@ -1,5 +1,5 @@
 ---
-description: Bootstrap the conclave/ directory in the current repo with team roster, ceremony cadence, DoR, DoD, and an empty Product Backlog / Architecture skeleton.
+description: Bootstrap the conclave/ directory in the current repo with team roster, ceremony cadence, DoR, DoD, an empty Product Backlog / Architecture skeleton, and GitHub PR/bug templates.
 allowed-tools: Bash(git rev-parse:*), Bash(git init:*), Bash(mkdir:*), Bash(ls:*), Bash(date:*), Read, Write, Edit, AskUserQuestion
 ---
 
@@ -36,10 +36,11 @@ Use `AskUserQuestion` to collect:
 
 1. **Project name** (free text, default: the basename of `$REPO_ROOT`).
 2. **Project type**: backend, frontend, mobile, devops, or multi.
-3. **Team size** (`team` mode only): 2–3, 4–6, 7+ (rough; used to default the team profile below).
-4. **Sprint length**: 1 week, 2 weeks, 3 weeks, 4 weeks (default 2).
-5. **Timezone** (free text, e.g. "America/Montevideo"). If unsure, default to UTC.
-6. **Team profile** (`team` mode only — `solo` already forces `lean`) — which ceremonies the team commits to:
+3. **Project language** (ISO 639-1 code): the natural language all Conclave-generated markdown will be written in — stories, acceptance criteria, reports, bug descriptions. Default options: `es` (Spanish), `en` (English). Free text for others. Default: `es`.
+4. **Team size** (`team` mode only): 2–3, 4–6, 7+ (rough; used to default the team profile below).
+5. **Sprint length**: 1 week, 2 weeks, 3 weeks, 4 weeks (default 2).
+6. **Timezone** (free text, e.g. "America/Montevideo"). If unsure, default to UTC.
+7. **Team profile** (`team` mode only — `solo` already forces `lean`) — which ceremonies the team commits to:
    - `lean` (default for team sizes 2–3): only Sprint Planning and QA Verification are required; Standup, Backlog Grooming, Peer PR Review, Sprint Review, and Retro are off.
    - `full-scrum` (default for team sizes 4+): every ceremony is required.
    - `custom`: the user will edit each flag in `config.md` after init.
@@ -101,6 +102,11 @@ Mapping:
 | `definition-of-ready.template.md` | `conclave/product/definition-of-ready.md` |
 | `definition-of-done.template.md` | `conclave/product/definition-of-done.md` |
 | `testing-environments.template.md` | `conclave/team/testing-environments.md` |
+| `bug-report-github.template.md` | `.github/ISSUE_TEMPLATE/bug_report.md` |
+| `pr-template-github.template.md` | `.github/PULL_REQUEST_TEMPLATE.md` |
+| `pr-review-template-github.template.md` | `conclave/team/PR_REVIEW_TEMPLATE.md` |
+
+When writing the GitHub templates, substitute `{{project_language}}` in any placeholder comments using the language code collected in Step 3. Create `.github/ISSUE_TEMPLATE/` with `mkdir -p` if it does not exist.
 
 Leave `conclave/product/backlog.md`, `conclave/product/architecture.md`, `conclave/context/`, and `conclave/sprints/` empty for now. `/conclave-spec` populates them.
 
@@ -120,10 +126,11 @@ Print a short summary to the user:
 - In `team` mode, which (if any) disciplines came back `TBD` and still need staffing.
 - The files they should still review/edit by hand: `team/ceremonies.md`, `product/definition-of-ready.md`, `product/definition-of-done.md`, and `team/testing-environments.md` (`team/roster.md` is fully populated already, but is always worth a glance). `testing-environments.md` is written as a placeholder — until its `TBD` values are filled in with real CI environment-variable/secret names, `/conclave-qa` skips UAT generation and verifies acceptance criteria exactly as it always has.
 - Next step: `/conclave-spec "<one-line product idea>"` to generate the Product Backlog, Architectural Foundation, and Sprint 1 plan.
+- GitHub templates written to `.github/` — commit these alongside `conclave/` so contributors see the PR and bug-report forms immediately.
 - Suggested git commands:
 
   ```bash
-  git add conclave/
+  git add conclave/ .github/
   git commit -m "conclave: bootstrap Scrum workspace"
   ```
 

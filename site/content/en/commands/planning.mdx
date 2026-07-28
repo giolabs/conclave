@@ -1,6 +1,6 @@
 ---
 title: /conclave-planning
-description: Profile-aware Sprint Planning ceremony. Two waves — PM+TL first, SM after.
+description: Profile-aware Sprint Planning ceremony. Two waves — PM+TL first, SM after. Supports --all for planning every draft sprint in one pass.
 ---
 
 # /conclave-planning
@@ -8,14 +8,15 @@ description: Profile-aware Sprint Planning ceremony. Two waves — PM+TL first, 
 Run **Sprint Planning** for the current draft sprint. When this finishes, the sprint moves from `draft` to `active` and the team is committed to the selected stories.
 
 ```
-/conclave-planning
+/conclave-planning            # plan the next draft sprint
+/conclave-planning --all      # plan ALL draft sprints in one pass (v0.16.0+)
 ```
 
 This is one of the two **structural** Scrum gates Conclave enforces — required in every profile, cannot be skipped.
 
 ## What it does
 
-1. Locates the draft sprint (highest-numbered `SPRINT-NNN` with `status: draft`).
+1. Locates the draft sprint(s). Without `--all`: the highest-numbered `SPRINT-NNN` with `status: draft`. With `--all`: all sprints with `status: draft`, ordered by number.
 2. Loads context: `config.md`, roster, backlog, DoR, architecture, current sprint files, optionally the previous sprint's retro. If the roster predates the `Discipline` column, every member is treated as multi-discipline with a one-time compatibility warning.
 3. Asks the team for inputs — depth scales with the profile:
    - Always: sprint dates, facilitator name.
@@ -32,10 +33,21 @@ This is one of the two **structural** Scrum gates Conclave enforces — required
    - Capacity check → warns on over-commit > 20%.
 6. Writes outputs (see below).
 
+## Multi-sprint planning — `--all`
+
+With `--all`, all draft sprints from the backlog are planned in one pass:
+
+- **Sprint 1** (lowest-numbered draft) → `status: active`. Full interactive planning applies.
+- **Remaining sprints** → stay `status: draft`, but receive their full `planning.md` record, story assignments, and discipline tags. They are "pre-planned" and ready to activate when the preceding sprint closes.
+
+This is useful after running `/conclave-spec` with a full backlog: it lets you plan every sprint upfront, knowing the plan will be refined anyway when each sprint actually activates.
+
+**Step 6b — multi-sprint loop**: for each draft sprint beyond the first, the two-wave planning loop runs again but skips the interactive capacity questions (defaults are carried forward). Each sprint's `planning.md` is written before the next sprint begins.
+
 ## What it produces
 
-- `conclave/sprints/SPRINT-NNN/meta.md` updated with `status: active`, target dates.
-- `conclave/sprints/SPRINT-NNN/spec.md` updated with assignees, `status: active`.
+- `conclave/sprints/SPRINT-NNN/meta.md` updated with `status: active` (first sprint) or `status: draft` (subsequent sprints with `--all`), target dates.
+- `conclave/sprints/SPRINT-NNN/spec.md` updated with assignees, status.
 - Each `stories/US-NNN-*.md` frontmatter updated: `assignee` and `discipline` set, `status: ready`.
 - `conclave/sprints/SPRINT-NNN/planning.md` — the meeting record (goal, capacity, assignments, discipline assignments & coverage gaps, DoR findings, experiments imported from prior retro).
 - `conclave/product/backlog.md` updated to show selected stories as `in-progress` in the active sprint.
@@ -53,6 +65,7 @@ This is one of the two **structural** Scrum gates Conclave enforces — required
 - Refuses to run if no sprint exists in `draft`.
 - Refuses to run if `sprint_planning.required` is somehow `false` in `config.md` — it is structural.
 - Cannot re-run on the same sprint after it goes `active` — a second invocation is refused.
+- With `--all`, already-`active` sprints are skipped silently; only `draft` sprints are touched.
 - Never commits.
 
 ## After it runs

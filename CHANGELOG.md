@@ -4,6 +4,57 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+### Docs
+
+- **`/es/configuration` — ejemplos mejorados** — la página de referencia de configuración EN/ES ahora incluye: (1) dos ejemplos completos de `config.md` ("proyecto solo / lean" y "equipo distribuido / full-scrum") en lugar de uno solo; (2) el bloque `commands:` reemplazado por tres recetas nombradas y sin comentar ("Dev autónomo sin loop", "Loop de fin de semana", "Loop con Slack"); (3) el ejemplo de `testing-environments.md` muestra ahora un archivo completado con valores realistas de env vars, Postman y usuarios de test, en lugar de solo TBDs.
+
+## [0.16.0] — 2026-07-27
+
+### Removed
+
+- **`/conclave-sprint-board`** — the offline HTML roadmap/analytics board command has been removed along with its skill (`skills/conclave/visual-sprint-board/`), templates (`sprint-board.html.template`, `sprint-board-readme.template.md`), and the Cursor-platform counterparts. The Kanban board (`/conclave-board`) remains. DORA metrics are now covered by `/conclave-dora` (see Added below).
+
+### Added
+
+- **`project_language` in `config.md`** — a new ISO 639-1 field (`es`, `en`, `pt`, etc.) that all commands read and pass to their role subagents so every generated markdown artifact (stories, acceptance criteria, bug descriptions, reports, comments) is written in the team's language. Defaults to `es` when absent. `/conclave-init` asks for it during bootstrap.
+
+- **Sprint plan detection in `/conclave-spec`** (Step 3b) — before asking clarification questions, the command scans the repo for any requirements or backlog document (`.md`, `.txt`, `.csv`, `.xlsx`, `.pdf`) using keyword matching. If found, the document is read and passed to the PM and TL agents as `EXISTING_PLAN` so stories derive from it. If nothing is found, the user is asked to share a document (markdown preferred to save tokens) or continue without one.
+
+- **Multi-sprint planning in `/conclave-planning --all`** — a new `--all` flag plans every draft sprint from the backlog in one pass. The first sprint is activated (`status: active`); the rest are planned and left in `draft`, ready to be activated when the prior sprint closes. Useful after `/conclave-spec` generates multiple sprints at once.
+
+- **Sprint closing report and UAT guide** (Steps 12–13 in `/conclave-sprint`) — when a sprint run completes, the command now:
+  - Checks for open critical bugs in `conclave/sprints/SPRINT-NNN/bugs/` (new gate: sprint cannot close if any are found).
+  - Generates `conclave/report/SPRINT-NNN/report.md` — a full sprint closing report with velocity, story outcomes, bug counts, acceptance coverage, decisions, and next-sprint recommendations.
+  - Generates `conclave/report/SPRINT-NNN/UAT.md` — a functional QA guide describing every delivered feature with Gherkin scenarios, manual test steps, regression checklist, and sign-off table.
+  - Writes `conclave/report/SPRINT-NNN/dora-data.yml` — a raw DORA data snapshot (velocity, lead times, MTTR, PR counts) for `/conclave-dora` to aggregate later.
+  - Language of all generated prose follows `project_language`.
+
+- **QA verification on the integration branch** (`/conclave-qa` updated) — QA now switches to `$INTEGRATION_BRANCH` (develop / main) instead of the feature branch, verifying the integrated state of the codebase. When a verification is blocked, reproducible defects are written as `BUG-NNN-<slug>.md` files in `conclave/sprints/<SPRINT_ID>/bugs/` with full linkage to the story, acceptance criteria, and the PR that introduced the regression. Severity is inferred from Gherkin tags (`@critical`) and DoD classification. Critical sprint bugs block the sprint from closing.
+
+- **`/conclave-dora` command** — new command to generate DORA metrics reports for any time window: `--period biweekly | monthly | semiannual | annual | full-project`, or explicit `--from` / `--to` dates. Uses the Tech Lead agent for full-scrum teams (engineering-depth analysis) and the Product Manager agent for lean/solo teams (product-centric insights). Lean/solo output omits all per-individual contributor data. Reports are written to `conclave/report/dora/DORA-NNN-<period>-<date>.md` and language follows `project_language`.
+
+- **GitHub project templates** — `/conclave-init` now also writes three GitHub template files to the target repo:
+  - `.github/ISSUE_TEMPLATE/bug_report.md` — bug report form with Conclave story/sprint linkage fields
+  - `.github/PULL_REQUEST_TEMPLATE.md` — PR checklist referencing CLAUDE.md conventions and Conclave acceptance criteria
+  - `conclave/team/PR_REVIEW_TEMPLATE.md` — checklist template for tech-lead PR reviews (architecture alignment, security, testing, DoD)
+
+- **`pr-comment-reviewer` skill enhanced** — in addition to existing rules, the skill now:
+  - Reads `conclave/product/architecture.md`, `conclave/product/definition-of-done.md`, and the linked story's acceptance file alongside `CLAUDE.md` and `.rules/`
+  - Performs an independent diff analysis against the `develop` (or `main`) base branch, detecting regression risks, common bug patterns, architectural boundary violations, and convention violations
+  - After the report is ready, asks the user whether to post findings as **inline PR comments** (anchored to file and line), a **general PR comment** (summary), or both
+  - All posting to GitHub requires explicit user confirmation
+
+### Changed
+
+- `conclave/config.md` schema: new frontmatter field `project_language` (string, ISO 639-1). The `stack.language` field (programming language) is unchanged — `project_language` is the human/natural language for documentation. Existing installs default to `es` when the field is absent.
+- `conclave_version` bumped to `0.16.0` in `config.template.md`.
+- `SKILL.md` directory contract updated: new `conclave/report/` subtree, `conclave/sprints/SPRINT-NNN/bugs/` subtree, `.github/` GitHub templates, updated invariants for language, sprint bugs, report generation, and multi-sprint planning.
+- `/conclave-init` Step 3 now includes a language question (item 3) and Step 5 writes the three GitHub templates in addition to the `conclave/` seed files. The suggested git command now includes `.github/`.
+- `/conclave-spec` Step 5 now embeds `EXISTING_PLAN` in both the TL and PM agent prompts when a sprint plan document was found or provided.
+- `/conclave-planning` Step 1 now handles the `--all` flag and builds `SPRINTS_TO_PLAN`; Step 6b runs the multi-sprint loop; Step 7 reports on all planned sprints.
+- `/conclave-sprint` allowed-tools list adds `Bash(find:*)` and `Bash(mkdir:*)` for the closing report steps.
+- `/conclave-qa` allowed-tools list adds `Bash(mkdir:*)` and `Bash(find:*)` for the sprint bugs directory. Step 3 now switches to `$INTEGRATION_BRANCH` instead of the feature branch.
+
 ## [0.15.0] — 2026-07-26
 
 **Breaking:** Conclave no longer merges pull requests, and the delivery loop moved to `/conclave-dev --loop` with a new wave structure and a new schedule schema. If you configured a loop in 0.13.0 or 0.14.0, read "Changed" and "Migration" below before upgrading.

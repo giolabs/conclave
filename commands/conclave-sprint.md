@@ -1,6 +1,6 @@
 ---
 description: Drive an entire active sprint end-to-end in one pass. Interactive (default): planning → batched Dev/QA/PR review. Headless (--no-interaction / commands.sprint.interactive: false): the same one pass with zero prompts and documented planning defaults. Neither mode merges, self-heals, or reads a schedule — unattended delivery lives in /conclave-dev --loop (ADR-006).
-allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git checkout:*), Bash(git switch:*), Bash(git branch:*), Bash(git push:*), Bash(git stash:*), Bash(git fetch:*), Bash(git add:*), Bash(git commit:*), Bash(git diff:*), Bash(git log:*), Bash(git config:*), Bash(ls:*), Bash(mkdir:*), Bash(cat:*), Bash(date:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr review:*), Bash(gh pr diff:*), Bash(gh run list:*), Bash(gh run view:*), Read, Write, Edit, Agent, AskUserQuestion
+allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git checkout:*), Bash(git switch:*), Bash(git branch:*), Bash(git push:*), Bash(git stash:*), Bash(git fetch:*), Bash(git add:*), Bash(git commit:*), Bash(git diff:*), Bash(git log:*), Bash(git config:*), Bash(ls:*), Bash(mkdir:*), Bash(cat:*), Bash(date:*), Bash(find:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr review:*), Bash(gh pr diff:*), Bash(gh run list:*), Bash(gh run view:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
 # /conclave-sprint
@@ -185,6 +185,94 @@ Stories still in flight: US-002, US-005. Run /conclave-dev --loop to drive them 
 approved PR unattended (Dev → QA → Tech Lead, no merge).
 ```
 
+## Step 12 — Sprint close gate: check for critical bugs
+
+Before generating the closing report, check for open critical bugs:
+
+1. Scan `$SPRINT_PATH/bugs/` for any `BUG-NNN-*.md` files whose frontmatter contains `severity: critical` and `status` is not `done` or `closed`.
+2. If any critical bugs are found, **refuse to generate the closing report and do NOT mark the sprint `done`**:
+
+   ```
+   ⛔ Sprint cannot be closed — N open critical bug(s):
+     - BUG-NNN: <title> (severity: critical, status: <status>)
+   
+   Resolve these bugs first via /conclave-dev BUG-NNN, then re-run /conclave-sprint.
+   ```
+
+   Stop at this step. Do not continue to Step 13.
+
+3. If there are open non-critical bugs, print a warning but continue:
+
+   ```
+   ⚠ N non-critical bug(s) remain open. They will carry over to the next sprint.
+   ```
+
+## Step 13 — Generate sprint closing report and UAT summary
+
+When all critical bugs are resolved and the sprint can be closed:
+
+### 13.1 Create the report directory
+
+```bash
+mkdir -p $REPO_ROOT/conclave/report/$SPRINT_ID
+```
+
+### 13.2 Build closing report data
+
+Aggregate across all sprint stories and bugs:
+- `stories_committed`: count of stories that were in the sprint at planning time
+- `stories_done`: count of stories with `status: done`
+- `stories_carried_over`: committed - done
+- `bugs_opened`: count of BUG-NNN files under `$SPRINT_PATH/bugs/`
+- `critical_bugs_open`: count confirmed 0 (already gated in Step 12)
+- `velocity_points`: sum of `estimate` values (XS=1, S=2, M=3, L=5, XL=8) for `done` stories
+- `completion_rate`: round(stories_done / stories_committed * 100)
+- `acceptance_summary`: for each done story, count its Gherkin scenarios and read the latest verification block from `AC-US-NNN.md`
+- `decisions_and_blockers`: extract from `planning.md` the risk/commitment section and any `## QA blockers` / `## TL findings` sections in story files
+- `next_sprint_recommendations`: summarize carryover stories and top-priority backlog items
+
+### 13.3 Write the closing report
+
+Render `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/sprint-closing-report.template.md` with the aggregated data. Write to `$REPO_ROOT/conclave/report/$SPRINT_ID/report.md`.
+
+The `project_language` from `config.md` determines the language of all prose generated in this report (story descriptions, executive summary, recommendations). If `project_language` is absent, default to `es`.
+
+### 13.4 Write the UAT summary
+
+For each story with `status: done`:
+- Read its story file, acceptance file, and the PR URL from the story's frontmatter or latest verification block.
+- Collect manual testing steps from the Gherkin scenarios in `AC-US-NNN.md`.
+- Build setup instructions from the integration branch (`repo.integration_branch` or `develop`).
+
+Render `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/sprint-uat-summary.template.md`. Write to `$REPO_ROOT/conclave/report/$SPRINT_ID/UAT.md`.
+
+The language of the UAT guide follows `project_language` from `config.md`.
+
+### 13.5 Generate per-sprint DORA data snapshot
+
+Write a small YAML frontmatter data file at `$REPO_ROOT/conclave/report/$SPRINT_ID/dora-data.yml` with the raw data needed for `/conclave-dora` to aggregate across sprints without re-reading every story:
+
+```yaml
+sprint_id: "{{sprint_id}}"
+period_start: "{{start_date}}"
+period_end: "{{end_date}}"
+stories_done: {{stories_done}}
+velocity_points: {{velocity_points}}
+bugs_opened: {{bugs_opened}}
+critical_bugs: 0
+prs_merged: {{prs_merged}}            # count of PRs with status merged for this sprint's stories
+lead_times_days: [{{lead_time_list}}]  # per-story: days from first commit to PR merge
+mttr_hours: [{{mttr_list}}]            # per-bug: hours from report to resolution (empty if no bugs)
+```
+
+Print:
+
+```
+📊 DORA snapshot saved → conclave/report/{{sprint_id}}/dora-data.yml
+📋 Sprint report    → conclave/report/{{sprint_id}}/report.md
+🧪 UAT guide        → conclave/report/{{sprint_id}}/UAT.md
+```
+
 ---
 
 # Headless one-pass mode
@@ -220,7 +308,8 @@ To pick those stories up unattended, run `/conclave-dev --loop` afterwards: it r
 - **This command is not a delivery loop.** No self-heal, no schedule gate, no budgets, no run report, no token ledger — those belong to `/conclave-dev --loop`. `commands.sprint.schedule` / `budgets` / `merge_method` are ignored no-ops kept only so an upgraded config does not error.
 - **Headless mode does not force the Tech Lead gate.** Phase 4 follows `ceremonies.peer_pr_review.required` as written.
 - **Never collect `BUG-NNN`** into any `/conclave-sprint` phase.
-- **Do not modify any file outside `$REPO_ROOT/conclave/`** except story feature branches, `tests/uat/` paths QA may write, and git operations on those branches.
+- **Do not modify any file outside `$REPO_ROOT/conclave/`** except story feature branches, `tests/uat/` paths QA may write, and git operations on those branches. The closing report writes to `conclave/report/$SPRINT_ID/` — this is inside `conclave/` and is permitted.
+- **Sprint cannot be closed while a critical bug is open** (Step 12). This check is unconditional and cannot be skipped.
 - **Never print a phase skip silently.**
 - **Re-runs are safe.** Story `status` frontmatter is the recovery mechanism.
 - **Sprint close stays a ceremony.** This command does not mechanically close a sprint; `/conclave-review` does.

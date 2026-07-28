@@ -1,6 +1,6 @@
 ---
 title: /conclave-qa
-description: Verificación adversarial de una o más historias contra sus criterios de aceptación en Gherkin. Estructuralmente requerido. Múltiples historias corren en batches concurrentes de ≤ 3.
+description: Verificación adversarial de una o más historias contra sus criterios de aceptación en Gherkin. Estructuralmente requerido. Múltiples historias corren en batches concurrentes de ≤ 3. Corre en la rama de integración (develop).
 ---
 
 # /conclave-qa US-NNN [US-NNN ...]
@@ -9,7 +9,7 @@ Verifica una o más historias de usuario en `status: review` contra sus criterio
 
 ```
 /conclave-qa US-001                   # historia única — comportamiento idéntico al anterior
-/conclave-qa US-001 US-002 US-003     # tres historias en paralelo, cada una en su branch
+/conclave-qa US-001 US-002 US-003     # tres historias en paralelo, en la rama de integración
 ```
 
 Cuando termina, cada historia pasó a uno de cuatro estados:
@@ -23,21 +23,21 @@ Este es uno de los dos gates **estructurales** de Scrum que Conclave hace cumpli
 
 ## Comportamiento multi-historia
 
-Cuando se pasa más de un ID de historia, aplica el mismo patrón de validación anticipada → batches concurrentes de ≤ 3 → aislamiento de fallos → tabla de resumen final que en `/conclave-dev`. Cada subagente de QA corre completamente independiente en su propia branch, incluyendo generación de UAT, espera al CI, y comentario en el PR. Una tabla de resumen final muestra el veredicto de cada historia:
+Cuando se pasa más de un ID de historia, aplica el mismo patrón de validación anticipada → batches concurrentes de ≤ 3 → aislamiento de fallos → tabla de resumen final que en `/conclave-dev`. Cada subagente de QA corre completamente independiente en la rama de integración, incluyendo generación de UAT, espera al CI, y comentario en el PR. Una tabla de resumen final muestra el veredicto de cada historia:
 
 ```
-| Historia | Branch               | PR                           | Veredicto           |
-|----------|----------------------|------------------------------|---------------------|
-| US-001   | feat/US-001-login    | https://github.com/…/pull/42 | ✓ passed            |
-| US-002   | feat/US-002-profile  | https://github.com/…/pull/43 | ✗ blocked (2 ítems) |
-| US-003   | feat/US-003-mobile   | https://github.com/…/pull/44 | ⏳ pending_uat       |
+| Historia | PR                           | Veredicto           |
+|----------|------------------------------|---------------------|
+| US-001   | https://github.com/…/pull/42 | ✓ passed            |
+| US-002   | https://github.com/…/pull/43 | ✗ blocked (2 ítems) |
+| US-003   | https://github.com/…/pull/44 | ⏳ pending_uat       |
 ```
 
 ## Qué hace
 
 1. Resuelve el workspace y confirma `qa_verification.required: true` (siempre true — se rehúsa si una config mal formada dice lo contrario).
-2. Resuelve la historia — debe estar en `status: review`.
-3. Cambia a la branch de dev de la historia (`feat/US-NNN-<slug>`) y captura el SHA exacto de commit al que se ancla la verificación.
+2. Resuelve la historia — debe estar en `status: review`. Lee `repo.integration_branch` de `config.md` (default `develop`).
+3. **Cambia a la rama de integración** (`develop` o el `repo.integration_branch` configurado). Captura la URL del PR de la feature branch de esta historia (`feat/US-NNN-<slug>`) vía `gh pr list` — la feature branch no necesita estar chequeada. La verificación se ancla al estado integrado del codebase, no a la feature branch aislada.
 4. Carga contexto en paralelo: config, DoD, historia, archivo de aceptación, `conclave/team/testing-environments.md`, las plantillas de verification-report/UAT-report, y metadata del PR (reviews, status de CI) si `gh` está disponible. Si `testing-environments.md` falta o cada fila sigue en `TBD`, UAT se salta para esta corrida — QA verifica exactamente como siempre lo hizo.
 5. **Genera artefactos de test UAT**, cuando UAT está habilitado, según la `discipline` de la historia:
    - `frontend` / `multi` → un spec de Playwright (`tests/uat/US-NNN.spec.ts`), un caso de test por escenario Gherkin.
@@ -46,7 +46,12 @@ Cuando se pasa más de un ID de historia, aplica el mismo patrón de validación
    - Si todavía no hay ningún job de CI que corra `tests/uat/`, propone la adición mínima y confirma con el humano vía `AskUserQuestion` antes de escribirla.
 6. **Pushea y espera al CI** (se salta para `mobile`) — sondea la corrida de CI disparada por el commit pusheado, hasta `ceremonies.qa_verification.ci_wait_timeout_minutes` (default 20). Una falla de CI, o ninguna corrida encontrada / una espera que expira, se trata exactamente igual que un escenario Gherkin que falla.
 7. **Delega al subagente de QA**, que re-deriva PASS/FAIL para cada escenario Gherkin desde cero — de forma adversarial, no confiando en lo que dice el propio dev — e incorpora el resultado de UAT/CI (o el estado actual de un checklist de mobile en una corrida posterior).
-8. Escribe las salidas (abajo).
+8. Escribe las salidas (abajo):
+   - **8.1 — Passed**: salidas de verificación estándar (abajo).
+   - **8.2 — Blocked**: además de la sección `## QA blockers` estándar, cada defecto reproducible vinculado a una historia específica se escribe como un archivo de bug del sprint:
+     - Ruta: `conclave/sprints/<SPRINT_ID>/bugs/BUG-NNN-<slug>.md`
+     - El frontmatter incluye: `linked_story`, `linked_acceptance` (ruta del archivo), `introduced_by_pr` (URL del PR de la feature), `severity` (`minor | major | critical`), `status: open`.
+     - Un sprint **no puede cerrarse** si algún archivo en `conclave/sprints/<SPRINT_ID>/bugs/` tiene `severity: critical` y `status` distinto de `done`.
 
 QA nunca ejecuta los tests generados él mismo — lo hace el propio CI del repo target, y nunca resuelve, lee, ni escribe un valor de secreto en ningún momento.
 
@@ -59,7 +64,18 @@ QA nunca ejecuta los tests generados él mismo — lo hace el propio CI del repo
   - Veredicto `passed` + `peer_pr_review.required: false` → `status: done` directamente.
   - Veredicto `pending_uat` → se queda en `status: review`, con una sección `## QA pending` nombrando qué necesita completar una persona — redactado como esperando finalización, no como un defecto.
   - Veredicto `blocked` → se queda en `status: review`, con una sección `## QA blockers` listando cada escenario/ítem de DoD/falla de CI y su reproducción o evidencia (extracto de log + URL de la corrida de CI).
+- `conclave/sprints/<SPRINT_ID>/bugs/BUG-NNN-<slug>.md` — un archivo por defecto reproducible encontrado (solo en veredicto blocked).
 - Un **comentario** en el PR con el veredicto (nunca una review/aprobación — `gh pr review` nunca se llama desde acá).
+
+## Archivos de bugs del sprint
+
+Cuando QA queda bloqueado, cada defecto reproducible se convierte en un archivo de bug del sprint en:
+
+```
+conclave/sprints/SPRINT-NNN/bugs/BUG-NNN-<slug>.md
+```
+
+El archivo vincula de vuelta a la historia, sus criterios de aceptación, y el PR que introdujo la regresión. Los bugs con `severity: critical` bloquean el cierre del sprint. Estos archivos son **distintos** de los bugs reportados manualmente vía `/conclave-bug report` (que van a `conclave/product/bugs/`).
 
 ## Salvaguardas
 
@@ -78,4 +94,4 @@ QA nunca ejecuta los tests generados él mismo — lo hace el propio CI del repo
 - **Veredicto `passed`, `peer_pr_review.required: true`** — el Tech Lead corre [`/conclave-pr-review US-NNN`](/es/commands/pr-review) para aprobar y mergear.
 - **Veredicto `passed`, `peer_pr_review.required: false`** — sin gate separado; el PR está listo para mergear.
 - **Veredicto `pending_uat`** — una persona completa `tests/uat/US-NNN-UAT.md` (checklist de mobile), después se vuelve a correr `/conclave-qa US-NNN`.
-- **Veredicto `blocked`** — el dev arregla y pushea (o una persona tester de mobile registra un FAIL con notas), después se vuelve a correr `/conclave-qa US-NNN`.
+- **Veredicto `blocked`** — el dev arregla y pushea (o una persona tester de mobile registra un FAIL con notas), después se vuelve a correr `/conclave-qa US-NNN`. Los archivos de bugs del sprint permanecen abiertos hasta que el fix sea verificado.

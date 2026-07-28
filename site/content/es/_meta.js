@@ -8,8 +8,6 @@ export default {
   "getting-started": "Primeros pasos",
   installation: "Instalación",
   platforms: "Plataformas",
-  scheduling: "Scheduling",
-  workflow: "Mapa de flujo",
   "team-example": "Ejemplo de equipo",
 
   "methodology-separator": {
@@ -17,14 +15,27 @@ export default {
     title: "Metodología",
   },
   methodology: "Metodología",
-  profiles: "Perfiles de equipo",
-  configuration: "Referencia de configuración",
-  "state-machine": "Máquina de estados de la historia",
   roles: "Roles",
+  profiles: "Perfiles de equipo",
+  "state-machine": "Máquina de estados",
+
+  "features-separator": {
+    type: "separator",
+    title: "Funcionalidades",
+  },
+  workflow: "Mapa de flujo",
+  scheduling: "Scheduling",
+  configuration: "Referencia de configuración",
 
   "commands-separator": {
     type: "separator",
     title: "Comandos",
   },
   commands: "Comandos",
+
+  "project-separator": {
+    type: "separator",
+    title: "Proyecto",
+  },
+  changelog: "Changelog",
 };

@@ -1,6 +1,6 @@
 ---
-description: Verify one or more stories and/or bugs (US-NNN or BUG-NNN) in status review against their Gherkin scenarios. Generates UAT test artifacts (Playwright for frontend/multi, a shared Postman collection for backend/multi, a manual checklist for mobile), pushes them, and waits for the target repo's own CI to run them before spawning the adversarial QA subagent. Multiple IDs run in concurrent batches of ≤ 3, story/bug IDs may be mixed. QA does NOT approve the PR — that is the Tech Lead's call via /conclave-pr-review. QA verification is structurally required — cannot be skipped.
-allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git rev-parse HEAD:*), Bash(git log:*), Bash(git switch:*), Bash(git checkout:*), Bash(git fetch:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(ls:*), Bash(cat:*), Bash(date:*), Bash(gh pr view:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh run list:*), Bash(gh run view:*), Read, Write, Edit, Agent, AskUserQuestion
+description: Verify one or more stories and/or bugs (US-NNN or BUG-NNN) against their Gherkin scenarios on the develop branch. Generates UAT test artifacts (Playwright for frontend/multi, a shared Postman collection for backend/multi, a manual checklist for mobile). Bugs found during QA are reported directly in the active sprint's bugs folder with full story/PR linkage. Sprint cannot close with open critical bugs. QA does NOT approve the PR — that is the Tech Lead's call via /conclave-pr-review.
+allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git rev-parse HEAD:*), Bash(git log:*), Bash(git switch:*), Bash(git checkout:*), Bash(git fetch:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(ls:*), Bash(mkdir:*), Bash(cat:*), Bash(date:*), Bash(find:*), Bash(gh pr view:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh run list:*), Bash(gh run view:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
 # /conclave-qa US-NNN|BUG-NNN [US-NNN|BUG-NNN ...]
@@ -74,11 +74,16 @@ Follow these steps in order.
    - `status: done` → refuse: *"Story/bug is already verified. Past verification reports live in the acceptance/bug file."*
    - Anything else → refuse.
 
-## Step 3 — Switch to the dev branch
+## Step 3 — Switch to the integration (develop) branch
 
-1. The branch should be `feat/US-NNN-<slug>` or `feat/BUG-NNN-<slug>` from the ID's slug.
-2. `git switch $BRANCH` (or `git checkout $BRANCH`). If the branch does not exist locally, ask the user via `AskUserQuestion` whether to fetch it (`git fetch origin $BRANCH:$BRANCH`) or abort.
-3. Capture `git rev-parse HEAD` as `COMMIT_SHA` — this is the SHA the verification report is anchored to.
+QA verification now runs on the **integration branch** (not the feature branch) so it verifies the integrated state of the codebase, including any interactions between recently merged stories.
+
+1. Determine `INTEGRATION_BRANCH` from `config.md` (`repo.integration_branch`), defaulting to `develop`, then `main` if neither exists.
+2. `git fetch origin $INTEGRATION_BRANCH`.
+3. `git switch $INTEGRATION_BRANCH` (or `git checkout $INTEGRATION_BRANCH`). If the branch does not exist locally, `git checkout -b $INTEGRATION_BRANCH origin/$INTEGRATION_BRANCH`.
+4. `git pull origin $INTEGRATION_BRANCH` to ensure the branch is up to date.
+5. Capture `git rev-parse HEAD` as `COMMIT_SHA` — this is the SHA the verification report is anchored to.
+6. Also capture the PR URL for the story under verification: `gh pr list --head feat/$ID-<slug> --json url,number --jq '.[0]'`. Store as `STORY_PR_URL` and `STORY_PR_NUMBER`. This is used when a QA failure becomes a bug report to link the PR that introduced the issue.
 
 ## Step 4 — Load context (in parallel)
 
@@ -165,6 +170,34 @@ Append `report_markdown` to the end of `acceptance/AC-US-NNN.md` (`US-NNN`) or `
 - `verdict: pending_uat` → leave frontmatter `status: review`. Append (or replace) a `## QA pending` section with `pending_note` — worded as awaiting completion, not as a defect.
 - `verdict: blocked` → leave frontmatter `status: review`. Append (or replace) a `## QA blockers` section with one bullet per `failing_items` entry: the failing scenario/DoD item/CI evidence, plus reproduction steps or the log excerpt + run URL.
 
+### 8.2b — Sprint bug report on `verdict: blocked`
+
+When `verdict: blocked`, for each item in `failing_items` that constitutes a reproducible defect (not a missing feature or scope gap — only a behavioral regression or acceptance-criteria violation), create a bug report in the active sprint:
+
+1. Determine the next available `BUG-NNN` ID: scan `$SPRINT_PATH/bugs/` for existing files; next ID = max + 1, or `BUG-001` if the folder is empty. Create `mkdir -p $SPRINT_PATH/bugs/` if needed.
+
+2. Build the bug slug from the failing scenario name (lowercase, dash-separated, ASCII, max 40 chars).
+
+3. Determine severity from the failing item:
+   - A scenario tagged `@critical` or a DoD item that is `must` → `severity: critical`
+   - A CI failure affecting core flows → `severity: high`
+   - Other failing scenarios → `severity: medium`
+
+4. Render the bug file at `$SPRINT_PATH/bugs/BUG-NNN-<slug>.md` using `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/bug.template.md` with these values:
+   - `title`: concise description of the failure
+   - `status: ready` (immediately actionable — same as `/conclave-bug report` behavior)
+   - `severity`: as determined above
+   - `linked_story`: the `US-NNN` being verified
+   - `linked_acceptance`: path to `conclave/sprints/$SPRINT_ID/acceptance/AC-US-NNN.md`
+   - `linked_pr`: `$STORY_PR_URL` (the PR that introduced the behavior under test)
+   - `introduced_at`: `$COMMIT_SHA` on `$INTEGRATION_BRANCH`
+   - `gherkin_repro`: the failing Gherkin scenario(s) verbatim
+   - `evidence`: CI log excerpt or manual reproduction steps from `failing_items`
+
+5. Print one line per bug created: `🐛 BUG-NNN created → $SPRINT_PATH/bugs/BUG-NNN-<slug>.md (severity: <level>)`
+
+**Note:** a `critical` bug in the sprint's bugs folder will block `/conclave-sprint` from generating the closing report (Step 12 of that command). The developer must fix the bug via `/conclave-dev BUG-NNN` and QA must re-verify before the sprint can close.
+
 Commit with `chore(US-NNN): QA verified`, `chore(US-NNN): mark done`, `chore(US-NNN): QA blockers raised`, or `chore(US-NNN): UAT pending` depending on the outcome.
 
 ### 8.3 Post the verdict on the PR (do NOT approve/request-changes)
@@ -199,7 +232,9 @@ Print:
 
 ## Guardrails
 
+- **QA runs on `$INTEGRATION_BRANCH` (develop / main), not the feature branch.** This is the canonical source of truth for integration state. Never switch to a feature branch during verification.
 - **Do not modify any file outside `conclave/`, the story's acceptance file (or the bug file itself, for `BUG-NNN`), and `tests/uat/<ID>.spec.ts` / `tests/uat/api-collection.postman_collection.json` / `tests/uat/postman-environment.json` / `tests/uat/<ID>-UAT.md`.** QA writes verification reports and UAT artifacts; QA does NOT fix code.
+- **Sprint bugs go in `conclave/sprints/<SPRINT_ID>/bugs/`** — not in `conclave/product/bugs/` (that path is for bugs reported directly via `/conclave-bug report`, outside the QA flow). These two locations are distinct by design.
 - **May propose (with human confirmation via `AskUserQuestion`) an addition to `.github/workflows/*.yml` limited to running `tests/uat/`** — no other pipeline changes, and never written without that confirmation.
 - **Never delete prior verification sections.** Each run appends a new `## Verification — <date>` block. The acceptance/bug file is the story's/bug's full audit trail.
 - **Never overwrite another story's requests in the shared Postman collection.** Merge only.

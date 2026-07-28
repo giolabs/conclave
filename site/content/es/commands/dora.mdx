@@ -1,0 +1,94 @@
+---
+title: /conclave-dora
+description: Generá un reporte de métricas DORA para cualquier período — quincenal, mensual, semestral, anual o el proyecto completo.
+---
+
+# /conclave-dora
+
+Generá un **Reporte de Métricas DORA** para cualquier período. Agrega datos de los reportes de cierre de sprint en `conclave/report/`.
+
+```
+/conclave-dora                                       # interactivo — pregunta período y rango
+/conclave-dora --period biweekly                     # últimas 2 semanas
+/conclave-dora --period monthly                      # último mes calendario
+/conclave-dora --period semiannual                   # últimos 6 meses
+/conclave-dora --period annual                       # últimos 12 meses
+/conclave-dora --period full-project                 # toda la historia del proyecto
+/conclave-dora --from 2026-01-01 --to 2026-06-30     # rango de fechas explícito
+```
+
+## Las cuatro métricas DORA
+
+| Métrica | Qué mide | Nivel Elite |
+|---------|---------|-------------|
+| **Deployment Frequency** | Con qué frecuencia el equipo despliega a producción | Múltiples veces por día |
+| **Lead Time for Changes** | Primer commit → producción | Menos de 1 hora |
+| **Change Failure Rate** | % de cambios que causan incidentes | 0–5% |
+| **MTTR** | Tiempo para recuperarse de una falla | Menos de 1 hora |
+
+## Qué hace
+
+1. Resuelve el workspace y lee `config.md` para `team_profile`, `project_language` y configuración de modelos.
+2. Parsea los flags de período (picker interactivo si no se proporcionan).
+3. Recolecta todos los sprints `done`/`archived` dentro del rango de fechas. Para cada sprint, lee el snapshot pre-calculado `conclave/report/SPRINT-NNN/dora-data.yml` si existe, o construye los datos desde los archivos fuente.
+4. Opcionalmente enriquece los datos de lead time de PRs via `gh pr list` (timestamps de merge → lead times precisos).
+5. Delega a un subagente de rol para sintetizar los hallazgos y escribir el reporte:
+   - **Equipos `full-scrum`** → agente Tech Lead (análisis técnico profundo: cycle time, salud del CI, patrones de rework).
+   - **Equipos `lean` / `solo`** → agente Product Manager (perspectiva centrada en producto: tendencias de velocidad, consistencia de entrega).
+6. Escribe el reporte en `conclave/report/dora/DORA-NNN-<period>-<date>.md`.
+
+## Comportamiento según el perfil del equipo
+
+| Perfil | Sección 6 — Productividad del equipo | Agente |
+|--------|--------------------------------------|--------|
+| `lean` / `solo` | Solo tabla por sprint — sin nombres individuales, handles, ni velocidad por persona | Product Manager |
+| `full-scrum` | Tabla completa de participantes: historias, bugs corregidos, PRs abiertos/revisados, velocidad por persona | Tech Lead |
+
+La restricción lean/solo es incondicional — nunca se incluyen métricas individuales sin importar qué se solicite.
+
+## Qué produce
+
+```
+conclave/report/dora/DORA-NNN-<período>-<YYYYMMDD>.md
+```
+
+Secciones del reporte:
+1. Resumen ejecutivo
+2. Deployment Frequency (tabla + nivel DORA)
+3. Lead Time for Changes (tabla + nivel DORA)
+4. Change Failure Rate (tabla + nivel DORA)
+5. MTTR (tabla + nivel DORA)
+6. Clasificación DORA general
+7. Productividad del equipo (solo full-scrum)
+8. Resumen de calidad por sprint
+9. Recomendaciones
+
+Todo el texto se escribe en el `project_language` de `config.md`. Los nombres de métricas DORA permanecen en inglés como términos estándar internacionales.
+
+## Requisitos previos
+
+- Al menos un sprint debe haberse cerrado con `/conclave-sprint` para que `dora-data.yml` exista en `conclave/report/SPRINT-NNN/`.
+- Los datos precisos de lead time de PRs requieren `gh` autenticado con acceso al repositorio.
+- Los sprints cerrados antes de v0.16.0 no tienen `dora-data.yml`; el comando vuelve a leer los archivos de historias directamente, lo que es más lento y puede tener vacíos.
+
+## Idioma
+
+El texto del reporte sigue `project_language` en `config.md` (default `es`). Los nombres de métricas DORA, etiquetas de nivel (Elite / High / Medium / Low) y encabezados de tabla permanecen en inglés como términos estándar internacionales.
+
+## Guardrails
+
+- Solo escribe en `conclave/report/dora/` — no se modifica ningún otro archivo.
+- Los perfiles lean/solo nunca incluyen datos de contribuidores individuales, incluso si se solicita explícitamente.
+- Los vacíos de datos (sprints con archivos fuente incompletos) se indican explícitamente en el reporte en lugar de extrapolarse silenciosamente.
+- Nunca incluye credenciales reales, webhook URLs o secrets de entorno.
+
+## Después de correrlo
+
+Compartí `conclave/report/dora/DORA-NNN-<período>-<fecha>.md` con stakeholders o commitealo:
+
+```bash
+git add conclave/report/
+git commit -m "conclave: DORA report DORA-NNN (<período>)"
+```
+
+Correrlo periódicamente (quincenal o mensual) permite seguir la dirección de las tendencias en el tiempo. Cada corrida crea un nuevo archivo de reporte en lugar de sobreescribir el anterior.

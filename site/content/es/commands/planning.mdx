@@ -1,6 +1,6 @@
 ---
 title: /conclave-planning
-description: Ceremonia de Sprint Planning consciente del perfil. Dos waves — PM+TL primero, SM después.
+description: Ceremonia de Sprint Planning consciente del perfil. Dos waves — PM+TL primero, SM después. Soporta --all para planificar todos los sprints draft en un solo paso.
 ---
 
 # /conclave-planning
@@ -8,14 +8,15 @@ description: Ceremonia de Sprint Planning consciente del perfil. Dos waves — P
 Corre **Sprint Planning** para el sprint en borrador actual. Cuando termina, el sprint pasa de `draft` a `active` y el equipo queda comprometido con las historias seleccionadas.
 
 ```
-/conclave-planning
+/conclave-planning            # planifica el próximo sprint draft
+/conclave-planning --all      # planifica TODOS los sprints draft en un solo paso (v0.16.0+)
 ```
 
 Este es uno de los dos gates **estructurales** de Scrum que Conclave hace cumplir — requerido en todo perfil, no se puede saltar.
 
 ## Qué hace
 
-1. Ubica el sprint en borrador (el `SPRINT-NNN` de número más alto con `status: draft`).
+1. Ubica el/los sprint(s) en borrador. Sin `--all`: el `SPRINT-NNN` de número más alto con `status: draft`. Con `--all`: todos los sprints con `status: draft`, ordenados por número.
 2. Carga contexto: `config.md`, roster, backlog, DoR, arquitectura, archivos del sprint actual, opcionalmente la retro del sprint anterior. Si el roster es anterior a la columna `Discipline`, cada miembro se trata como multi-disciplina con un aviso de compatibilidad único.
 3. Le pide inputs al equipo — la profundidad escala con el perfil:
    - Siempre: fechas del sprint, nombre del facilitador.
@@ -32,10 +33,21 @@ Este es uno de los dos gates **estructurales** de Scrum que Conclave hace cumpli
    - Chequeo de capacidad → avisa en caso de sobre-compromiso > 20%.
 6. Escribe las salidas (ver abajo).
 
+## Planificación multi-sprint — `--all`
+
+Con `--all`, todos los sprints draft del backlog se planifican en un solo paso:
+
+- **Sprint 1** (el draft de número más bajo) → `status: active`. Se aplica el planning interactivo completo.
+- **Sprints restantes** → permanecen en `status: draft`, pero reciben su `planning.md` completo, asignaciones de historias y tags de disciplina. Quedan "pre-planificados" y listos para activarse cuando cierre el sprint anterior.
+
+Esto es útil después de correr `/conclave-spec` con un backlog completo: permite planificar todos los sprints de antemano, sabiendo que el plan se refinará de todas formas cuando cada sprint se active realmente.
+
+**Paso 6b — loop multi-sprint**: para cada sprint draft más allá del primero, el loop de planning de dos waves corre de nuevo pero saltea las preguntas interactivas de capacidad (los defaults se mantienen). El `planning.md` de cada sprint se escribe antes de que comience el próximo sprint.
+
 ## Qué produce
 
-- `conclave/sprints/SPRINT-NNN/meta.md` actualizado con `status: active`, fechas objetivo.
-- `conclave/sprints/SPRINT-NNN/spec.md` actualizado con asignados, `status: active`.
+- `conclave/sprints/SPRINT-NNN/meta.md` actualizado con `status: active` (primer sprint) o `status: draft` (sprints posteriores con `--all`), fechas objetivo.
+- `conclave/sprints/SPRINT-NNN/spec.md` actualizado con asignados, estado.
 - El frontmatter de cada `stories/US-NNN-*.md` actualizado: `assignee` y `discipline` definidos, `status: ready`.
 - `conclave/sprints/SPRINT-NNN/planning.md` — el acta de la reunión (objetivo, capacidad, asignaciones, asignaciones de disciplina y brechas de cobertura, findings de DoR, experimentos importados de la retro anterior).
 - `conclave/product/backlog.md` actualizado mostrando las historias seleccionadas como `in-progress` en el sprint activo.
@@ -53,6 +65,7 @@ Este es uno de los dos gates **estructurales** de Scrum que Conclave hace cumpli
 - Se rehúsa a correr si no existe ningún sprint en `draft`.
 - Se rehúsa a correr si `sprint_planning.required` es de algún modo `false` en `config.md` — es estructural.
 - No puede volver a correr sobre el mismo sprint después de que pasa a `active` — una segunda invocación se rechaza.
+- Con `--all`, los sprints ya en `active` se saltean silenciosamente; solo se tocan los sprints en `draft`.
 - Nunca commitea.
 
 ## Después de que corre

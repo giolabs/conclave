@@ -91,7 +91,6 @@ conclave/                             # VISIBLE top-level directory, all markdow
 - **Roster schema degrades gracefully.** A `roster.md` written before v0.2.0 (no `Discipline` column) is not rejected — commands that read it treat every member as `multi`-discipline and print a one-time compatibility hint. No auto-migration is provided; a team opts into discipline-based assignment by re-running `/conclave-init` or hand-editing the roster.
 - **UAT config degrades gracefully.** A `testing-environments.md` that doesn't exist yet, or still has every row `TBD` (v0.2.0 installs, or a fresh `/conclave-init` before the team fills it in), is not a hard failure — `/conclave-qa` skips UAT generation entirely and verifies acceptance criteria exactly as it did before v0.3.0.
 - **`conclave-board/` (v0.5.0+) is application code, not part of this contract.** `/conclave-board` scaffolds a Next.js app as a *sibling* of `conclave/`, not inside it — the markdown-only invariant above applies only to `conclave/` itself. The board reads `conclave/` but never writes to it.
-- **`docs/sprint-board/` (v0.12.0+) is a derived HTML snapshot, not part of this contract.** `/conclave-sprint-board` writes offline `index.html` + `README.md` under `docs/sprint-board/`. It never writes HTML under `conclave/` and never mutates story/sprint source files.
 - **Bugs (v0.10.0+) skip Sprint Planning by design.** A `BUG-NNN` reported via `/conclave-bug report` is written directly in `status: ready` under `conclave/product/bugs/` — not under any `sprints/SPRINT-NNN/`. `/conclave-planning` and `/conclave-sprint` never look inside `conclave/product/bugs/`; a bug is picked up directly via `/conclave-dev BUG-NNN`, and driven all the way to an approved PR via `/conclave-dev --loop BUG-NNN` (v0.15.0+).
 - **Run reports are append-only and double as locks.** `runs/RUN-NNN-*.md` files are never deleted or rewritten by a later run; `RUN-NNN` increments monotonically within its directory. A report with `outcome: in_progress` blocks a second run whose scope overlaps it. `conclave/runs/` exists only as the fallback home for a dev-loop report in a repo that has no `sprints/` at all (bug-only work) — when any sprint exists, reports live under that sprint.
 - **No command merges a pull request.** Since v0.15.0 (ADR-006) nothing in Conclave runs `gh pr merge`. QA verification and Tech Lead approval are gates; landing the code is a human action.
@@ -163,9 +162,6 @@ Templates available:
 - `slack-loop-success.template.json` — posted when the loop completes with everything approved
 - `slack-loop-partial.template.json` — posted when the loop finishes with stories incomplete or drained on budget/schedule
 - `slack-loop-hitl.template.json` — posted the moment a blocker needs a human (structural abort, dependency cycle, missing `gh`, attempts exhausted, `pending_uat`)
-- `sprint-board.html.template` — filled by `/conclave-sprint-board` (writes outside `conclave/`)
-- `sprint-board-readme.template.md` — filled by `/conclave-sprint-board`
-
 ---
 
 ## 6. What is mandatory vs skippable
@@ -250,8 +246,6 @@ The two always-required gates (`sprint_planning`, `qa_verification`) cannot be f
 
 ## 7. Visual boards
 
-Conclave ships **two complementary boards**. Neither replaces the other; neither writes story/sprint source-of-truth under `conclave/` (except `/conclave-board` may create `team/board.md` once).
-
 ### 7.1 Status Kanban — `/conclave-board` (v0.5.0+)
 
 `/conclave-board` is **not** a prose-orchestrated subagent — it's a one-time scaffold plus a deterministic background sync, with no `Agent`/`Task` call anywhere in its update loop:
@@ -262,12 +256,6 @@ Conclave ships **two complementary boards**. Neither replaces the other; neither
 - **Local only**: no CI pipeline, no hosting, no cross-machine sync.
 
 See `docs/specs/conclave-board/spec.md`.
-
-### 7.2 Roadmap / analytics — `/conclave-sprint-board` (v0.12.0+)
-
-`/conclave-sprint-board` generates a **single offline HTML file** (Roadmap / Tasks / Analytics tabs) plus a short README under `docs/sprint-board/`. No npm, no CDN, openable via `file://`. Re-runs overwrite the snapshot. Discovery and design rules live in `skills/conclave/visual-sprint-board/SKILL.md`. Bugs (`BUG-NNN`) are omitted in v1. No auto-hook — refresh by re-running the command.
-
-See `docs/specs/conclave-sprint-board/spec.md` and ADR-003.
 
 ## Glossary
 

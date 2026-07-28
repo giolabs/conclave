@@ -1,0 +1,94 @@
+---
+title: /conclave-dora
+description: Generate a DORA metrics report for any time window — biweekly, monthly, semiannual, annual, or full project.
+---
+
+# /conclave-dora
+
+Generate a **DORA Metrics Report** for any time period. Aggregates data from sprint closing reports in `conclave/report/`.
+
+```
+/conclave-dora                                       # interactive — asks period and range
+/conclave-dora --period biweekly                     # last 2 weeks
+/conclave-dora --period monthly                      # last calendar month
+/conclave-dora --period semiannual                   # last 6 months
+/conclave-dora --period annual                       # last 12 months
+/conclave-dora --period full-project                 # entire project history
+/conclave-dora --from 2026-01-01 --to 2026-06-30     # explicit date range
+```
+
+## The four DORA metrics
+
+| Metric | What it measures | Elite |
+|--------|-----------------|-------|
+| **Deployment Frequency** | How often the team ships to production | Multiple times per day |
+| **Lead Time for Changes** | First commit → production | Under 1 hour |
+| **Change Failure Rate** | % of changes that cause incidents | 0–5% |
+| **MTTR** | Time to recover from a failure | Under 1 hour |
+
+## What it does
+
+1. Resolves the workspace and reads `config.md` for `team_profile`, `project_language`, and model configuration.
+2. Parses the period flags (interactive picker if none provided).
+3. Collects all `done`/`archived` sprints within the requested date range. For each sprint, reads the pre-computed `conclave/report/SPRINT-NNN/dora-data.yml` snapshot if available, or builds the data from source files.
+4. Optionally enriches PR lead-time data via `gh pr list` (merge timestamps → accurate lead times).
+5. Delegates to a role subagent to synthesize findings and write the report:
+   - **`full-scrum` teams** → Tech Lead agent (engineering-depth: cycle time, CI health, rework patterns).
+   - **`lean` / `solo` teams** → Product Manager agent (product-centric: velocity trends, delivery consistency).
+6. Writes the report to `conclave/report/dora/DORA-NNN-<period>-<date>.md`.
+
+## Team profile behaviour
+
+| Profile | Section 6 — Team Productivity | Agent |
+|---------|-------------------------------|-------|
+| `lean` / `solo` | Sprint-level table only — no individual names, handles, or per-developer velocity | Product Manager |
+| `full-scrum` | Full participant table: stories, bugs fixed, PRs opened/reviewed, velocity per person | Tech Lead |
+
+The lean/solo restriction is unconditional — individual metrics are never included regardless of what is requested.
+
+## What it produces
+
+```
+conclave/report/dora/DORA-NNN-<period>-<YYYYMMDD>.md
+```
+
+Report sections:
+1. Executive summary
+2. Deployment Frequency (table + DORA level)
+3. Lead Time for Changes (table + DORA level)
+4. Change Failure Rate (table + DORA level)
+5. MTTR (table + DORA level)
+6. Overall DORA Classification
+7. Team Productivity (full-scrum only)
+8. Sprint Quality Summary
+9. Recommendations
+
+All prose is written in the `project_language` from `config.md`. DORA metric names remain in English as international standard terms.
+
+## Prerequisites
+
+- At least one sprint must have been closed with `/conclave-sprint` so `dora-data.yml` exists under `conclave/report/SPRINT-NNN/`.
+- Accurate PR lead-time data requires `gh` authenticated with access to this repository.
+- Sprints closed before v0.16.0 have no `dora-data.yml`; the command falls back to reading story files directly, which is slower and may have gaps.
+
+## Language
+
+Report prose follows `project_language` in `config.md` (default `es`). DORA metric names, level labels (Elite / High / Medium / Low), and table headers remain in English as international standard terms.
+
+## Guardrails
+
+- Only writes to `conclave/report/dora/` — no other files are modified.
+- Lean/solo profiles never include individual contributor data, even if explicitly requested.
+- Data gaps (sprints with incomplete source files) are noted explicitly in the report rather than silently extrapolated.
+- Never includes real credentials, webhook URLs, or environment secrets.
+
+## After it runs
+
+Share `conclave/report/dora/DORA-NNN-<period>-<date>.md` with stakeholders or commit it:
+
+```bash
+git add conclave/report/
+git commit -m "conclave: DORA report DORA-NNN (<period>)"
+```
+
+Run periodically (bi-weekly or monthly) to track trend direction over time. Each run creates a new report file rather than overwriting the previous one.

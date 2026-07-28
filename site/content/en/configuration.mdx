@@ -12,15 +12,16 @@ Every `/conclave-*` command reads `conclave/config.md`. This page documents ever
 ```yaml
 project_name: "my-project"
 project_type: "backend"          # backend | frontend | mobile | devops | multi
+project_language: "es"           # ISO 639-1 — all generated prose uses this language (v0.16.0+)
 stack:
-  language: "TypeScript"
+  language: "TypeScript"         # programming language (not the same as project_language)
   framework: "NestJS"
   datastore: "PostgreSQL"
   infrastructure: "Docker + AWS ECS"
 repo_url: "https://github.com/org/my-project"
 claude_md_path: "CLAUDE.md"
 initialized_at: "2026-01-01T00:00:00Z"
-conclave_version: "0.5.0"
+conclave_version: "0.16.0"
 
 team_mode: "solo"                # solo | team
 team_profile: "lean"             # lean | full-scrum | custom
@@ -49,7 +50,8 @@ ceremonies:
 |---|---|---|
 | `project_name` | free text | Defaults to the repo's basename. |
 | `project_type` | `backend \| frontend \| mobile \| devops \| multi` | Set during `/conclave-init`; refined by `/conclave-spec`. |
-| `stack.*` | free text | Confirmed by `/conclave-spec`, not asked during `/conclave-init`. |
+| `project_language` | ISO 639-1 code (`es`, `en`, `pt`, …) | v0.16.0+. All generated prose (stories, acceptance criteria, bug files, reports, comments) is written in this language. Default `es` when absent. Set during `/conclave-init`. Distinct from `stack.language` (the programming language). |
+| `stack.*` | free text | Confirmed by `/conclave-spec`, not asked during `/conclave-init`. `stack.language` is the programming language, not the natural language used for docs. |
 | `repo_url` | URL | Used to build links (edit-on-GitHub, PR templates). |
 | `claude_md_path` | path | Where Conclave looks for project context when generating founding artifacts. |
 | `conclave_version` | semver-ish string | Schema version. Commands check this to decide whether to degrade gracefully against older artifacts. |

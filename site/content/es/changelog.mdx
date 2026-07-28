@@ -1,0 +1,161 @@
+---
+title: Changelog
+description: Todos los cambios notables del plugin Conclave, del más reciente al más antiguo.
+---
+
+# Changelog
+
+Todos los cambios notables del plugin Conclave están documentados aquí. El formato sigue [Keep a Changelog](https://keepachangelog.com/).
+
+---
+
+## 0.16.0 — 2026-07-27
+
+### Agregado
+
+**`project_language` en config**
+
+Nuevo campo ISO 639-1 en `conclave/config.md` (`es`, `en`, `pt`, etc.). Cada comando lo lee y lo pasa a los subagentes de rol para que todo el markdown generado — historias, criterios de aceptación, bugs, reportes, comentarios — esté escrito en el idioma del equipo. Por defecto `es` si está ausente. `/conclave-init` lo pregunta durante el bootstrap.
+
+**Detección de documento de plan en `/conclave-spec`**
+
+Antes de hacer las preguntas de aclaración, el comando escanea el repo buscando cualquier documento de requisitos o backlog usando coincidencia de palabras clave. Si lo encuentra, lo pasa a los agentes PM y TL como contexto fuente de verdad. Si no encuentra nada, le pregunta al usuario si tiene uno para compartir (se recomienda markdown para ahorrar tokens) o si quiere continuar sin uno.
+
+**Planificación multi-sprint — `/conclave-planning --all`**
+
+Un nuevo flag `--all` planifica todos los sprints en estado draft del backlog en un solo paso. El primer sprint pasa a `active`; el resto queda en `draft` con su registro de planning escrito, listo para activarse cuando cierre el sprint anterior.
+
+**Reporte de cierre de sprint y guía UAT**
+
+Al completar el sprint, `/conclave-sprint` ahora genera:
+- `conclave/report/SPRINT-NNN/report.md` — reporte completo de cierre de sprint (velocidad, resultados, conteo de bugs, recomendaciones).
+- `conclave/report/SPRINT-NNN/UAT.md` — guía de testing funcional para cada feature entregada, con escenarios Gherkin, pasos de prueba manuales, y tabla de firma.
+- `conclave/report/SPRINT-NNN/dora-data.yml` — snapshot bruto de datos DORA para que `/conclave-dora` pueda agregarlo.
+
+Un sprint no puede cerrarse si hay un bug crítico abierto (nueva gate en el Paso 12 de `/conclave-sprint`).
+
+**Verificación QA en la rama de integración**
+
+`/conclave-qa` ahora cambia a `develop` (o al `repo.integration_branch` configurado) en lugar de la rama de la feature, verificando el estado integrado de la base de código. Cuando una verificación falla, los defectos reproducibles se escriben como `BUG-NNN-<slug>.md` en `conclave/sprints/<SPRINT_ID>/bugs/`, vinculados a la historia, los criterios de aceptación, y el PR que introdujo la regresión.
+
+**Comando `/conclave-dora`**
+
+Nuevo comando para generar reportes de métricas DORA: `--period biweekly | monthly | semiannual | annual | full-project`, o fechas explícitas `--from` / `--to`. Usa el agente Tech Lead para equipos full-scrum, el Product Manager para equipos lean/solo. El output lean/solo omite las métricas individuales por persona. Los reportes se guardan en `conclave/report/dora/`.
+
+**Templates GitHub del proyecto**
+
+`/conclave-init` ahora escribe tres archivos de plantilla:
+- `.github/ISSUE_TEMPLATE/bug_report.md` — formulario de bug de GitHub con campos de vinculación a historias/sprints de Conclave.
+- `.github/PULL_REQUEST_TEMPLATE.md` — checklist de PR referenciando CLAUDE.md y criterios de aceptación.
+- `conclave/team/PR_REVIEW_TEMPLATE.md` — checklist de revisión de PR para el Tech Lead.
+
+**Skill `pr-comment-reviewer` mejorado**
+
+Ahora lee `conclave/product/architecture.md` y el archivo de aceptación de la historia junto con `CLAUDE.md`. Realiza un análisis del diff contra la rama `develop` detectando riesgos de regresión, patrones de bug y violaciones de arquitectura. Luego pregunta si publicar los hallazgos como comentarios inline en el PR o un comentario general.
+
+### Cambiado
+
+- Schema de `config.md`: nuevo campo `project_language`. El campo `stack.language` (lenguaje de programación) no cambia.
+- `conclave_version` actualizado a `0.16.0`.
+- `/conclave-init` agrega la pregunta de idioma y escribe los tres templates de GitHub.
+- `/conclave-qa` agrega `mkdir`, `find` a allowed-tools; cambia a la rama de integración.
+- `/conclave-sprint` agrega los Pasos 12–13 (gate de bug crítico + generación de reportes).
+
+---
+
+## 0.15.0 — 2026-07-26
+
+**Cambio que rompe compatibilidad:** Conclave ya no mergea pull requests. El delivery loop pasó a `/conclave-dev --loop` con una nueva estructura de waves y schema de scheduling.
+
+### Agregado
+
+- **Loop de Entrega Autónomo de Tres Waves** en `/conclave-dev` (`--loop`, ADR-006): W0 ordenamiento de conflictos → W1 Dev + CI verde → W2 QA → W3 revisión forzada del Tech Lead. Cualquier falla devuelve la historia a W1. Nunca mergea.
+- **Análisis de conflictos Wave 0** — lee `dependencies:` en el frontmatter y serializa historias que tocan los mismos paths. Aborta en ciclos de dependencias.
+- **Scheduling local recurrente** `commands.dev.schedule` — `timezone`, `days`, `start_time`/`end_time`, `duration_days`, `active_from`, `enforce`.
+- **Estadísticas de productividad de agentes** en el reporte de corrida.
+- **Templates de Slack versionados** — success, partial, e HITL (disparado en el momento en que ocurre un blocker).
+
+### Cambiado
+
+- `gh pr merge` removido de todos los comandos. Mergear es acción humana.
+- `/conclave-sprint --no-interaction` ahora es solo one-pass headless (sin auto-reparación, sin loop, sin merge).
+- `commands.sprint.schedule`, `commands.sprint.budgets`, `commands.sprint.merge_method` son no-ops ignorados.
+
+### Migración
+
+Reemplazar las claves de loop `commands.sprint.*` con `commands.dev.*`. Reemplazar `window_start`/`window_end` con el bloque de scheduling recurrente. Apuntar los triggers recurrentes a `/conclave-dev --loop`.
+
+---
+
+## 0.14.0 — 2026-07-25
+
+### Agregado
+
+- **Loop de Entrega Autónomo en `/conclave-dev`** (`--loop`, ADR-005): Dev → CI → QA → revisión TL → merge en `repo.integration_branch`.
+- Los bugs ahora pueden entregarse sin intervención humana vía `/conclave-dev --loop BUG-NNN`.
+- `--ignore-schedule` en `/conclave-dev`; gating de schedule y budget para el dev loop.
+
+---
+
+## 0.13.0 — 2026-07-24
+
+### Agregado
+
+- **`/conclave-dev --loop`** (ADR-004): loop autónomo por sprint.
+- **`/conclave-sprint-board`** (v0.12.0): snapshot HTML offline del Kanban en `docs/sprint-board/`.
+
+---
+
+## 0.12.0 — 2026-07-23
+
+### Agregado
+
+- **`/conclave-sprint-board`**: genera un tablero HTML offline autocontenido desde las historias del sprint activo.
+
+---
+
+## 0.11.0
+
+### Agregado
+
+- **Conclave en Cursor** (`conclave-cursor`): paquete paralelo para Cursor bajo `platforms/cursor/`, sincronizado desde el árbol de skills canónico.
+
+---
+
+## 0.10.0
+
+### Agregado
+
+- **`/conclave-bug`**: reportar y listar bugs (`BUG-NNN`) con pasos de repro agnósticos al MCP, escenarios Gherkin, mirror en GitHub issues.
+- **Despacho de IDs mixtos**: `/conclave-dev`, `/conclave-qa`, y `/conclave-pr-review` ahora aceptan `BUG-NNN` junto a `US-NNN`.
+
+---
+
+## 0.9.0
+
+### Agregado
+
+- **Modo autónomo en `/conclave-dev`** (`--no-interaction` / `commands.dev.interactive: false`): sin prompts, defaults documentados, `AUTONOMOUS_ABORT` en decisiones ambiguas, reporte por corrida.
+
+---
+
+## 0.8.0
+
+### Agregado
+
+- **`/conclave-story retire`** y **`/conclave-story split`**: operaciones de ciclo de vida de historias. Las historias retiradas son terminales.
+- **`/conclave-adr`**: autoría de ADRs por tema o por descubrimiento.
+
+---
+
+## 0.7.0
+
+### Agregado
+
+- **Bloque de configuración de modelos** en `config.md`: clave opcional `models:` con `default` y `overrides` por rol.
+
+---
+
+## 0.6.0 y anteriores
+
+Lanzamiento inicial: planning, despacho de historias, gate de QA, revisión de PR del Tech Lead, scaffold del tablero Kanban.

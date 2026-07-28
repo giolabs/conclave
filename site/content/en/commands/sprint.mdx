@@ -1,6 +1,6 @@
 ---
 title: /conclave-sprint
-description: Drive an entire active sprint end-to-end — planning, dev, QA, and PR review — in a single invocation.
+description: Drive an entire active sprint end-to-end — planning, dev, QA, and PR review — in a single invocation. Generates closing report, UAT guide, and DORA snapshot on completion.
 ---
 
 # /conclave-sprint
@@ -84,12 +84,48 @@ Re-running `/conclave-sprint` after a partial failure is safe. Story `status` fr
 
 No checkpoint file is introduced. Re-run the command and it picks up exactly where the frontmatter left off.
 
+## Sprint closing — Steps 12 and 13 (v0.16.0+)
+
+When all stories reach a terminal state (`done` or explicitly carried over), the command runs two additional steps before marking the sprint closed:
+
+### Step 12 — Critical bug gate
+
+Scans `conclave/sprints/SPRINT-NNN/bugs/` for any file whose frontmatter has `severity: critical` and `status` other than `done`. If any critical bug is open:
+
+```
+Sprint close BLOCKED: 2 critical bug(s) open in conclave/sprints/SPRINT-NNN/bugs/.
+Resolve BUG-001-auth-bypass and BUG-003-data-loss before closing.
+```
+
+This check runs unconditionally — it cannot be bypassed in headless or `--no-interaction` mode. The sprint cannot close until all critical bugs are resolved.
+
+### Step 13 — Closing reports
+
+Three files are generated under `conclave/report/SPRINT-NNN/` from the corresponding templates:
+
+| File | Template | Contents |
+|---|---|---|
+| `report.md` | `sprint-closing-report.template.md` | Velocity, story results table, bug count, acceptance coverage, carryover, recommendations |
+| `UAT.md` | `sprint-uat-summary.template.md` | Per-story Gherkin scenarios, manual test steps, regression checklist, sign-off table |
+| `dora-data.yml` | (inline) | Pre-computed DORA snapshot: deploy timestamps, lead times, CFR, MTTR raw data for `/conclave-dora` aggregation |
+
+The sprint status in `meta.md` is set to `done` **after** Step 13 completes, so closing reports always reflect the final state.
+
+## What it produces (complete list)
+
+- Phase 1–4 artifacts (stories, PRs, verification reports, planning record).
+- `conclave/sprints/SPRINT-NNN/bugs/BUG-NNN-*.md` — sprint bugs written by the QA phase when verification is blocked.
+- `conclave/report/SPRINT-NNN/report.md` — sprint closing report.
+- `conclave/report/SPRINT-NNN/UAT.md` — functional UAT guide.
+- `conclave/report/SPRINT-NNN/dora-data.yml` — DORA metrics snapshot (consumed by `/conclave-dora`).
+
 ## Guardrails
 
 - Phase 1 failure is a hard stop. All other failures are per-story isolated.
 - Never modifies files outside `conclave/` (except feature branches and `tests/uat/` written by the QA phase).
 - **No mode merges any PR** — Tech Lead approval in Phase 4 is sufficient; merging is a human action.
 - Every skipped phase prints a skip notice with the reason.
+- **Sprint cannot close with open critical bugs** — Step 12 enforces this unconditionally.
 
 ## Headless one-pass
 
@@ -104,7 +140,8 @@ This is the **same** single pass as interactive mode, with prompts replaced by d
 
 - Planning on a `draft` sprint uses today as the start date, the configured sprint length (else 14 days), the first roster member as facilitator, and the Tech Lead as a fallback for coverage gaps.
 - Phases 2–4 run unchanged, including batch-of-3 concurrency. Phase 4 still honors `ceremonies.peer_pr_review.required`.
-- Nothing is merged, nothing is retried, no run report is written.
+- The critical bug gate (Step 12) and closing reports (Step 13) run as normal.
+- Nothing is merged, nothing is retried.
 
 A story that fails Dev or is blocked by QA is reported and left where it is. Pick those up with `/conclave-dev --loop`.
 

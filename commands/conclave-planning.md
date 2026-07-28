@@ -1,28 +1,42 @@
 ---
-description: Run Sprint Planning for the current draft sprint. Profile-aware — adapts ceremony depth to the team's profile (lean / full-scrum / custom). Confirms the goal, assigns stories, validates DoR, computes capacity, and locks the sprint into status active.
+description: Run Sprint Planning for the current draft sprint, or plan ALL sprints from the backlog in one pass (--all flag). Profile-aware — adapts ceremony depth to the team's profile (lean / full-scrum / custom). Confirms the goal, assigns stories, validates DoR, computes capacity, and locks the first sprint active (rest remain draft).
 allowed-tools: Bash(git rev-parse:*), Bash(ls:*), Bash(date:*), Bash(cat:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
-# /conclave-planning
+# /conclave-planning [--all]
 
 Run the **Sprint Planning** ceremony for the current draft sprint.
 
-This is one of the two **structural** Scrum gates (along with QA Verification) — it is required in every team profile and cannot be skipped. When it finishes, the sprint moves from `draft` → `active` and the team is committed to the selected stories.
+```
+/conclave-planning           # plan the single highest-numbered draft sprint
+/conclave-planning --all     # plan ALL draft sprints from the backlog in one pass
+```
+
+This is one of the two **structural** Scrum gates (along with QA Verification) — it is required in every team profile and cannot be skipped. When it finishes, the first sprint moves from `draft` → `active` and the team is committed to the selected stories. When `--all` is used, every remaining draft sprint is planned and left in `draft` status awaiting activation.
 
 Follow these steps in order.
 
 ---
 
-## Step 1 — Resolve the draft sprint
+## Step 0 — Parse flags
+
+1. Check if `--all` is present in the invocation arguments. Set `PLAN_ALL = true` if so, `false` otherwise.
+2. If `PLAN_ALL = true`, print: `Mode: multi-sprint planning — first sprint will be activated, remaining sprints will be planned and left in draft.`
+
+## Step 1 — Resolve the draft sprint(s)
 
 1. Run `git rev-parse --show-toplevel` to find `REPO_ROOT`. If not a git repo, surface that and stop.
 2. Confirm `$REPO_ROOT/conclave/config.md` exists. If not, suggest `/conclave-init` and stop.
-3. List `$REPO_ROOT/conclave/sprints/` and find the highest-numbered sprint directory.
-4. Read its `meta.md` frontmatter:
-   - `status: draft` → this is the sprint we plan. Continue. Set `SPRINT_ID` and `SPRINT_PATH`.
+3. List `$REPO_ROOT/conclave/sprints/` and collect all sprint directories, sorted ascending by number.
+4. **If `PLAN_ALL = false`**: find the highest-numbered sprint directory. Read its `meta.md` frontmatter:
+   - `status: draft` → this is the sprint we plan. Continue. Set `SPRINT_ID` and `SPRINT_PATH`. `SPRINTS_TO_PLAN = [SPRINT_ID]`.
    - `status: active` → refuse: planning has already happened. Suggest waiting until the sprint closes.
    - `status: done` or `archived` → suggest `/conclave-spec` to create the next sprint.
    - No sprint dir at all → suggest `/conclave-spec` and stop.
+5. **If `PLAN_ALL = true`**: collect ALL sprint directories whose `meta.md` has `status: draft`, sorted ascending. If none found, refuse: *"No draft sprints found. Run `/conclave-spec` to generate sprints first."* Set `SPRINTS_TO_PLAN` to this list. The first entry is `SPRINT_ID` (the one that will be activated); the rest remain `draft` after their planning ceremony completes.
+   - If any sprint has `status: active`, print a warning: *"SPRINT-NNN is already active — it will be skipped."* and exclude it from `SPRINTS_TO_PLAN`.
+
+For single-sprint mode, set `SPRINT_PATH = $REPO_ROOT/conclave/sprints/$SPRINT_ID`.
 
 ## Step 2 — Load configuration and validate the profile contract
 
@@ -160,15 +174,29 @@ Render `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/planning.template.md` us
 ### 6.5 Update the backlog table
 Mark each selected story's `Status` cell as `in-progress` and `In sprint` cell as `$SPRINT_ID` in `conclave/product/backlog.md`. Do not reorder unrelated rows.
 
+## Step 6b — Multi-sprint planning loop (`PLAN_ALL = true` only)
+
+After completing Steps 2–6 for `SPRINT_ID` (the first sprint), repeat Steps 2–6 for each remaining sprint in `SPRINTS_TO_PLAN` sequentially. For each subsequent sprint:
+
+- Use the same config, roster, DoR, and DoD already loaded.
+- Ask only for sprint start and end dates (skip the profile questionnaire since it was already answered).
+- **Do NOT set `status: active`** in Step 6.1 — these sprints remain `draft`. Only update their `target_start`, `target_end`, and the planning record.
+- Carry backlog capacity information forward: stories moved to `in-progress` in a prior sprint reduce backlog pool for the next one.
+- After each sprint's planning is written, print a one-line progress note: `✓ SPRINT-NNN planned (draft) — N stories, N estimate units.`
+
+Print a divider before the final report section.
+
 ## Step 7 — Report to the user
 
 Print a short summary:
 
-- The sprint is locked: `SPRINT_ID` is now `active`, runs from start_date to end_date.
-- Number of committed stories and total estimate units vs team capacity (with the buffer percentage).
-- Assignees and their discipline (one line per story: `US-NNN → <assignee> (<discipline>)`).
+- **Single-sprint mode**: `SPRINT_ID` is now `active`, runs from start_date to end_date.
+- **Multi-sprint mode (`--all`)**: `SPRINT_ID` is `active`; list each additional sprint with its `draft` status, date range, and story count.
+- Number of committed stories and total estimate units vs team capacity (with the buffer percentage) for the active sprint.
+- Assignees and their discipline (one line per story: `US-NNN → <assignee> (<discipline>)`) for the active sprint.
 - Any discipline coverage gaps that came up and how they were resolved (5.6).
 - Any open commitments / risks the SM flagged.
+- In multi-sprint mode, also print: *"Draft sprints are ready — each will be activated when the previous sprint closes and you run `/conclave-planning` again (or use `/conclave-planning --all` to re-plan the remaining drafts after backlog changes)."*
 - Suggested git command sequence:
 
   ```bash

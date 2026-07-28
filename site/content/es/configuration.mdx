@@ -9,18 +9,23 @@ Cada comando `/conclave-*` lee `conclave/config.md`. Esta página documenta cada
 
 ## `conclave/config.md`
 
+Dos ejemplos comunes — elegí el que se acerca más a tu contexto y ajustá los campos.
+
+**Proyecto solo, perfil lean** (generado por `/conclave-init` en modo `solo`):
+
 ```yaml
-project_name: "mi-proyecto"
+project_name: "mi-api"
 project_type: "backend"          # backend | frontend | mobile | devops | multi
+project_language: "es"           # ISO 639-1 — todo el markdown generado usa este idioma (v0.16.0+)
 stack:
-  language: "TypeScript"
+  language: "TypeScript"         # lenguaje de programación (distinto a project_language)
   framework: "NestJS"
   datastore: "PostgreSQL"
   infrastructure: "Docker + AWS ECS"
-repo_url: "https://github.com/org/mi-proyecto"
+repo_url: "https://github.com/acme/mi-api"
 claude_md_path: "CLAUDE.md"
-initialized_at: "2026-01-01T00:00:00Z"
-conclave_version: "0.5.0"
+initialized_at: "2026-08-01T00:00:00Z"
+conclave_version: "0.16.0"
 
 team_mode: "solo"                # solo | team
 team_profile: "lean"             # lean | full-scrum | custom
@@ -30,17 +35,54 @@ ceremonies:
     required: true               # siempre true — estructural
   qa_verification:
     required: true               # siempre true — estructural
-    ci_wait_timeout_minutes: 20  # cuánto tiempo espera /conclave-qa la conclusión de la corrida de CI
+    ci_wait_timeout_minutes: 20
   daily_standup:
     required: false
   backlog_grooming:
     required: false
   peer_pr_review:
-    required: false
+    required: false              # sin peer review en lean solo
   sprint_review:
     required: false
   sprint_retrospective:
     required: false
+```
+
+**Equipo distribuido, full-scrum** (`team_mode: team` con todas las ceremonias):
+
+```yaml
+project_name: "checkout-service"
+project_type: "backend"
+project_language: "es"
+stack:
+  language: "Go"
+  framework: "Gin"
+  datastore: "PostgreSQL + Redis"
+  infrastructure: "Kubernetes + GCP"
+repo_url: "https://github.com/acme/checkout-service"
+claude_md_path: "CLAUDE.md"
+initialized_at: "2026-08-01T00:00:00Z"
+conclave_version: "0.16.0"
+
+team_mode: "team"
+team_profile: "full-scrum"
+
+ceremonies:
+  sprint_planning:
+    required: true
+  qa_verification:
+    required: true
+    ci_wait_timeout_minutes: 30  # CI más largo — aumentar si hay timeouts
+  daily_standup:
+    required: true
+  backlog_grooming:
+    required: true
+  peer_pr_review:
+    required: true               # activa /conclave-pr-review en el loop
+  sprint_review:
+    required: true
+  sprint_retrospective:
+    required: true
 ```
 
 ### Referencia de campos
@@ -49,7 +91,8 @@ ceremonies:
 |---|---|---|
 | `project_name` | texto libre | Por default, el nombre base del repo. |
 | `project_type` | `backend \| frontend \| mobile \| devops \| multi` | Definido durante `/conclave-init`; refinado por `/conclave-spec`. |
-| `stack.*` | texto libre | Confirmado por `/conclave-spec`, no se pregunta durante `/conclave-init`. |
+| `project_language` | código ISO 639-1 (`es`, `en`, `pt`, …) | v0.16.0+. Todo el texto generado (historias, criterios de aceptación, archivos de bugs, reportes, comentarios) se escribe en este idioma. Default `es` si está ausente. Se define durante `/conclave-init`. Distinto de `stack.language` (el lenguaje de programación). |
+| `stack.*` | texto libre | Confirmado por `/conclave-spec`, no se pregunta durante `/conclave-init`. `stack.language` es el lenguaje de programación, no el idioma natural usado para la documentación. |
 | `repo_url` | URL | Usado para construir links (editar en GitHub, plantillas de PR). |
 | `claude_md_path` | ruta | Dónde busca Conclave el contexto del proyecto al generar artefactos fundacionales. |
 | `conclave_version` | string tipo semver | Versión del schema. Los comandos la chequean para decidir si degradar con gracia contra artefactos más viejos. |
@@ -92,37 +135,51 @@ models:
 
 ### Bloque de configuración de comandos (opcional)
 
-Asigna comportamiento de interacción por comando y configura el loop de entrega.
+Asigna comportamiento de interacción por comando y configura el loop de entrega. Tres recetas comunes:
+
+**1 — Dev autónomo sin loop** (implementa una story sin prompts, termina en `review`):
 
 ```yaml
-# commands:
-#   dev:
-#     interactive: false          # /conclave-dev autónomo (v0.9.0+) — termina en review
-#     loop: false                 # Loop de entrega de tres waves (v0.15.0+); implica interactive: false
-#     schedule:                   # gate local recurrente
-#       timezone: "America/Argentina/Buenos_Aires"   # IANA; obligatorio si hay schedule
-#       days: [fri, sat, sun]                        # mon..sun
-#       start_time: "19:00"                          # hora local
-#       end_time: "07:00"                            # puede cruzar la medianoche
-#       duration_days: 3                             # duración de la campaña
-#       active_from: "2026-07-31"                    # fecha local de inicio; omitir = primer día elegible
-#       enforce: true
-#     budgets:
-#       max_attempts_per_story: 3        # cuenta cada vuelta a Wave 1
-#       max_ci_wait_minutes: 20
-#       max_total_tokens: 2000000        # ledger best-effort — no es garantía de billing
-#       max_wall_clock_hours: 12
-#   sprint:
-#     interactive: false          # headless one-pass; nunca mergea, sin agenda, sin presupuestos
-# notifications:
-#   slack:
-#     enabled: false
-#     webhook_env: SLACK_WEBHOOK_URL   # solo el NOMBRE de la env var
-#     on_success: true
-#     on_partial: true
-#     on_hitl: true                    # se manda apenas un blocker necesita a una persona
-# repo:
-#   integration_branch: develop        # rama base de los PRs; Conclave nunca mergea a ella
+commands:
+  dev:
+    interactive: false
+repo:
+  integration_branch: develop    # rama base de los PRs — Conclave nunca mergea a ella
+```
+
+**2 — Loop de entrega de fin de semana** (tres waves desatendidas, viernes noche a lunes madrugada):
+
+```yaml
+commands:
+  dev:
+    loop: true                   # implica interactive: false
+    schedule:
+      timezone: "America/Argentina/Buenos_Aires"   # nombre IANA — obligatorio si hay schedule
+      days: [fri, sat, sun]      # día en que abre la ventana (fri 19:00 → sab 07:00, etc.)
+      start_time: "19:00"
+      end_time: "07:00"          # cruza medianoche
+      duration_days: 3           # duración total de la campaña
+      active_from: "2026-08-01"  # primer día elegible; omitir = primer día que cumpla days
+      enforce: true
+    budgets:
+      max_attempts_per_story: 3  # cuenta cada re-entrada a Wave 1
+      max_ci_wait_minutes: 20
+      max_total_tokens: 2000000  # ledger best-effort — no es una garantía de billing
+      max_wall_clock_hours: 12
+repo:
+  integration_branch: develop
+```
+
+**3 — Loop con notificaciones Slack** (agrega el bloque `notifications:` a cualquiera de los anteriores):
+
+```yaml
+notifications:
+  slack:
+    enabled: true
+    webhook_env: SLACK_WEBHOOK_URL   # solo el NOMBRE de la variable — nunca la URL en markdown
+    on_success: true                 # "3 de 3 PRs listos para merge"
+    on_partial: true                 # "loop finalizó con stories incompletas"
+    on_hitl: true                    # se manda al instante cuando hay un blocker que necesita persona
 ```
 
 - **`commands.dev.interactive`** — `true` (default) o `false` (autonomous `/conclave-dev`, que termina en `review`). Ver [`/conclave-dev`](/es/commands/dev).
@@ -215,24 +272,29 @@ created_at: "2026-01-01T00:00:00Z"
 
 Renderizado por `/conclave-init` como un placeholder. Declara los **nombres** de las variables de entorno y secretos de CI que los tests UAT generados por QA leen en tiempo de ejecución — nunca valores reales. QA nunca resuelve, lee, ni escribe un secreto — lo hace el propio CI del repo target, desde su propio almacén de secretos.
 
+Ejemplo **completado** (lo que debería quedar después de llenar los TBDs):
+
 ```markdown
 ## Environments
 
 | Name | Playwright base URL env var | API base URL env var | Notes |
 |---|---|---|---|
-| TBD | TBD | TBD | Completar antes de habilitar UAT. |
+| staging | PLAYWRIGHT_BASE_URL | API_BASE_URL | UAT corre contra staging en CI |
+| local | PLAYWRIGHT_BASE_URL_LOCAL | API_BASE_URL_LOCAL | Solo para debug manual |
 
 ## Postman variables
 
 | Postman variable | Populated from CI secret/env var |
 |---|---|
-| TBD | TBD |
+| baseUrl | API_BASE_URL |
+| authToken | CI_AUTH_TOKEN |
 
 ## Test users
 
 | Label | Represents | CI secret/env var holding the credential |
 |---|---|---|
-| TBD | ej. standard-user, admin | TBD |
+| standard-user | Usuario con permisos básicos | TEST_USER_STANDARD_PASS |
+| admin | Administrador del sistema | TEST_USER_ADMIN_PASS |
 ```
 
 Hasta que cada `TBD` se reemplace con un nombre real de variable/secreto, `/conclave-qa` se salta la generación de UAT por completo y verifica los criterios de aceptación exactamente como lo hacía antes de que este archivo existiera — un `testing-environments.md` faltante o sin completar nunca es un fallo duro.

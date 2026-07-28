@@ -19,14 +19,13 @@ platforms/cursor/                # Cursor package (conclave-cursor)
 skills/conclave/
   SKILL.md                       # the methodology spec — read this first (canonical; synced to Cursor)
   agents/                        # Claude Code role charters
-  templates/                     # *.template.md (+ sprint-board HTML) — synced to Cursor
+  templates/                     # *.template.md — synced to Cursor
   board-app/                     # Next.js Kanban scaffold for /conclave-board
-  visual-sprint-board/           # skill for /conclave-sprint-board (synced to Cursor)
 docs/
   adr/                           # Architecture Decision Records
   specs/                         # implementation specs
 scripts/
-  sync-cursor-platform.sh        # canonical skills → platforms/cursor (incl. visual-sprint-board)
+  sync-cursor-platform.sh        # canonical skills → platforms/cursor
   install-cursor-local.sh        # rsync Cursor package into ~/.cursor/plugins/local/
   generate-cursor-platform.py    # re-port commands/agents for Cursor
 site/                            # Nextra docs site
@@ -93,7 +92,7 @@ Invariants any command touching this directory must respect (defined in `skills/
 - Append, don't clobber — a second `/conclave-spec` run creates `SPRINT-002/`, doesn't overwrite `SPRINT-001/`.
 - Every artifact-generating command snapshots its inputs to `conclave/context/`.
 - `SPRINT-NNN` / `US-NNN` IDs increment monotonically and are never reused.
-- Non-markdown views live **outside** `conclave/`: `conclave-board/` (Kanban scaffold) and `docs/sprint-board/` (offline HTML from `/conclave-sprint-board`).
+- Non-markdown views live **outside** `conclave/`: `conclave-board/` (Kanban scaffold).
 - **No command merges a PR.** Since v0.15.0 (ADR-006) nothing runs `gh pr merge` — QA verification and Tech Lead approval are gates, and a human lands the code. ADR-004's merging sprint loop and ADR-005's merging dev loop are superseded.
 - **One autonomous delivery loop: `/conclave-dev --loop`** (v0.15.0+, ADR-006). It takes the active sprint (or the IDs passed, bugs included) and runs **W0** conflict ordering, **W1** Dev to green CI, **W2** headless QA, **W3** forced Tech Lead review, returning any failing story to W1. Waves never overlap; it never closes a sprint. Config lives under `commands.dev.*`: a recurring local-time `schedule` (`timezone`, `days`, `start_time`, `end_time`, `duration_days`, `active_from`) and `budgets`; the pre-0.15.0 `window_start`/`window_end` pair is refused with a migration message. It writes `RUN-NNN-dev-loop.md` under `conclave/sprints/SPRINT-NNN/runs/` (or `conclave/runs/` in a repo with no sprint) from `sprint-run-report.template.md`, including a token ledger and per-role productivity, and posts optional Slack messages from `slack-loop-{success,partial,hitl}.template.json` — HITL alerts fire the moment the blocker occurs. Requires GitHub CLI (`gh`) installed and authenticated with repo access; Conclave does not install or configure it. `/conclave-sprint --no-interaction` is now a headless one-pass runner only. See the docs Scheduling page.
 

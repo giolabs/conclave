@@ -1,15 +1,18 @@
 ---
 project_name: "{{project_name}}"
 project_type: "{{project_type}}"        # backend | frontend | mobile | devops | multi
+project_language: "{{project_language}}" # ISO 639-1 code: es | en | pt | fr | de | etc.
+                                         # All Conclave-generated markdown (stories, reports,
+                                         # acceptance criteria, comments) must be written in this language.
 stack:
-  language: "{{language}}"
+  language: "{{stack_language}}"
   framework: "{{framework}}"
   datastore: "{{datastore}}"
   infrastructure: "{{infrastructure}}"
 repo_url: "{{repo_url}}"
 claude_md_path: "CLAUDE.md"
 initialized_at: "{{iso_date}}"
-conclave_version: "0.15.0"
+conclave_version: "0.16.0"
 
 # Optional. Which agent runtime(s) this install expects. Informational only —
 # unset means either Claude Code or Cursor is fine (mixed teams OK).
@@ -110,11 +113,15 @@ This file captures the project-level configuration Conclave uses to generate and
 
 `runtime` — when set, records which agent platform(s) this install expects: `claude-code`, `cursor`, or `both`. Informational only; commands do not refuse a mismatched runtime. Unset means either Claude Code or Cursor is fine (mixed teams OK). Invalid values: warn once and treat as unset.
 
+## Project language
+
+`{{project_language}}` — the natural language all Conclave-generated markdown must be written in (stories, acceptance criteria, comments, reports, bug descriptions). Use an ISO 639-1 code (`es`, `en`, `pt`, `fr`, `de`, etc.). Every command reads this field and instructs its role subagents accordingly. Defaults to `es` if absent.
+
 ## Project type
 `{{project_type}}`
 
 ## Confirmed stack
-- **Language**: `{{language}}`
+- **Language**: `{{stack_language}}`
 - **Framework**: `{{framework}}`
 - **Datastore**: `{{datastore}}`
 - **Infrastructure**: `{{infrastructure}}`

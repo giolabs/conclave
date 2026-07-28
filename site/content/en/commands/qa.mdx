@@ -1,6 +1,6 @@
 ---
 title: /conclave-qa
-description: Adversarially verify one or more stories against their Gherkin acceptance criteria. Structurally required. Multiple stories run in concurrent batches of ≤ 3.
+description: Adversarially verify one or more stories against their Gherkin acceptance criteria. Structurally required. Multiple stories run in concurrent batches of ≤ 3. Runs on the integration branch (develop).
 ---
 
 # /conclave-qa US-NNN [US-NNN ...]
@@ -9,7 +9,7 @@ Verify one or more user stories in `status: review` against their acceptance cri
 
 ```
 /conclave-qa US-001                   # single story — identical to previous behaviour
-/conclave-qa US-001 US-002 US-003     # three stories in parallel, each on its own branch
+/conclave-qa US-001 US-002 US-003     # three stories in parallel, each on the integration branch
 ```
 
 When this finishes, each story has moved to one of four states:
@@ -23,21 +23,21 @@ This is one of the two **structural** Scrum gates Conclave enforces (along with 
 
 ## Multi-story behaviour
 
-When more than one story ID is passed, the same upfront-validation → concurrent-batches-of-≤-3 → failure-isolation → final-summary-table pattern applies as in `/conclave-dev`. Each QA subagent runs fully independently on its own branch, including UAT generation, CI wait, and PR comment. A final summary table shows the verdict for every story:
+When more than one story ID is passed, the same upfront-validation → concurrent-batches-of-≤-3 → failure-isolation → final-summary-table pattern applies as in `/conclave-dev`. Each QA subagent runs fully independently on the integration branch, including UAT generation, CI wait, and PR comment. A final summary table shows the verdict for every story:
 
 ```
-| Story  | Branch               | PR                           | Verdict             |
-|--------|----------------------|------------------------------|---------------------|
-| US-001 | feat/US-001-login    | https://github.com/…/pull/42 | ✓ passed            |
-| US-002 | feat/US-002-profile  | https://github.com/…/pull/43 | ✗ blocked (2 items) |
-| US-003 | feat/US-003-mobile   | https://github.com/…/pull/44 | ⏳ pending_uat       |
+| Story  | PR                           | Verdict             |
+|--------|------------------------------|---------------------|
+| US-001 | https://github.com/…/pull/42 | ✓ passed            |
+| US-002 | https://github.com/…/pull/43 | ✗ blocked (2 items) |
+| US-003 | https://github.com/…/pull/44 | ⏳ pending_uat       |
 ```
 
 ## What it does
 
 1. Resolves the workspace and confirms `qa_verification.required: true` (always true — refuses if a malformed config says otherwise).
-2. Resolves the story — must be `status: review`.
-3. Switches to the story's dev branch (`feat/US-NNN-<slug>`) and captures the exact commit SHA the verification is anchored to.
+2. Resolves the story — must be `status: review`. Reads `repo.integration_branch` from `config.md` (defaults to `develop`).
+3. **Switches to the integration branch** (`develop` or the configured `repo.integration_branch`). Captures the PR URL for this story's feature branch (`feat/US-NNN-<slug>`) via `gh pr list` — the feature branch does not need to be checked out. Verification is anchored to the integrated state of the codebase, not the isolated feature branch.
 4. Loads context in parallel: config, DoD, story, acceptance file, `conclave/team/testing-environments.md`, the verification-report/UAT-report templates, and PR metadata (reviews, CI status) if `gh` is available. If `testing-environments.md` is missing or every row is still `TBD`, UAT is skipped for this run — QA verifies exactly as it always has.
 5. **Generates UAT test artifacts**, when UAT is enabled, based on the story's `discipline`:
    - `frontend` / `multi` → a Playwright spec (`tests/uat/US-NNN.spec.ts`), one test case per Gherkin scenario.
@@ -46,7 +46,12 @@ When more than one story ID is passed, the same upfront-validation → concurren
    - If no CI job runs `tests/uat/` yet, proposes the minimal addition and confirms with the human via `AskUserQuestion` before writing it.
 6. **Pushes and waits for CI** (skipped for `mobile`) — polls the CI run triggered by the pushed commit, up to `ceremonies.qa_verification.ci_wait_timeout_minutes` (default 20). A CI failure, or no run found / a timed-out wait, is treated exactly like a failing Gherkin scenario.
 7. **Delegates to the QA subagent**, which re-derives PASS/FAIL for every Gherkin scenario from first principles — adversarially, not by trusting the dev's own claims — and folds in the UAT/CI outcome (or the current state of a mobile checklist on a later run).
-8. Writes outputs (below).
+8. Writes outputs (below):
+   - **8.1 — Passed**: standard verification outputs (below).
+   - **8.2 — Blocked**: in addition to the standard `## QA blockers` section, every reproducible defect that is linked to a specific story is written as a sprint bug file:
+     - Path: `conclave/sprints/<SPRINT_ID>/bugs/BUG-NNN-<slug>.md`
+     - Frontmatter includes: `linked_story`, `linked_acceptance` (file path), `introduced_by_pr` (the feature PR URL), `severity` (`minor | major | critical`), `status: open`.
+     - A sprint **cannot close** if any file in `conclave/sprints/<SPRINT_ID>/bugs/` has `severity: critical` and `status` other than `done`.
 
 QA never executes the generated tests itself — the target repo's own CI does, and never resolves, reads, or writes a secret value at any point.
 
@@ -59,7 +64,18 @@ QA never executes the generated tests itself — the target repo's own CI does, 
   - Verdict `passed` + `peer_pr_review.required: false` → `status: done` directly.
   - Verdict `pending_uat` → stays `status: review`, with a `## QA pending` section naming what a human needs to complete — worded as awaiting completion, not a defect.
   - Verdict `blocked` → stays `status: review`, with a `## QA blockers` section listing each failing scenario/DoD item/CI failure and its reproduction or evidence (log excerpt + CI run URL).
+- `conclave/sprints/<SPRINT_ID>/bugs/BUG-NNN-<slug>.md` — one file per reproducible defect found (blocked verdict only).
 - A PR **comment** with the verdict (never a review/approval — `gh pr review` is never called from here).
+
+## Sprint bug files
+
+When QA is blocked, each reproducible defect becomes a sprint bug file at:
+
+```
+conclave/sprints/SPRINT-NNN/bugs/BUG-NNN-<slug>.md
+```
+
+The file links back to the story, its acceptance criteria, and the PR that introduced the regression. `severity: critical` bugs block sprint closing. These files are **separate** from bugs reported manually via `/conclave-bug report` (which go to `conclave/product/bugs/`).
 
 ## Guardrails
 
@@ -78,4 +94,4 @@ QA never executes the generated tests itself — the target repo's own CI does, 
 - **Verdict `passed`, `peer_pr_review.required: true`** — Tech Lead runs [`/conclave-pr-review US-NNN`](/en/commands/pr-review) to approve and merge.
 - **Verdict `passed`, `peer_pr_review.required: false`** — no separate gate; the PR is ready to merge.
 - **Verdict `pending_uat`** — a human completes `tests/uat/US-NNN-UAT.md` (mobile checklist), then re-run `/conclave-qa US-NNN`.
-- **Verdict `blocked`** — dev fixes and pushes (or a mobile tester records a FAIL with notes), then re-run `/conclave-qa US-NNN`.
+- **Verdict `blocked`** — dev fixes and pushes (or a mobile tester records a FAIL with notes), then re-run `/conclave-qa US-NNN`. Sprint bug files remain open until the fix is verified.
