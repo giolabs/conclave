@@ -16,7 +16,17 @@ type LangLayoutProps = Readonly<{
 export default async function LangLayout({ children, params }: LangLayoutProps) {
   const { lang } = await params;
   const pageMap = await getPageMap(`/${lang}`);
-  const navbar = <Navbar logo={<b>Conclave</b>} projectLink="https://github.com/lucasgio/conclave" />;
+  const logo = (
+    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <img
+        src="/conclave/logo-icon.png"
+        alt="Conclave"
+        style={{ height: "28px", width: "28px", borderRadius: "7px" }}
+      />
+      <b>Conclave</b>
+    </div>
+  );
+  const navbar = <Navbar logo={logo} projectLink="https://github.com/lucasgio/conclave" />;
 
   return (
     <>

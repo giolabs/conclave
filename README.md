@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="site/public/logo-dark.png" alt="Conclave — Scrum for Claude Code & Cursor Teams" width="860" />
+</p>
+
 # Conclave
 
 **Scrum for Claude Code and Cursor teams.**
@@ -138,8 +142,6 @@ In your project repo:
 /conclave-dev BUG-004                            # reproduces first, then fixes — same as a story
 /conclave-qa BUG-004                             # same verification gate as a story
 
-# Offline roadmap / sprint analytics board (HTML snapshot under docs/sprint-board/)
-/conclave-sprint-board
 ```
 
 `/conclave-spec` invokes the Tech Lead and Product Manager subagents in parallel to produce:
@@ -246,7 +248,6 @@ Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251
 - `/conclave-qa US-NNN` — QA verifies a story in `status: review` adversarially: re-derives PASS/FAIL per scenario, probes edge cases, appends a verification report, leaves a PR comment with the verdict. Moves story to `verified` (when TL gate is on) or `done` (when off). **Structurally required — cannot be skipped by any profile.** QA does NOT approve the PR itself. When `conclave/team/testing-environments.md` is configured, QA also generates UAT test artifacts from the story's Gherkin scenarios — a Playwright spec (`frontend`/`multi`), the shared project-wide Postman collection run via Newman (`backend`/`multi`), or a manual functional checklist (`mobile`) — pushes them, and gates the verdict on the target repo's own CI actually running them (never executed locally by QA). A `mobile` checklist awaiting a human produces a distinct `pending_uat` outcome, not a failure.
 - `/conclave-pr-review US-NNN` — Tech Lead reviews the code against the architecture, ADRs, and code-level DoD items, then runs `gh pr review --approve` or `--request-changes`. Only runs when `ceremonies.peer_pr_review.required: true`. Story moves from `verified` to `done` on approve.
 - `/conclave-board` — one-time scaffold of a local, branded Kanban board (Next.js + shadcn/ui) at `conclave-board/`, a sibling of `conclave/`. Columns mirror the story state machine; cards show ID, title, discipline, assignee, priority, and estimate. A plugin hook regenerates the board's data automatically whenever `conclave/` changes — no CI, no server, no LLM in the update loop. Read-only; never writes back to `conclave/`.
-- `/conclave-sprint-board` — generate a **self-contained offline HTML** roadmap board (Roadmap / Tasks / Analytics) at `docs/sprint-board/`. No npm, no CDN, openable via `file://`. Complementary to `/conclave-board` (Kanban); re-runs overwrite the snapshot; never mutates `conclave/` stories or sprints.
 
 - `/conclave-sprint` — run an entire active sprint end-to-end in one pass: planning → batched Dev → QA → TL PR review (if required). **Headless** (`--no-interaction` / `commands.sprint.interactive: false`) is the same pass with documented planning defaults and zero prompts. Neither mode merges, self-heals, or reads a schedule — unattended delivery is `/conclave-dev --loop` (ADR-006).
 - `/conclave-story <new | edit US-NNN | split US-NNN | retire US-NNN>` — Product Manager mid-sprint story authoring, in every team mode. `new` allocates the next monotonic ID and lands the story in backlog (default) or the active sprint; `edit` revises a `ready`/`backlog` story; `split` decomposes a parent into 2–4 children (with a hard scenario-coverage safety rule enforced by the PM subagent); `retire` is a mechanical status change with no LLM call. Introduces the `retired` terminal state — retired stories are excluded from every command's collection queries.

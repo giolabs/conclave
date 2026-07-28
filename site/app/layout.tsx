@@ -9,6 +9,10 @@ export const metadata: Metadata = {
     default: "Conclave",
   },
   description: "Conclave — Scrum for Claude Code teams.",
+  icons: {
+    icon: "/conclave/logo-icon.png",
+    apple: "/conclave/logo-icon.png",
+  },
 };
 
 // Minimal shell shared by every route, including the lang-less "/" redirect
