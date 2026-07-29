@@ -9,6 +9,34 @@ All notable changes to the Conclave plugin are documented here. Format follows [
 
 ---
 
+## Unreleased
+
+### Changed (Breaking)
+
+**`/conclave-init` is now the one-time project setup wizard**
+
+The wizard logic has been consolidated into `/conclave-init`. It now auto-detects the stack, collects project name, story prefix, project language, launch date, team mode, team profile, and locates the product planning document — then creates the workspace. `/conclave-spec` is now a deprecated shim that redirects to `/conclave-init`.
+
+**`/conclave-planning` generates all artifacts (Phase A + Phase B)**
+
+On the first run (no backlog exists yet), `/conclave-planning` reads `product_doc_path` and invokes the PM and TL in parallel to produce the full Product Backlog, Architectural Foundation, per-story files, and Gherkin acceptance criteria. The Sprint Planning ceremony (Phase B) always runs after Phase A. On subsequent runs, Phase A is skipped. Use `--all` to plan every sprint from the product document in one pass.
+
+### Added
+
+**`story_prefix` in `config.md`**
+
+New field (default `US`, set during `/conclave-init`) controlling the prefix for all story and acceptance file names. Examples: `US-001-login.md` / `AC-US-001.md`, or `TASK-001-login.md` with `story_prefix: TASK`.
+
+**`product_doc_path` in `config.md`**
+
+New field pointing to the product planning document `/conclave-planning` reads on its first run. Set during `/conclave-init`; update to point to a different document at any time.
+
+**`launch_date` in `config.md`**
+
+New field (ISO date or `"TBD"`, set during `/conclave-init`) carried through generated artifacts.
+
+---
+
 ## 0.16.0 — 2026-07-27
 
 ### Added

@@ -13,6 +13,9 @@ Every `/conclave-*` command reads `conclave/config.md`. This page documents ever
 project_name: "my-project"
 project_type: "backend"          # backend | frontend | mobile | devops | multi
 project_language: "es"           # ISO 639-1 — all generated prose uses this language (v0.16.0+)
+story_prefix: "US"               # prefix for story IDs: US → US-001, TASK → TASK-001 (v1.1.0+)
+launch_date: "2026-10-01"        # target launch date (ISO 8601) or "TBD" (v1.1.0+)
+product_doc_path: "docs/mvp.md"  # relative path to the product planning document (v1.1.0+)
 stack:
   language: "TypeScript"         # programming language (not the same as project_language)
   framework: "NestJS"
@@ -21,7 +24,7 @@ stack:
 repo_url: "https://github.com/org/my-project"
 claude_md_path: "CLAUDE.md"
 initialized_at: "2026-01-01T00:00:00Z"
-conclave_version: "0.16.0"
+conclave_version: "1.0.0"
 
 team_mode: "solo"                # solo | team
 team_profile: "lean"             # lean | full-scrum | custom
@@ -48,10 +51,13 @@ ceremonies:
 
 | Field | Values | Notes |
 |---|---|---|
-| `project_name` | free text | Defaults to the repo's basename. |
-| `project_type` | `backend \| frontend \| mobile \| devops \| multi` | Set during `/conclave-init`; refined by `/conclave-spec`. |
+| `project_name` | free text | Defaults to the repo's basename. Set during `/conclave-init`. |
+| `project_type` | `backend \| frontend \| mobile \| devops \| multi` | Inferred from the detected stack during `/conclave-init`. |
 | `project_language` | ISO 639-1 code (`es`, `en`, `pt`, …) | v0.16.0+. All generated prose (stories, acceptance criteria, bug files, reports, comments) is written in this language. Default `es` when absent. Set during `/conclave-init`. Distinct from `stack.language` (the programming language). |
-| `stack.*` | free text | Confirmed by `/conclave-spec`, not asked during `/conclave-init`. `stack.language` is the programming language, not the natural language used for docs. |
+| `story_prefix` | free text (default `US`) | v1.1.0+. Prefix for all story and acceptance file names: `US-001-slug.md` / `AC-US-001.md`, or `TASK-001-slug.md` if overridden. Set during `/conclave-init`; hand-edit to change (existing files are not renamed). |
+| `launch_date` | ISO date or `"TBD"` | v1.1.0+. Target launch date, carried through generated artifacts. Set during `/conclave-init`. |
+| `product_doc_path` | relative path | v1.1.0+. Path to the product planning document (e.g. `docs/mvp.md`). `/conclave-planning` reads this file on Phase A to generate the backlog, architecture, stories, and acceptance criteria. Set during `/conclave-init`; update to point to a different document at any time. |
+| `stack.*` | free text | Detected and confirmed during `/conclave-init`. `stack.language` is the programming language, not the natural language used for docs. |
 | `repo_url` | URL | Used to build links (edit-on-GitHub, PR templates). |
 | `claude_md_path` | path | Where Conclave looks for project context when generating founding artifacts. |
 | `conclave_version` | semver-ish string | Schema version. Commands check this to decide whether to degrade gracefully against older artifacts. |

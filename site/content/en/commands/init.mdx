@@ -1,78 +1,141 @@
 ---
 title: /conclave-init
-description: Bootstrap the conclave/ directory in your repo and pick a team profile.
+description: One-time project setup wizard. Detects the stack, collects project metadata, and creates the conclave/ workspace.
 ---
 
 # /conclave-init
 
-Initialize a Conclave Scrum workspace at the root of the current repository.
+One-time project setup wizard. Run it **once per repository**, before `/conclave-planning`.
 
 ```
 /conclave-init
 ```
 
-This command is **read/write inside your repo only**. It does not touch the plugin's own files. The output is a fully-formed `conclave/` directory the team can immediately work from.
+This command creates the `conclave/` workspace and writes the `config.md` that every other Conclave command reads. There are no AI agents — it is a wizard that reads your project and writes configuration. Story and sprint generation happens in `/conclave-planning`.
 
-## What it asks
+## What it does
 
-First, `/conclave-init` asks **"Is this just you, or a team?"** — this sets `team_mode: solo | team` and branches everything that follows.
+### Step 0 — Guard idempotency
 
-- **Solo** → `team_profile` is forced to `lean`, no per-discipline questions, no team-size/profile questions.
-- **Team** → continues to the questions below, then asks who covers each of the six disciplines.
+If `conclave/config.md` already exists, the command stops immediately:
 
-`/conclave-init` uses `AskUserQuestion` to collect:
+> "`conclave/` is already initialized. Edit `conclave/config.md` directly to change settings. Run `/conclave-planning` to generate stories and plan a sprint."
 
-1. **Project name** (default: the basename of the repo).
-2. **Project type**: backend / frontend / mobile / devops / multi.
-3. **Team size** (`team` mode only): 2–3, 4–6, 7+ (rough; defaults the team profile below).
-4. **Sprint length**: 1, 2, 3 or 4 weeks (default 2).
-5. **Timezone** (e.g. `America/Montevideo`, default UTC).
-6. **Team profile** (`team` mode only — `solo` already forces `lean`): `lean`, `full-scrum`, or `custom` — controls which ceremonies are required. See [profiles](/en/profiles) for details.
-7. **Who covers each discipline** (`team` mode only): one question per discipline — **Tech Lead, Frontend, Backend, QA, Designer, DevOps** — name + GitHub handle, or `TBD` if unstaffed. Then one more question for who (if anyone) holds the optional Product Manager / Scrum Master process roles.
+If the current directory is not a git repo, it asks whether to run `git init`.
+
+### Step 1 — Detect the stack
+
+Before asking anything, the command scans up to 3 directory levels deep for signal files:
+
+| Signal file | Likely stack |
+|---|---|
+| `package.json` + `next.config.*` | Next.js |
+| `package.json` (no framework config) | Node.js |
+| `pubspec.yaml` | Flutter / Dart |
+| `go.mod` | Go |
+| `Cargo.toml` | Rust |
+| `requirements.txt` / `pyproject.toml` | Python |
+| `build.gradle` / `pom.xml` | Android / Java / Kotlin |
+| `Gemfile` | Ruby on Rails |
+| `mix.exs` | Elixir |
+| `composer.json` | PHP |
+
+This gives you something concrete to confirm rather than a blank field.
+
+### Step 2 — Collect project info
+
+One `AskUserQuestion` call collects:
+
+1. **Project name** — used as the title in all generated artifacts.
+2. **Story ID prefix** — default `US`. Stories will be named `<PREFIX>-001`, `<PREFIX>-002`, etc. Examples: `US`, `TASK`, `FEAT`, or a project abbreviation.
+3. **Project language** — ISO 639-1 code. All Conclave-generated markdown (stories, acceptance criteria, reports) will be written in this language. Default: `es`.
+4. **Launch date** — ISO date (YYYY-MM-DD), or `TBD`.
+5. **Team mode** — `team` (multi-person) or `solo` (forces `lean` profile).
+6. **Team profile** (`team` mode only) — `lean` (only Sprint Planning + QA Verification enforced), `full-scrum` (all ceremonies required), or `custom` (configure each flag manually in `config.md`).
+
+### Step 3 — Confirm or override the detected stack
+
+A second `AskUserQuestion` presents the detected stack. You can confirm the values or correct them — language, framework, datastore, infrastructure.
+
+### Step 4 — Find the product planning document
+
+The product planning document is the source of truth for `/conclave-planning` to generate stories and sprints.
+
+1. The command searches the repo for files containing keywords like `sprint`, `backlog`, `user stor`, `mvp`, `milestone`.
+2. It also checks common paths: `docs/mvp.md`, `docs/project.md`, `mvp.md`, `project.md`, `docs/product.md`, `PRODUCT.md`.
+3. If candidates are found, you pick one (or say "None of these").
+4. If nothing is found, you choose: paste the content now, provide a path, or create it later.
+
+If you defer (`"I'll create it later"`), the workspace is created but `/conclave-planning` will refuse to run until you set `product_doc_path` in `config.md`.
+
+Suggested format if you're creating the document:
+
+```markdown
+# My Project — Product Plan
+
+## Vision
+One-paragraph description of the product.
+
+## MVP Scope
+What the MVP includes and excludes.
+
+## Sprint 1
+### Goal
+One sentence.
+### Features
+- Feature 1: description
+- Feature 2: description
+```
 
 ## What it creates
 
 ```
 conclave/
 ├── README.md
-├── config.md
+├── config.md                         # story_prefix, product_doc_path, stack, team config
 ├── team/
 │   ├── roster.md
-│   └── ceremonies.md
+│   ├── ceremonies.md
+│   └── testing-environments.md
 ├── product/
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
 ├── context/
-└── sprints/
+│   ├── claude-md.snapshot.md
+│   ├── skills.inventory.md
+│   └── rules.inventory.md
+├── sprints/
+├── runs/
+└── report/
+.github/
+├── ISSUE_TEMPLATE/bug_report.md      # only if it doesn't already exist
+└── PULL_REQUEST_TEMPLATE.md          # only if it doesn't already exist
 ```
 
-`product/backlog.md` and `product/architecture.md` are intentionally left empty — `/conclave-spec` populates them.
+`product/backlog.md` and `product/architecture.md` are created by `/conclave-planning` (Phase A), not here.
 
 ## What it does NOT do
 
-- **Does not commit.** The team should review the seed files (especially roster, DoR and DoD) before committing.
-- **Does not touch files outside `conclave/`** — your code is safe.
+- Does not commit — review the seed files before committing.
+- Does not touch files outside `conclave/` or `.github/` (and only if those files don't already exist).
+- Does not run any AI agent.
 
 ## After it runs
 
-`conclave/team/roster.md` is written out **fully populated** in both modes — a solo project gets a single row covering all six disciplines, a team gets one row per discipline (with `TBD` for anything unstaffed) — no placeholders left to fill in by hand.
-
-Files worth reviewing anyway:
-
-- `conclave/team/roster.md` — double-check names/handles, add anyone you left as `TBD`.
-- `conclave/team/ceremonies.md` — adjust to your real cadence (sprint length, planning day, etc.).
-- `conclave/product/definition-of-ready.md` — customize the checklist.
-- `conclave/product/definition-of-done.md` — customize the checklist.
+Review and customize:
+- `conclave/team/roster.md` — add real names/handles.
+- `conclave/team/ceremonies.md` — adjust cadence to your team.
+- `conclave/product/definition-of-ready.md` / `definition-of-done.md` — customize checklists.
 
 Then commit:
 
 ```bash
-git add conclave/
+git add conclave/ .github/
 git commit -m "conclave: bootstrap Scrum workspace"
 ```
 
-And move on to `/conclave-spec`.
+And run `/conclave-planning` to generate stories and plan the first sprint.
 
 ## Idempotency
 
-Re-running `/conclave-init` on a workspace that already has `conclave/config.md` is refused. To change the profile or other settings, edit `conclave/config.md` directly.
+Re-running `/conclave-init` on a workspace that already has `conclave/config.md` is refused. To change settings, edit `conclave/config.md` directly.

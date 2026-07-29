@@ -9,6 +9,34 @@ Todos los cambios notables del plugin Conclave están documentados aquí. El for
 
 ---
 
+## Sin versión (próximamente)
+
+### Cambiado (cambios que rompen compatibilidad)
+
+**`/conclave-init` es ahora el wizard único de configuración del proyecto**
+
+La lógica del wizard se consolidó en `/conclave-init`. Ahora detecta automáticamente el stack, reúne nombre del proyecto, prefijo de historia, idioma del proyecto, fecha de lanzamiento, modo de equipo y perfil de equipo, y ubica el documento de planificación del producto — y después crea el workspace. `/conclave-spec` es ahora un shim obsoleto que redirige a `/conclave-init`.
+
+**`/conclave-planning` genera todos los artefactos (Fase A + Fase B)**
+
+En la primera corrida (cuando no existe backlog todavía), `/conclave-planning` lee `product_doc_path` e invoca al PM y al TL en paralelo para producir el Product Backlog completo, la Architectural Foundation, los archivos de historias y los criterios de aceptación en Gherkin. La ceremonia de Sprint Planning (Fase B) siempre corre después de la Fase A. En corridas posteriores, la Fase A se saltea. Usá `--all` para planificar todos los sprints del documento de producto en un solo paso.
+
+### Agregado
+
+**`story_prefix` en `config.md`**
+
+Nuevo campo (default `US`, definido durante `/conclave-init`) que controla el prefijo de todos los nombres de archivos de historias y aceptación. Ejemplos: `US-001-login.md` / `AC-US-001.md`, o `TASK-001-login.md` con `story_prefix: TASK`.
+
+**`product_doc_path` en `config.md`**
+
+Nuevo campo que apunta al documento de planificación del producto que lee `/conclave-planning` en su primera corrida. Se define durante `/conclave-init`; actualizá para apuntar a un documento diferente en cualquier momento.
+
+**`launch_date` en `config.md`**
+
+Nuevo campo (fecha ISO o `"TBD"`, definido durante `/conclave-init`) que se propaga a los artefactos generados.
+
+---
+
 ## 0.16.0 — 2026-07-27
 
 ### Agregado

@@ -1,6 +1,6 @@
 ---
 title: Primeros pasos
-description: Instalá Conclave y corré el flujo de artefactos fundacionales del Día 0 en unos minutos.
+description: Instalá Conclave y arrancá tu primer sprint en dos comandos.
 ---
 
 # Primeros pasos
@@ -10,39 +10,41 @@ Conclave corre en **Claude Code o Cursor** contra el mismo directorio `conclave/
 - **¿Cursor y nunca instalaste Conclave?** Seguí primero [Cursor desde cero](/es/installation#cursor-desde-cero) (clonar el plugin → instalar → después inicializar **tu app**).
 - Si no, instalá tu runtime vía [Instalación](/es/installation) / [Plataformas](/es/platforms), y después:
 
-## Tres comandos para arrancar
+## Dos comandos para arrancar
 
 Dentro de cualquier repo git:
 
 ```bash
-# 1. Inicializar el workspace conclave/
+# 1. Wizard único — detecta el stack, reúne nombre del proyecto, prefijo de historia,
+#    fecha de lanzamiento, perfil de equipo, y ubica el documento de producto. Sin agentes de IA.
 /conclave-init
 
-# 2. Generar los artefactos fundacionales a partir de tu idea de producto
-/conclave-spec "REST API para gestión de tareas con auth JWT"
-
-# 3. Bloquear el Sprint 1
+# 2. Generá historias + arquitectura desde el doc de producto y bloqueá el Sprint 1 como activo.
+#    Usá --all para planificar todos los sprints del documento en un solo paso.
 /conclave-planning
+/conclave-planning --all
 ```
 
-Eso es todo. Después del paso 3 el sprint está `active`, cada historia tiene un asignado y una disciplina, y el equipo puede abrir un PR con todo el directorio `conclave/`.
+Eso es todo. Después del paso 2 el sprint está `active`, cada historia tiene un asignado y una disciplina, y el equipo puede abrir un PR con todo el directorio `conclave/`.
 
-`/conclave-init` pregunta de entrada si esto es un proyecto solo o de equipo. El modo solo fuerza el perfil `lean` y renderiza un roster de una sola persona cubriendo todas las disciplinas; el modo equipo pregunta quién cubre cada una de las seis disciplinas (nombre + handle de GitHub, o `TBD` si no está cubierta).
+`/conclave-init` es un **wizard puro** (sin agentes de IA). Auto-detecta tu stack y después pregunta: nombre del proyecto, prefijo de ID de historia (ej. `US`, `TASK`, `FEAT`), idioma del proyecto, fecha de lanzamiento, modo de equipo (solo/equipo) y perfil de equipo. También ubica el documento de planificación del producto — o te ayuda a crearlo.
+
+`/conclave-planning` hace el resto. En la **primera corrida** invoca al Tech Lead y al Product Manager en paralelo — leyendo tu documento de producto — para producir el backlog, la arquitectura, los archivos de historias y los criterios de aceptación en Gherkin. Después (en **cada corrida**) corre la ceremonia de Sprint Planning.
 
 ## Qué se crea
 
-Después de que corre `/conclave-spec`, tu repo gana un directorio `conclave/` en la raíz:
+Después de correr ambos comandos, tu repo tiene un directorio `conclave/` completo:
 
 ```
 conclave/
 ├── README.md
-├── config.md                         # team_mode, team_profile, flags de ceremonias
+├── config.md                         # story_prefix, product_doc_path, config del equipo
 ├── team/
 │   ├── roster.md                     # quién cubre cada disciplina, más PM/SM opcionales
 │   └── ceremonies.md
 ├── product/
-│   ├── backlog.md                    # Product Backlog ordenado
-│   ├── architecture.md               # ADRs + diagrama mermaid
+│   ├── backlog.md                    # Product Backlog ordenado (de /conclave-planning)
+│   ├── architecture.md               # ADRs + decisiones técnicas (de /conclave-planning)
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
 ├── context/                          # snapshots congelados de los inputs usados
@@ -50,8 +52,9 @@ conclave/
     └── SPRINT-001/
         ├── meta.md
         ├── spec.md                   # plan del sprint
-        ├── stories/                  # un archivo por historia de usuario
-        └── acceptance/                # criterios de aceptación en Gherkin
+        ├── planning.md               # acta de la reunión de planning
+        ├── stories/                  # un archivo por historia (PREFIJO-001-slug.md)
+        └── acceptance/               # criterios de aceptación Gherkin (AC-PREFIJO-001.md)
 ```
 
 Cada archivo es markdown. Cada cambio es un diff de git normal que tu equipo puede revisar en un PR.
@@ -71,7 +74,7 @@ Una vez que el Sprint 1 está bloqueado:
 /conclave-pr-review US-001
 ```
 
-Cuando todas las historias del sprint están `done`, estás listo para el próximo ciclo de planning. Volvé a correr `/conclave-spec` para refinar más de la idea en el backlog, o pasá directamente a `/conclave-planning` para el `SPRINT-002`.
+Cuando todas las historias del sprint están `done`, estás listo para el próximo ciclo de planning. Corré `/conclave-planning` para el `SPRINT-002` — la Fase A se saltea (el backlog ya existe), solo corre la ceremonia de planning.
 
 ## Próximos pasos
 

@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: Install Conclave and run the Day-0 founding-artifacts flow in a few minutes.
+description: Install Conclave and bootstrap your first sprint in two commands.
 ---
 
 # Getting started
@@ -10,39 +10,41 @@ Conclave runs on **Claude Code or Cursor** against the same `conclave/` director
 - **Cursor and never installed Conclave?** Follow [Cursor from scratch](/en/installation#cursor-from-scratch) first (clone the plugin → install → then bootstrap **your app**).
 - Otherwise install your runtime via [Installation](/en/installation) / [Platforms](/en/platforms), then:
 
-## Three commands to get going
+## Two commands to get going
 
 Inside any git repo:
 
 ```bash
-# 1. Bootstrap the conclave/ workspace
+# 1. One-time wizard — detects stack, collects project name, story prefix, launch date,
+#    team profile, and finds the product document (docs/mvp.md, docs/project.md, etc.)
 /conclave-init
 
-# 2. Generate the founding artifacts from your product idea
-/conclave-spec "REST API for task management with JWT auth"
-
-# 3. Lock Sprint 1
+# 2. Generate stories + architecture from the product doc, then lock Sprint 1 active.
+#    Use --all to plan every sprint from the document in one pass.
 /conclave-planning
+/conclave-planning --all
 ```
 
-That's it. After step 3 the sprint is `active`, every story has an assignee and a discipline, and the team can open a PR with the entire `conclave/` directory.
+That's it. After step 2 the sprint is `active`, every story has an assignee and a discipline, and the team can open a PR with the entire `conclave/` directory.
 
-`/conclave-init` asks up front whether this is a solo project or a team. Solo mode forces the `lean` profile and renders a single-person roster covering every discipline; team mode asks who covers each of the six disciplines (name + GitHub handle, or `TBD` if unstaffed).
+`/conclave-init` is a **pure wizard** (no AI agents). It auto-detects your stack, then asks for: project name, story ID prefix (e.g. `US`, `TASK`, `FEAT`), project language, launch date, team mode (solo/team), and team profile. It also locates your product planning document — or helps you create one.
+
+`/conclave-planning` does the rest. On the **first run** it invokes the Tech Lead and Product Manager in parallel — reading your product document — to produce the backlog, architecture, per-story files, and Gherkin acceptance criteria. Then (on **every run**) it runs the Sprint Planning ceremony.
 
 ## What gets created
 
-After `/conclave-spec` runs, your repo gains a `conclave/` directory at the root:
+After running both commands, your repo has a complete `conclave/` directory:
 
 ```
 conclave/
 ├── README.md
-├── config.md                         # team_mode, team_profile, ceremony flags
+├── config.md                         # story_prefix, product_doc_path, team config
 ├── team/
 │   ├── roster.md                     # who covers which discipline, plus optional PM/SM
 │   └── ceremonies.md
 ├── product/
-│   ├── backlog.md                    # ordered Product Backlog
-│   ├── architecture.md               # ADRs + mermaid diagram
+│   ├── backlog.md                    # ordered Product Backlog (from /conclave-planning)
+│   ├── architecture.md               # ADRs + tech decisions (from /conclave-planning)
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
 ├── context/                          # frozen snapshots of inputs used
@@ -50,8 +52,9 @@ conclave/
     └── SPRINT-001/
         ├── meta.md
         ├── spec.md                   # sprint plan
-        ├── stories/                  # one file per user story
-        └── acceptance/                # Gherkin acceptance criteria
+        ├── planning.md               # planning meeting record
+        ├── stories/                  # one file per user story (PREFIX-001-slug.md)
+        └── acceptance/               # Gherkin acceptance criteria (AC-PREFIX-001.md)
 ```
 
 Every file is markdown. Every change is a normal git diff your team can review in a PR.
@@ -71,7 +74,7 @@ Once Sprint 1 is locked:
 /conclave-pr-review US-001
 ```
 
-When all the sprint's stories are `done`, you're ready for the next planning cycle. Re-run `/conclave-spec` to groom more of the idea into the backlog, or move directly to `/conclave-planning` for `SPRINT-002`.
+When all the sprint's stories are `done`, you're ready for the next planning cycle. Run `/conclave-planning` for `SPRINT-002` — Phase A is skipped (backlog already exists), only the planning ceremony runs.
 
 ## Next steps
 

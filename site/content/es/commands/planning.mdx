@@ -1,56 +1,80 @@
 ---
 title: /conclave-planning
-description: Ceremonia de Sprint Planning consciente del perfil. Dos waves — PM+TL primero, SM después. Soporta --all para planificar todos los sprints draft en un solo paso.
+description: Genera historias, arquitectura y criterios de aceptación desde el documento de producto (primera corrida), después corre la ceremonia de Sprint Planning. Usá --all para planificar todos los sprints a la vez.
 ---
 
-# /conclave-planning
+# /conclave-planning [--all]
 
-Corre **Sprint Planning** para el sprint en borrador actual. Cuando termina, el sprint pasa de `draft` a `active` y el equipo queda comprometido con las historias seleccionadas.
+El comando principal después de `/conclave-init`. En la primera corrida genera el backlog completo y la arquitectura; en cada corrida facilita el Sprint Planning y activa un sprint.
 
 ```
-/conclave-planning            # planifica el próximo sprint draft
-/conclave-planning --all      # planifica TODOS los sprints draft en un solo paso (v0.16.0+)
+/conclave-planning            # planifica el Sprint 1 (genera + planifica en la primera corrida)
+/conclave-planning --all      # planifica TODOS los sprints del documento de producto en un solo paso
 ```
 
 Este es uno de los dos gates **estructurales** de Scrum que Conclave hace cumplir — requerido en todo perfil, no se puede saltar.
 
-## Qué hace
+## Dos fases
 
-1. Ubica el/los sprint(s) en borrador. Sin `--all`: el `SPRINT-NNN` de número más alto con `status: draft`. Con `--all`: todos los sprints con `status: draft`, ordenados por número.
-2. Carga contexto: `config.md`, roster, backlog, DoR, arquitectura, archivos del sprint actual, opcionalmente la retro del sprint anterior. Si el roster es anterior a la columna `Discipline`, cada miembro se trata como multi-disciplina con un aviso de compatibilidad único.
+### Fase A — Generación (solo primera corrida)
+
+Corre cuando `conclave/product/backlog.md` no existe todavía o tiene menos de 3 historias.
+
+El comando lee `product_doc_path` de `config.md` y lanza **dos agentes de IA en paralelo**:
+
+- **Product Manager** — produce el Product Backlog completo (historias con prioridad MoSCoW, estimaciones de remera, agrupaciones por sprint) más criterios de aceptación en Gherkin (mínimo 2 escenarios Given/When/Then por historia).
+- **Tech Lead** — produce la Architectural Foundation: confirmación del stack, diagrama de componentes, ADRs, concerns transversales y tabla de riesgos técnicos.
+
+Todo el texto generado se escribe en el `project_language` configurado durante `/conclave-init`.
+
+Antes de que corra la Fase A, el comando pregunta:
+
+1. **Cantidad objetivo de sprints** — cuántos sprints mapear desde el documento de producto (solo relevante con `--all`).
+2. **Cantidad de historias del Sprint 1** — cuántas historias para el Sprint 1 (default 4).
+3. **Restricciones duras** — deadlines, dependencias prohibidas o requisitos de compliance.
+
+**La Fase A produce:**
+- `conclave/product/backlog.md` — el Product Backlog completo y ordenado.
+- `conclave/product/architecture.md` — la Architectural Foundation con ADRs.
+- `conclave/sprints/SPRINT-001/stories/<PREFIJO>-NNN-<slug>.md` — un archivo por historia (usando `story_prefix` de `config.md`).
+- `conclave/sprints/SPRINT-001/acceptance/AC-<PREFIJO>-NNN.md` — criterios Gherkin por historia.
+- `conclave/sprints/SPRINT-001/spec.md` y `meta.md` con `status: draft`.
+
+### Fase B — Ceremonia de planning (siempre corre)
+
+Corre siempre, después de la Fase A cuando corresponde.
+
+1. Ubica el/los sprint(s) en borrador. Sin `--all`: el `SPRINT-NNN` de número más bajo con `status: draft`. Con `--all`: todos los sprints en `draft`, ordenados por número.
+2. Carga contexto: `config.md`, roster, backlog, DoR, arquitectura, archivos del sprint.
 3. Le pide inputs al equipo — la profundidad escala con el perfil:
    - Siempre: fechas del sprint, nombre del facilitador.
    - Full-scrum: ajustes de capacidad por dev, compromisos de carryover.
-   - Cuando el grooming está apagado: si refinar el top del backlog dentro de planning.
-4. **Delega en dos waves — PM + TL en paralelo primero (Wave 1), después SM solo (Wave 2).** La asignación necesita saber la disciplina de cada historia antes de poder elegir un asignado válido, así que SM espera la salida del TL en vez de adivinar por adelantado:
-   - **Wave 1** — el TL valida factibilidad **y asigna una `discipline`** (`frontend | backend | qa | design | devops | multi`) a cada historia; el PM valida el alcance.
-   - **Wave 2** — el SM asigna cada historia a un miembro del roster cuya `Discipline` coincida (o que tenga Tech Lead, para historias transversales). Si nadie coincide, marca una **brecha de cobertura** sin resolver en vez de adivinar.
-5. Reconcilia las salidas:
-   - Swaps de alcance del PM → se muestran al usuario para aceptar/rechazar.
-   - Findings de factibilidad del TL → se registran como recomendaciones.
-   - Validación de DoR → descarta historias que fallan (o se rehúsa a bloquear en full-scrum). Ahora incluye chequear que cada historia tenga una `discipline` asignada.
-   - Brechas de cobertura → se muestran vía `AskUserQuestion`: asignar al Tech Lead como fallback temporal, o elegir a alguien más. Cada brecha debe resolverse antes de que el sprint se bloquee.
-   - Chequeo de capacidad → avisa en caso de sobre-compromiso > 20%.
-6. Escribe las salidas (ver abajo).
+4. **Delega en dos waves — PM + TL en paralelo primero (Wave 1), después SM solo (Wave 2):**
+   - **Wave 1** — el TL valida factibilidad y **asigna una `discipline`** (`frontend | backend | qa | design | devops | multi`) a cada historia; el PM valida el alcance.
+   - **Wave 2** — el SM asigna cada historia a un miembro del roster cuya `Discipline` coincida.
+5. Reconcilia los outputs: swaps de alcance del PM (se muestran para aceptar/rechazar), validación de DoR, resolución de brechas de cobertura, chequeo de capacidad (avisa en sobre-compromiso > 20%).
 
-## Planificación multi-sprint — `--all`
+## Modo multi-sprint — `--all`
 
-Con `--all`, todos los sprints draft del backlog se planifican en un solo paso:
+Con `--all`:
 
 - **Sprint 1** (el draft de número más bajo) → `status: active`. Se aplica el planning interactivo completo.
-- **Sprints restantes** → permanecen en `status: draft`, pero reciben su `planning.md` completo, asignaciones de historias y tags de disciplina. Quedan "pre-planificados" y listos para activarse cuando cierre el sprint anterior.
+- **Sprints restantes** → permanecen en `status: draft`, pero reciben su `planning.md` completo, asignaciones y tags de disciplina. Quedan pre-planificados y listos para activarse cuando cierre el sprint anterior.
 
-Esto es útil después de correr `/conclave-spec` con un backlog completo: permite planificar todos los sprints de antemano, sabiendo que el plan se refinará de todas formas cuando cada sprint se active realmente.
-
-**Paso 6b — loop multi-sprint**: para cada sprint draft más allá del primero, el loop de planning de dos waves corre de nuevo pero saltea las preguntas interactivas de capacidad (los defaults se mantienen). El `planning.md` de cada sprint se escribe antes de que comience el próximo sprint.
+Útil después de `/conclave-init` cuando tenés un documento de producto que cubre múltiples sprints — planificás todo de antemano sabiendo que el plan se refinará cuando cada sprint se active.
 
 ## Qué produce
 
-- `conclave/sprints/SPRINT-NNN/meta.md` actualizado con `status: active` (primer sprint) o `status: draft` (sprints posteriores con `--all`), fechas objetivo.
-- `conclave/sprints/SPRINT-NNN/spec.md` actualizado con asignados, estado.
-- El frontmatter de cada `stories/US-NNN-*.md` actualizado: `assignee` y `discipline` definidos, `status: ready`.
-- `conclave/sprints/SPRINT-NNN/planning.md` — el acta de la reunión (objetivo, capacidad, asignaciones, asignaciones de disciplina y brechas de cobertura, findings de DoR, experimentos importados de la retro anterior).
-- `conclave/product/backlog.md` actualizado mostrando las historias seleccionadas como `in-progress` en el sprint activo.
+- `conclave/sprints/SPRINT-NNN/meta.md` actualizado con `status: active` (primer sprint) o `status: draft` (posteriores con `--all`), fechas objetivo.
+- `conclave/sprints/SPRINT-NNN/spec.md` actualizado con asignados, disciplinas.
+- El frontmatter de cada `stories/<PREFIJO>-NNN-*.md` actualizado: `assignee` y `discipline` definidos, `status: ready`.
+- `conclave/sprints/SPRINT-NNN/planning.md` — el acta de la reunión.
+- `conclave/product/backlog.md` actualizado mostrando las historias seleccionadas como `in-progress`.
+
+## Requisitos
+
+- `conclave/config.md` debe existir (corré `/conclave-init` primero).
+- `product_doc_path` en `config.md` debe apuntar a un archivo existente (la Fase A lo lee).
 
 ## Consciencia del perfil
 
@@ -62,12 +86,13 @@ Esto es útil después de correr `/conclave-spec` con un backlog completo: permi
 
 ## Salvaguardas
 
+- Se rehúsa si `conclave/config.md` no existe ("corré `/conclave-init` primero").
+- Se rehúsa si `product_doc_path` está vacío o el archivo no existe (la Fase A lo necesita).
 - Se rehúsa a correr si no existe ningún sprint en `draft`.
-- Se rehúsa a correr si `sprint_planning.required` es de algún modo `false` en `config.md` — es estructural.
-- No puede volver a correr sobre el mismo sprint después de que pasa a `active` — una segunda invocación se rechaza.
-- Con `--all`, los sprints ya en `active` se saltean silenciosamente; solo se tocan los sprints en `draft`.
+- No puede volver a correr sobre el mismo sprint después de que pasa a `active`.
+- Con `--all`, los sprints ya en `active` se saltean silenciosamente.
 - Nunca commitea.
 
 ## Después de que corre
 
-Cada dev asignado corre [`/conclave-dev US-NNN`](/es/commands/dev) para su historia.
+Cada dev asignado corre [`/conclave-dev <PREFIJO>-NNN`](/es/commands/dev) para su historia.

@@ -17,6 +17,9 @@ Dos ejemplos comunes — elegí el que se acerca más a tu contexto y ajustá lo
 project_name: "mi-api"
 project_type: "backend"          # backend | frontend | mobile | devops | multi
 project_language: "es"           # ISO 639-1 — todo el markdown generado usa este idioma (v0.16.0+)
+story_prefix: "US"               # prefijo de IDs de historia: US → US-001, TASK → TASK-001 (v1.1.0+)
+launch_date: "2026-10-01"        # fecha objetivo de lanzamiento (ISO 8601) o "TBD" (v1.1.0+)
+product_doc_path: "docs/mvp.md"  # ruta relativa al documento de planificación del producto (v1.1.0+)
 stack:
   language: "TypeScript"         # lenguaje de programación (distinto a project_language)
   framework: "NestJS"
@@ -54,6 +57,9 @@ ceremonies:
 project_name: "checkout-service"
 project_type: "backend"
 project_language: "es"
+story_prefix: "US"
+launch_date: "2026-12-01"
+product_doc_path: "docs/product.md"
 stack:
   language: "Go"
   framework: "Gin"
@@ -89,10 +95,13 @@ ceremonies:
 
 | Campo | Valores | Notas |
 |---|---|---|
-| `project_name` | texto libre | Por default, el nombre base del repo. |
-| `project_type` | `backend \| frontend \| mobile \| devops \| multi` | Definido durante `/conclave-init`; refinado por `/conclave-spec`. |
+| `project_name` | texto libre | Por default, el nombre base del repo. Se define durante `/conclave-init`. |
+| `project_type` | `backend \| frontend \| mobile \| devops \| multi` | Inferido del stack detectado durante `/conclave-init`. |
 | `project_language` | código ISO 639-1 (`es`, `en`, `pt`, …) | v0.16.0+. Todo el texto generado (historias, criterios de aceptación, archivos de bugs, reportes, comentarios) se escribe en este idioma. Default `es` si está ausente. Se define durante `/conclave-init`. Distinto de `stack.language` (el lenguaje de programación). |
-| `stack.*` | texto libre | Confirmado por `/conclave-spec`, no se pregunta durante `/conclave-init`. `stack.language` es el lenguaje de programación, no el idioma natural usado para la documentación. |
+| `story_prefix` | texto libre (default `US`) | v1.1.0+. Prefijo para todos los nombres de archivos de historias y aceptación: `US-001-slug.md` / `AC-US-001.md`, o `TASK-001-slug.md` si se cambia. Se define durante `/conclave-init`; editá a mano para cambiar (los archivos existentes no se renombran). |
+| `launch_date` | fecha ISO o `"TBD"` | v1.1.0+. Fecha objetivo de lanzamiento, se propaga a los artefactos generados. Se define durante `/conclave-init`. |
+| `product_doc_path` | ruta relativa | v1.1.0+. Ruta al documento de planificación del producto (ej. `docs/mvp.md`). `/conclave-planning` lee este archivo en la Fase A para generar el backlog, la arquitectura, las historias y los criterios de aceptación. Se define durante `/conclave-init`; actualizá para apuntar a un documento diferente en cualquier momento. |
+| `stack.*` | texto libre | Detectado y confirmado durante `/conclave-init`. `stack.language` es el lenguaje de programación, no el idioma natural usado para la documentación. |
 | `repo_url` | URL | Usado para construir links (editar en GitHub, plantillas de PR). |
 | `claude_md_path` | ruta | Dónde busca Conclave el contexto del proyecto al generar artefactos fundacionales. |
 | `conclave_version` | string tipo semver | Versión del schema. Los comandos la chequean para decidir si degradar con gracia contra artefactos más viejos. |

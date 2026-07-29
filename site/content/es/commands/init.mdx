@@ -1,78 +1,141 @@
 ---
 title: /conclave-init
-description: Inicializá el directorio conclave/ en tu repo y elegí un perfil de equipo.
+description: Wizard de configuración único. Detecta el stack, reúne los metadatos del proyecto y crea el workspace conclave/.
 ---
 
 # /conclave-init
 
-Inicializa un workspace de Scrum de Conclave en la raíz del repositorio actual.
+Wizard de configuración único. Corré este comando **una vez por repositorio**, antes de `/conclave-planning`.
 
 ```
 /conclave-init
 ```
 
-Este comando es de **lectura/escritura solo dentro de tu repo**. No toca los archivos propios del plugin. La salida es un directorio `conclave/` completamente armado con el que el equipo puede trabajar de inmediato.
+Este comando crea el workspace `conclave/` y escribe el `config.md` que leen todos los demás comandos de Conclave. No hay agentes de IA — es un wizard que lee tu proyecto y escribe configuración. La generación de historias y sprints ocurre en `/conclave-planning`.
 
-## Qué pregunta
+## Qué hace
 
-Primero, `/conclave-init` pregunta **"¿Sos solo vos, o un equipo?"** — esto define `team_mode: solo | team` y ramifica todo lo que sigue.
+### Paso 0 — Guardia de idempotencia
 
-- **Solo** → `team_profile` se fuerza a `lean`, sin preguntas por disciplina, sin preguntas de tamaño de equipo/perfil.
-- **Equipo** → continúa con las preguntas de abajo, y después pregunta quién cubre cada una de las seis disciplinas.
+Si `conclave/config.md` ya existe, el comando se detiene de inmediato:
 
-`/conclave-init` usa `AskUserQuestion` para juntar:
+> "`conclave/` ya está inicializado. Editá `conclave/config.md` directamente para cambiar configuraciones. Corré `/conclave-planning` para generar historias y planificar un sprint."
 
-1. **Nombre del proyecto** (default: el nombre base del repo).
-2. **Tipo de proyecto**: backend / frontend / mobile / devops / multi.
-3. **Tamaño del equipo** (solo modo `team`): 2–3, 4–6, 7+ (aproximado; define el perfil de equipo default de abajo).
-4. **Largo del sprint**: 1, 2, 3 o 4 semanas (default 2).
-5. **Timezone** (ej. `America/Montevideo`, default UTC).
-6. **Perfil de equipo** (solo modo `team` — `solo` ya fuerza `lean`): `lean`, `full-scrum`, o `custom` — controla qué ceremonias son requeridas. Ver [perfiles](/es/profiles) para más detalle.
-7. **Quién cubre cada disciplina** (solo modo `team`): una pregunta por disciplina — **Tech Lead, Frontend, Backend, QA, Designer, DevOps** — nombre + handle de GitHub, o `TBD` si no está cubierta. Después una pregunta más por quién — si alguien — ocupa los roles de proceso opcionales de Product Manager / Scrum Master.
+Si el directorio actual no es un repo git, pregunta si correr `git init`.
+
+### Paso 1 — Detectar el stack
+
+Antes de preguntar nada, el comando escanea hasta 3 niveles de directorio buscando archivos señal:
+
+| Archivo señal | Stack probable |
+|---|---|
+| `package.json` + `next.config.*` | Next.js |
+| `package.json` (sin config de framework) | Node.js |
+| `pubspec.yaml` | Flutter / Dart |
+| `go.mod` | Go |
+| `Cargo.toml` | Rust |
+| `requirements.txt` / `pyproject.toml` | Python |
+| `build.gradle` / `pom.xml` | Android / Java / Kotlin |
+| `Gemfile` | Ruby on Rails |
+| `mix.exs` | Elixir |
+| `composer.json` | PHP |
+
+Esto te da algo concreto para confirmar en lugar de un campo en blanco.
+
+### Paso 2 — Reunir información del proyecto
+
+Un solo `AskUserQuestion` reúne:
+
+1. **Nombre del proyecto** — se usa como título en todos los artefactos generados.
+2. **Prefijo de ID de historia** — default `US`. Las historias se llamarán `<PREFIJO>-001`, `<PREFIJO>-002`, etc. Ejemplos: `US`, `TASK`, `FEAT`, o una abreviatura del proyecto.
+3. **Idioma del proyecto** — código ISO 639-1. Todo el markdown generado por Conclave (historias, criterios de aceptación, reportes) se escribirá en este idioma. Default: `es`.
+4. **Fecha de lanzamiento** — fecha ISO (YYYY-MM-DD), o `TBD`.
+5. **Modo de equipo** — `team` (multi-persona) o `solo` (fuerza el perfil `lean`).
+6. **Perfil de equipo** (solo modo `team`) — `lean` (solo se hacen cumplir Sprint Planning + QA Verification), `full-scrum` (todas las ceremonias requeridas), o `custom` (configurá cada flag manualmente en `config.md`).
+
+### Paso 3 — Confirmar o corregir el stack detectado
+
+Una segunda `AskUserQuestion` muestra el stack detectado. Podés confirmar los valores o corregirlos — lenguaje, framework, datastore, infraestructura.
+
+### Paso 4 — Encontrar el documento de planificación del producto
+
+El documento de planificación del producto es la fuente de verdad que `/conclave-planning` usa para generar historias y sprints.
+
+1. El comando busca en el repo archivos con palabras clave como `sprint`, `backlog`, `user stor`, `mvp`, `milestone`.
+2. También chequea rutas comunes: `docs/mvp.md`, `docs/project.md`, `mvp.md`, `project.md`, `docs/product.md`, `PRODUCT.md`.
+3. Si hay candidatos, elegís uno (o "Ninguno de estos").
+4. Si no se encuentra nada, elegís: pegar el contenido ahora, dar una ruta, o crearlo después.
+
+Si diferís (`"Lo creo después"`), el workspace se crea pero `/conclave-planning` se rehusará a correr hasta que definas `product_doc_path` en `config.md`.
+
+Formato sugerido si estás creando el documento:
+
+```markdown
+# Mi Proyecto — Plan de Producto
+
+## Visión
+Descripción del producto en un párrafo.
+
+## Alcance del MVP
+Qué incluye y qué excluye el MVP.
+
+## Sprint 1
+### Objetivo
+Una oración.
+### Features
+- Feature 1: descripción
+- Feature 2: descripción
+```
 
 ## Qué crea
 
 ```
 conclave/
 ├── README.md
-├── config.md
+├── config.md                         # story_prefix, product_doc_path, stack, config del equipo
 ├── team/
 │   ├── roster.md
-│   └── ceremonies.md
+│   ├── ceremonies.md
+│   └── testing-environments.md
 ├── product/
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
 ├── context/
-└── sprints/
+│   ├── claude-md.snapshot.md
+│   ├── skills.inventory.md
+│   └── rules.inventory.md
+├── sprints/
+├── runs/
+└── report/
+.github/
+├── ISSUE_TEMPLATE/bug_report.md      # solo si no existe
+└── PULL_REQUEST_TEMPLATE.md          # solo si no existe
 ```
 
-`product/backlog.md` y `product/architecture.md` se dejan intencionalmente vacíos — `/conclave-spec` los completa.
+`product/backlog.md` y `product/architecture.md` los crea `/conclave-planning` (Fase A), no este comando.
 
 ## Qué NO hace
 
-- **No commitea.** El equipo debería revisar los archivos semilla (especialmente roster, DoR y DoD) antes de commitear.
-- **No toca archivos fuera de `conclave/`** — tu código está a salvo.
+- No commitea — revisá los archivos semilla antes de commitear.
+- No toca archivos fuera de `conclave/` o `.github/` (y solo si esos archivos no existen).
+- No corre agentes de IA.
 
 ## Después de que corre
 
-`conclave/team/roster.md` se escribe **completamente poblado** en ambos modos — un proyecto solo obtiene una sola fila cubriendo las seis disciplinas, un equipo obtiene una fila por disciplina (con `TBD` en lo que no está staffeado) — sin placeholders para completar a mano.
-
-Archivos que igual vale la pena revisar:
-
-- `conclave/team/roster.md` — verificá nombres/handles, agregá a cualquiera que hayas dejado como `TBD`.
-- `conclave/team/ceremonies.md` — ajustá a tu cadencia real (largo del sprint, día de planning, etc.).
-- `conclave/product/definition-of-ready.md` — personalizá la checklist.
-- `conclave/product/definition-of-done.md` — personalizá la checklist.
+Revisá y personalizá:
+- `conclave/team/roster.md` — agregá nombres/handles reales.
+- `conclave/team/ceremonies.md` — ajustá la cadencia a tu equipo.
+- `conclave/product/definition-of-ready.md` / `definition-of-done.md` — personalizá las checklists.
 
 Después commiteá:
 
 ```bash
-git add conclave/
+git add conclave/ .github/
 git commit -m "conclave: bootstrap del workspace Scrum"
 ```
 
-Y seguí con `/conclave-spec`.
+Y corré `/conclave-planning` para generar historias y planificar el primer sprint.
 
 ## Idempotencia
 
-Volver a correr `/conclave-init` en un workspace que ya tiene `conclave/config.md` se rechaza. Para cambiar el perfil u otras configuraciones, editá `conclave/config.md` directamente.
+Volver a correr `/conclave-init` en un workspace que ya tiene `conclave/config.md` se rechaza. Para cambiar configuraciones, editá `conclave/config.md` directamente.
