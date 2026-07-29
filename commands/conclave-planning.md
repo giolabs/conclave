@@ -1,216 +1,300 @@
 ---
-description: Run Sprint Planning for the current draft sprint, or plan ALL sprints from the backlog in one pass (--all flag). Profile-aware — adapts ceremony depth to the team's profile (lean / full-scrum / custom). Confirms the goal, assigns stories, validates DoR, computes capacity, and locks the first sprint active (rest remain draft).
-allowed-tools: Bash(git rev-parse:*), Bash(ls:*), Bash(date:*), Bash(cat:*), Read, Write, Edit, Agent, AskUserQuestion
+description: Generate stories and acceptance criteria from the product document, run Sprint Planning, and activate the first sprint. Use --all to plan every sprint from the document in one pass. The primary command after /conclave-spec.
+allowed-tools: Bash(git rev-parse:*), Bash(ls:*), Bash(find:*), Bash(date:*), Bash(cat:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
 # /conclave-planning [--all]
 
-Run the **Sprint Planning** ceremony for the current draft sprint.
+Generate the **Product Backlog, Architectural Foundation, stories, and acceptance criteria** from the product planning document, then run the Sprint Planning ceremony to activate the first sprint.
 
 ```
-/conclave-planning           # plan the single highest-numbered draft sprint
-/conclave-planning --all     # plan ALL draft sprints from the backlog in one pass
+/conclave-planning           # plan Sprint 1 — generate stories and lock the first sprint active
+/conclave-planning --all     # plan ALL sprints from the product document, activate the first
 ```
 
-This is one of the two **structural** Scrum gates (along with QA Verification) — it is required in every team profile and cannot be skipped. When it finishes, the first sprint moves from `draft` → `active` and the team is committed to the selected stories. When `--all` is used, every remaining draft sprint is planned and left in `draft` status awaiting activation.
+This command has two phases:
 
-Follow these steps in order.
+- **Phase A — Generation** (runs only when no backlog exists yet): the PM and TL read the product document and produce the full backlog, architectural foundation, per-story files, and Gherkin acceptance criteria.
+- **Phase B — Planning ceremony** (always runs): the SM facilitates, stories are assigned by discipline, the DoR is validated, capacity is checked, and the sprint is locked active.
+
+On subsequent runs (re-planning after stories exist), Phase A is skipped and only Phase B runs.
 
 ---
 
 ## Step 0 — Parse flags
 
-1. Check if `--all` is present in the invocation arguments. Set `PLAN_ALL = true` if so, `false` otherwise.
-2. If `PLAN_ALL = true`, print: `Mode: multi-sprint planning — first sprint will be activated, remaining sprints will be planned and left in draft.`
+Check if `--all` is present. Set `PLAN_ALL = true` if so, `false` otherwise.
 
-## Step 1 — Resolve the draft sprint(s)
+## Step 1 — Resolve workspace
 
-1. Run `git rev-parse --show-toplevel` to find `REPO_ROOT`. If not a git repo, surface that and stop.
-2. Confirm `$REPO_ROOT/conclave/config.md` exists. If not, suggest `/conclave-init` and stop.
-3. List `$REPO_ROOT/conclave/sprints/` and collect all sprint directories, sorted ascending by number.
-4. **If `PLAN_ALL = false`**: find the highest-numbered sprint directory. Read its `meta.md` frontmatter:
-   - `status: draft` → this is the sprint we plan. Continue. Set `SPRINT_ID` and `SPRINT_PATH`. `SPRINTS_TO_PLAN = [SPRINT_ID]`.
-   - `status: active` → refuse: planning has already happened. Suggest waiting until the sprint closes.
-   - `status: done` or `archived` → suggest `/conclave-spec` to create the next sprint.
-   - No sprint dir at all → suggest `/conclave-spec` and stop.
-5. **If `PLAN_ALL = true`**: collect ALL sprint directories whose `meta.md` has `status: draft`, sorted ascending. If none found, refuse: *"No draft sprints found. Run `/conclave-spec` to generate sprints first."* Set `SPRINTS_TO_PLAN` to this list. The first entry is `SPRINT_ID` (the one that will be activated); the rest remain `draft` after their planning ceremony completes.
-   - If any sprint has `status: active`, print a warning: *"SPRINT-NNN is already active — it will be skipped."* and exclude it from `SPRINTS_TO_PLAN`.
+1. Run `git rev-parse --show-toplevel` → `REPO_ROOT`. If not a git repo, surface and stop.
+2. Confirm `$REPO_ROOT/conclave/config.md` exists. If not: *"Run `/conclave-spec` first to initialize the workspace."* Stop.
+3. Read `$REPO_ROOT/conclave/config.md`. Extract:
 
-For single-sprint mode, set `SPRINT_PATH = $REPO_ROOT/conclave/sprints/$SPRINT_ID`.
+| Field | Variable | Notes |
+|---|---|---|
+| `project_name` | `PROJECT_NAME` | |
+| `story_prefix` | `STORY_PREFIX` | default `US` if absent |
+| `product_doc_path` | `PRODUCT_DOC_PATH` | |
+| `project_language` | `PROJECT_LANGUAGE` | default `es` if absent |
+| `team_profile` | `TEAM_PROFILE` | |
+| `team_mode` | `TEAM_MODE` | |
+| `models.*` | `MODEL_FOR_PM`, `MODEL_FOR_TL`, `MODEL_FOR_SM` | resolve: overrides → default → null |
 
-## Step 2 — Load configuration and validate the profile contract
+Invalid model name → warn and fall back to next in chain. Print non-null model assignments.
 
-Read `$REPO_ROOT/conclave/config.md`. Extract:
+4. If `PRODUCT_DOC_PATH` is empty or null: *"No product document is set. Edit `conclave/config.md` and set `product_doc_path` to the path of your product planning document (e.g. `docs/mvp.md`), then re-run."* Stop.
+5. If the file at `PRODUCT_DOC_PATH` does not exist: *"Product document not found at `<path>`. Create it or update `product_doc_path` in `conclave/config.md`."* Stop.
+6. Read `PRODUCT_DOC_PATH` and store as `PRODUCT_DOC`.
 
-- `models.*` — resolve models for the three planning agents:
-  - `MODEL_FOR_PM` = `models.overrides.product_manager` → `models.default` → null
-  - `MODEL_FOR_TL` = `models.overrides.tech_lead` → `models.default` → null
-  - `MODEL_FOR_SM` = `models.overrides.scrum_master` → `models.default` → null
-  Invalid model name → `WARNING: Unknown model '<value>' for role <role>. Falling back to <next_fallback>.` then continue. Absent block → all null, no warning. Print `Models: pm=<id>, tl=<id>, sm=<id>` for any non-null values.
-- `team_profile` (`lean` | `full-scrum` | `custom`)
-- `ceremonies.sprint_planning.required` → must be `true`. If somehow `false`, refuse with: *"sprint_planning is a structural Scrum gate and cannot be disabled. Edit config.md to restore required: true and re-run."*
-- `ceremonies.backlog_grooming.required` — affects step 5
-- `ceremonies.daily_standup.required` — affects what the planning record includes
-- `ceremonies.sprint_retrospective.required` — affects whether to import experiments
+## Step 2 — Determine phase A vs. B
 
-Read the rest of the workspace in parallel:
+Check whether Phase A (generation) must run:
 
-- `$REPO_ROOT/conclave/team/roster.md` — if it has no `Discipline` column (pre-0.2.0 schema), treat every member's discipline as `multi` for this run and print once: *"Roster is using the pre-0.2.0 schema (no Discipline column) — treating all members as multi-discipline. Run `/conclave-init` again or add a Discipline column by hand to opt into discipline-based assignment."* Do not refuse to run.
-- `$REPO_ROOT/conclave/product/backlog.md`
-- `$REPO_ROOT/conclave/product/definition-of-ready.md`
-- `$REPO_ROOT/conclave/product/architecture.md`
-- `$SPRINT_PATH/spec.md` and `$SPRINT_PATH/meta.md`
-- All `$SPRINT_PATH/stories/US-NNN-*.md` and `$SPRINT_PATH/acceptance/AC-US-NNN.md` — **skip any file whose frontmatter `status: retired`** (v0.8.0+: retired stories are historical records only and never enter planning; they may be present in the sprint dir if `/conclave-story retire` or `/conclave-story split` was run against a story already in the sprint).
-- If a previous sprint exists and `sprint_retrospective.required: true`: read `$REPO_ROOT/conclave/sprints/SPRINT-PREV/retro.md` to import active experiments.
+- Read `$REPO_ROOT/conclave/product/backlog.md`. If the file does not exist or contains fewer than 3 story rows → **run Phase A** (`FIRST_RUN = true`).
+- If backlog exists and has stories → skip Phase A (`FIRST_RUN = false`). Jump to Step 5 (Sprint resolution).
 
-## Step 3 — Ask the team for inputs
+## Step 3 — [Phase A] Ask generation preferences
 
-Use `AskUserQuestion`. The depth of the questionnaire depends on the profile.
+Only when `FIRST_RUN = true`.
 
-**Always ask:**
+Use `AskUserQuestion`:
 
-1. **Sprint start date** (default: today, ISO format).
-2. **Sprint end date** (default: start + sprint length from `ceremonies.md`).
-3. **Facilitator name** (the human Scrum Master running this session; default: the user running the command).
+1. **Sprint count target** — How many sprints should the product document map to? Options: 1 / 2 / 3 / 4 / "Let the PM decide from the document". (Only relevant when `PLAN_ALL = true`; skip this question if `PLAN_ALL = false` — default to 1 sprint scope for Phase A.)
+2. **Sprint 1 story count** — How many stories do you want in Sprint 1? Options: 3 / 4 / 5 / "Let the PM decide". Default: 4.
+3. **Hard constraints** — Any deadlines, performance budgets, banned dependencies, or compliance rules the PM and TL must know? Free text, optional.
 
-**Ask in `full-scrum` only:**
+Carry the answers as `GENERATION_PREFS`.
 
-4. **Per-dev capacity adjustment** — any developers on PTO / partial availability this sprint? Free-form text.
-5. **Were there carryover commitments from last sprint?** (yes / no / N/A)
+## Step 4 — [Phase A] Delegate to PM and TL in parallel
 
-**Ask if `backlog_grooming.required: false`:**
+Issue **two `Agent` tool calls in a single message**:
 
-6. **Refine top-of-backlog?** (yes / no — default yes) → if yes, the SM will absorb a light grooming pass into the planning output.
-
-## Step 4 — Delegate to PM and TL (Wave 1), then SM (Wave 2)
-
-Dispatch happens in **two waves**, not one three-way-parallel round: Scrum Master's assignment task needs the Tech Lead's per-story `discipline` values to pick valid assignees, so it runs after Wave 1 returns rather than guessing ahead of it.
-
-### Wave 1 — issue two `Agent` tool calls in a single message
-
-#### Agent B — Product Manager (scope reviewer)
-
-- **Model**: `MODEL_FOR_PM` (omit if null).
-- Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/product-manager.md`.
-- Task: validate **scope** of the selected stories. For each story in the draft sprint:
-  - Confirm the priority assigned during `/conclave-spec` is still correct in light of the rest of the backlog.
-  - Recommend a swap if a higher-value `must` story sits in the backlog.
-  - Confirm the acceptance criteria are unambiguous.
-- Output: a markdown section titled `## Scope findings` listing per-story verdicts (`ok` or a specific recommendation). No re-writes — only findings.
-
-#### Agent C — Tech Lead (feasibility reviewer + discipline assignment)
+### Agent A — Tech Lead (Architectural Foundation)
 
 - **Model**: `MODEL_FOR_TL` (omit if null).
 - Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/tech-lead.md`.
-- Task: validate **technical feasibility** of the selected stories against the current `architecture.md`. For each story:
-  - Confirm the story respects existing ADRs, or flag the deviation it would force.
-  - Identify any cross-story technical dependencies (US-002 must merge before US-004).
-  - Flag stories that exceed their estimate based on the architecture (e.g. an `S` story that needs a new service is actually `M`+).
-  - **Assign a `discipline` value** (`frontend | backend | qa | design | devops | mobile | multi`) based on the nature of the work. Prefer `multi` over a guessed precision if the story text doesn't make it obvious.
-- Output: a markdown section titled `## Technical feasibility findings` listing per-story verdicts, each including its assigned `discipline`. No re-writes.
+- Task: produce the **Architectural Foundation** following `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/architecture.template.md`.
+- Inputs: `PRODUCT_DOC`, `GENERATION_PREFS`, the context snapshots from `conclave/context/`.
+- Output: full architecture markdown. The orchestrator writes it to `conclave/product/architecture.md`.
 
-Wait for both. If either errors, surface and stop.
+### Agent B — Product Manager (Backlog + Stories)
 
-### Wave 2 — issue one `Agent` tool call, after Wave 1 returns
+- **Model**: `MODEL_FOR_PM` (omit if null).
+- Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/product-manager.md`.
+- Task: read the product document and produce:
+  1. A **Product Backlog table** (all stories — priority, estimate, discipline hint, sprint assignment if `PLAN_ALL = true` or sprint-count > 1).
+  2. For each story: an inline block with:
+     - Title
+     - As a / I want / So that
+     - Priority (`must` / `should` / `could`)
+     - Estimate (`XS` / `S` / `M` / `L` / `XL`)
+     - Dependencies (other story IDs, if any)
+     - Sprint assignment number (1, 2, 3, …) — always, even if only one sprint
+     - Gherkin acceptance criteria (Given / When / Then scenarios, minimum 2 per story)
+  3. If `PLAN_ALL = true`: group stories into sprint buckets per the document's structure and the sprint-count target.
+  4. If `PLAN_ALL = false`: surface the top N stories for Sprint 1 (N = `GENERATION_PREFS.sprint_1_story_count`).
+- Inputs: `PRODUCT_DOC`, `GENERATION_PREFS`, context snapshots.
+  Prefix the product document in the prompt with: `## Product planning document — this is the source of truth for stories and constraints:`
+- Output: structured markdown with the backlog table and per-story blocks. The orchestrator parses this into individual files.
+- Language instruction: *"Write all story titles, acceptance criteria, and descriptions in `{{PROJECT_LANGUAGE}}`. Keep frontmatter keys, Gherkin keywords (Given/When/Then), and technical identifiers in English."*
 
-#### Agent A — Scrum Master (facilitator)
+Wait for both agents. If either errors, surface and stop.
+
+### 4.1 — Synthesize and write Phase A artifacts
+
+**4.1.1 Architectural Foundation**
+Write Agent A's output to `$REPO_ROOT/conclave/product/architecture.md`.
+
+**4.1.2 Determine the next story number**
+List `$REPO_ROOT/conclave/sprints/*/stories/` for existing `<PREFIX>-NNN-*.md` files. Find the highest NNN. Start the next batch from `NNN + 1` (zero-padded to 3 digits). If none exist, start at `001`.
+
+**4.1.3 Write story and acceptance files per sprint**
+
+For each sprint implied by the PM's output:
+
+1. Determine `SPRINT_ID` = `SPRINT-001`, `SPRINT-002`, etc. (next available).
+2. Create directories: `conclave/sprints/$SPRINT_ID/stories/`, `conclave/sprints/$SPRINT_ID/acceptance/`.
+3. Render `sprint-meta.template.md` → `conclave/sprints/$SPRINT_ID/meta.md` with `status: draft`.
+4. For each story assigned to this sprint:
+   - ID: `$STORY_PREFIX-NNN` (e.g., `US-001`, `TASK-001`).
+   - `<slug>` = lowercase, dash-separated, ASCII, ≤ 40 chars from the story title.
+   - Render `story.template.md` → `conclave/sprints/$SPRINT_ID/stories/$STORY_PREFIX-NNN-<slug>.md`.
+   - Render `acceptance.template.md` → `conclave/sprints/$SPRINT_ID/acceptance/AC-$STORY_PREFIX-NNN.md` — fill in the Gherkin scenarios from the PM's output.
+5. Render `sprint-spec.template.md` → `conclave/sprints/$SPRINT_ID/spec.md` with the story table populated.
+
+**Sprint creation scope:**
+- If `PLAN_ALL = false`: create only `SPRINT-001` with the top N stories.
+- If `PLAN_ALL = true`: create one `SPRINT-NNN` directory per sprint the PM identified.
+
+**4.1.4 Write Product Backlog**
+Build the backlog table from the PM's output and write to `$REPO_ROOT/conclave/product/backlog.md` using `product-backlog.template.md`. Every story gets a row. Sprint-1 stories show `in-progress` in the Status column.
+
+**4.1.5 Context snapshot update**
+Append a `## /conclave-planning run — <ISO>` section to `conclave/context/claude-md.snapshot.md` recording: product doc path, story count, sprint count.
+
+## Step 5 — Resolve the sprint to plan
+
+Collect the list of draft sprints:
+
+```bash
+ls $REPO_ROOT/conclave/sprints/
+```
+
+Read each sprint's `meta.md` frontmatter.
+
+- **`PLAN_ALL = false`**: find the lowest-numbered sprint with `status: draft`. If none exist, surface: *"No draft sprint found. Have you run `/conclave-planning` already? If the active sprint is done, run `/conclave-sprint close` first."* Stop.
+- **`PLAN_ALL = true`**: collect all `status: draft` sprints, sorted ascending. Warn about any `status: active` sprint that will be skipped.
+
+Set `SPRINTS_TO_PLAN` accordingly. Set `SPRINT_ID` to the first sprint in the list.
+
+## Step 6 — Load planning inputs
+
+For the first sprint to plan, load in parallel:
+
+- `$REPO_ROOT/conclave/team/roster.md`
+- `$REPO_ROOT/conclave/product/definition-of-ready.md`
+- `$REPO_ROOT/conclave/product/architecture.md`
+- `$REPO_ROOT/conclave/sprints/$SPRINT_ID/spec.md`
+- `$REPO_ROOT/conclave/sprints/$SPRINT_ID/meta.md`
+- All `$SPRINT_ID/stories/$STORY_PREFIX-NNN-*.md` — skip any with `status: retired`
+- All `$SPRINT_ID/acceptance/AC-$STORY_PREFIX-NNN.md`
+
+Check roster schema: if no `Discipline` column, treat every member as `multi` and print a one-time compatibility hint.
+
+## Step 7 — Ask the team for planning inputs
+
+Use `AskUserQuestion`:
+
+**Always ask:**
+1. **Sprint start date** (default: today, ISO format).
+2. **Sprint end date** (default: start + 2 weeks).
+3. **Facilitator name** (who is running this planning session).
+
+**Ask in `full-scrum` only:**
+4. **Capacity adjustments** — any developers on PTO or partial availability?
+5. **Carryover commitments from a previous sprint?** (yes / no / N/A)
+
+## Step 8 — Planning ceremony (Wave 1: PM + TL in parallel)
+
+Issue **two `Agent` tool calls in a single message**:
+
+### Agent B — Product Manager (scope review)
+
+- **Model**: `MODEL_FOR_PM` (omit if null).
+- Task: for each story in the draft sprint, confirm priority is correct vs. the full backlog; recommend a swap if a higher-value `must` story is waiting; confirm acceptance criteria are unambiguous.
+- Output: `## Scope findings` — per-story verdict (`ok` or recommendation).
+
+### Agent C — Tech Lead (feasibility + discipline assignment)
+
+- **Model**: `MODEL_FOR_TL` (omit if null).
+- Task: validate technical feasibility against `architecture.md`; confirm or flag ADR deviations; identify cross-story dependencies; flag under-estimated stories; **assign `discipline`** (`frontend | backend | qa | design | devops | mobile | multi`) to each story.
+- Output: `## Technical feasibility findings` — per-story verdict including the assigned discipline.
+
+Wait for both.
+
+## Step 9 — Planning ceremony (Wave 2: SM)
+
+Issue one `Agent` tool call after Wave 1 returns:
+
+### Agent A — Scrum Master (planning record)
 
 - **Model**: `MODEL_FOR_SM` (omit if null).
-- Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/scrum-master.md`.
 - Task: produce the **Sprint Planning record** following `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/planning.template.md`.
-- Inputs to embed: the draft `spec.md`, story files, roster (with the backward-compat note from Step 2 if applicable), backlog, DoR, prior retro if any, the user's answers from Step 3, the resolved profile and ceremony flags, `architecture.md` (read-only for context), **and Wave 1's two outputs** — the TL's per-story `discipline` values and feasibility findings, and the PM's scope findings.
-- Output: the planning-record markdown, including the "Discipline assignments & coverage gaps" section (per-story assignee, or an explicit unresolved-coverage-gap flag — see `scrum-master.md`'s assignment rule).
+- Inputs: story files, roster, DoR, user answers from Step 7, Wave 1 outputs (TL's discipline assignments and feasibility findings, PM's scope findings).
+- Output: full planning record markdown with "Discipline assignments & coverage gaps" section.
 
-Wait for it. If it errors, surface and stop.
+Wait for the SM.
 
-## Step 5 — Synthesize and validate
+## Step 10 — Synthesize and validate
 
-The orchestrator (you) now reconciles the three outputs:
+### 10.1 Scope swaps
+If the PM recommended swapping a story for a higher-priority backlog item, surface via `AskUserQuestion`. If accepted, update the story list and backlog.
 
-### 5.1 Apply scope swaps if the PM raised any
-If the PM recommended swapping a sprint story for a higher-value backlog story:
-- Surface the swap to the user via `AskUserQuestion` (accept / reject / discuss).
-- If accepted, update the in-memory story list. Move the dropped story back to `status: backlog` in the backlog, and pull the new one into the sprint.
+### 10.2 DoR validation
+For each story, validate against `definition-of-ready.md`. Include the new "discipline is assigned" check using the TL's Wave 1 output. Stories failing DoR cannot enter the sprint:
+- `lean`: surface and ask whether to drop them.
+- `full-scrum`: refuse to lock — ask the user to groom first.
 
-### 5.2 Apply technical splits if the TL raised any
-If the TL flagged a story as under-estimated or needing a split:
-- Surface to user. If accepted, update the story file's frontmatter `estimate` field or create a split-story placeholder (`US-NNN-a`, `US-NNN-b`). For MVP, do not auto-split — just record the recommendation and ask the user to handle next groom.
+### 10.3 Capacity check
+- Estimate units: XS=1, S=2, M=3, L=5, XL=8.
+- `committed = sum(units)`; `capacity = num_devs × sprint_weeks × 5`.
+- If `committed > 1.2 × capacity`: warn and suggest dropping the lowest-priority story.
 
-### 5.3 Run DoR validation
-For each remaining story, check against `definition-of-ready.md`, including the new **"discipline is assigned"** item — use the TL's Wave 1 `discipline` value (not yet written to disk). Stories that fail the DoR cannot enter the sprint:
-- If any fail in `lean`: surface to user, ask whether to drop them.
-- If any fail in `full-scrum`: refuse to lock — the team must groom first.
+### 10.4 Discipline coverage gaps
+If the SM flags an unresolved gap (no roster member covers the assigned discipline), ask via `AskUserQuestion`: *"No one on the roster covers `<discipline>` for `<story>`. Assign to Tech Lead as a fallback?"* Record the resolution in the planning record.
 
-### 5.4 Capacity check
-Compute:
-- `units(estimate)` mapping: XS=1, S=2, M=3, L=5, XL=8.
-- `committed = sum(units(story.estimate) for story in selected)`
-- `team_capacity = num_devs * sprint_weeks * 5` (rough nominal).
-- If `committed > 1.2 * team_capacity`: surface the over-commit and recommend dropping the lowest-priority story. Re-run from 5.3 if a drop is accepted.
+## Step 11 — Write outputs
 
-### 5.5 Absorb grooming if `backlog_grooming.required: false`
-The SM agent included a `## Top-of-backlog refinement` subsection. Use it to update `conclave/product/backlog.md` — only the `last_groomed_at` field and any reordering the SM recommended. Do NOT write new stories from this step.
+### 11.1 Update `meta.md`
+For the first sprint (`SPRINT_ID`): set `status: active`, `target_start`, `target_end`.
+For all subsequent sprints in `SPRINTS_TO_PLAN` (multi-sprint mode): set only `target_start`, `target_end` — leave `status: draft`.
 
-### 5.6 Resolve discipline coverage gaps
-If the SM's Wave 2 output flags any story as an unresolved coverage gap (no roster member's `Discipline` matches), surface it to the human via `AskUserQuestion` **yourself** — do not let the SM subagent guess: *"No one on the roster covers `<discipline>` for `<story>`. Assign to Tech Lead as a temporary fallback, or pick someone else?"* Record the resolution (who was actually assigned, and that it was a fallback) in that story's `Notes` cell for `planning.template.md`'s selected-stories table, so it's visible in the PR. Resolve every gap before proceeding to Step 6 — an unresolved gap blocks locking the sprint the same way a failed DoR item does.
+### 11.2 Update `spec.md`
+Replace the selected-stories table with the final list including discipline and assignee. Set `status: active` in frontmatter for the first sprint.
 
-## Step 6 — Write outputs
-
-### 6.1 Update `meta.md`
-Set `status: active`, `target_start`, `target_end`. Keep `created_at` untouched.
-
-### 6.2 Update `spec.md`
-Replace the selected-stories table with the final list (with assignees filled in). Set `status: active` in frontmatter.
-
-### 6.3 Update each story's frontmatter
-For each story in the final selection:
-- `assignee` → the person assigned by the SM (including any coverage-gap fallback resolved in 5.6)
-- `discipline` → the value the Tech Lead assigned in Wave 1
+### 11.3 Update story frontmatter
+For each story in the first sprint:
+- `assignee` → from SM output
+- `discipline` → from TL output
 - `status` → `ready`
 
-### 6.4 Write `planning.md`
-Render `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/planning.template.md` using the SM's output, the PM's `Scope findings`, the TL's `Technical feasibility findings`, the user's answers, the capacity numbers, and the resolved profile. Write to `$SPRINT_PATH/planning.md`.
+### 11.4 Write `planning.md`
+Render `planning.template.md` with the SM's output, PM's scope findings, TL's feasibility findings, user answers, and capacity numbers. Write to `$SPRINT_PATH/planning.md`.
 
-### 6.5 Update the backlog table
-Mark each selected story's `Status` cell as `in-progress` and `In sprint` cell as `$SPRINT_ID` in `conclave/product/backlog.md`. Do not reorder unrelated rows.
+### 11.5 Update `backlog.md`
+Mark each selected story as `in-progress` and set the `In sprint` cell to `$SPRINT_ID`.
 
-## Step 6b — Multi-sprint planning loop (`PLAN_ALL = true` only)
+## Step 11b — Multi-sprint mode (`PLAN_ALL = true`)
 
-After completing Steps 2–6 for `SPRINT_ID` (the first sprint), repeat Steps 2–6 for each remaining sprint in `SPRINTS_TO_PLAN` sequentially. For each subsequent sprint:
+After completing Steps 5–11 for the first sprint, repeat Steps 6–11 for each remaining sprint in `SPRINTS_TO_PLAN` sequentially:
+- Skip the profile questionnaire (already answered).
+- Ask only for sprint start and end dates.
+- Do **not** set `status: active` — these sprints remain `draft`.
+- Carry forward the reduced backlog pool (stories committed to prior sprints are excluded).
+- Print after each: `✓ SPRINT-NNN planned (draft) — N stories, N estimate units.`
 
-- Use the same config, roster, DoR, and DoD already loaded.
-- Ask only for sprint start and end dates (skip the profile questionnaire since it was already answered).
-- **Do NOT set `status: active`** in Step 6.1 — these sprints remain `draft`. Only update their `target_start`, `target_end`, and the planning record.
-- Carry backlog capacity information forward: stories moved to `in-progress` in a prior sprint reduce backlog pool for the next one.
-- After each sprint's planning is written, print a one-line progress note: `✓ SPRINT-NNN planned (draft) — N stories, N estimate units.`
+## Step 12 — Report
 
-Print a divider before the final report section.
+**Single-sprint mode:**
+```
+✓ SPRINT-NNN is now active (start_date → end_date)
 
-## Step 7 — Report to the user
+Stories committed:
+  <PREFIX>-001 → <assignee> (frontend)  [M]
+  <PREFIX>-002 → <assignee> (backend)   [S]
+  ...
 
-Print a short summary:
+Capacity: <committed> / <capacity> units (<buffer>% buffer)
+```
 
-- **Single-sprint mode**: `SPRINT_ID` is now `active`, runs from start_date to end_date.
-- **Multi-sprint mode (`--all`)**: `SPRINT_ID` is `active`; list each additional sprint with its `draft` status, date range, and story count.
-- Number of committed stories and total estimate units vs team capacity (with the buffer percentage) for the active sprint.
-- Assignees and their discipline (one line per story: `US-NNN → <assignee> (<discipline>)`) for the active sprint.
-- Any discipline coverage gaps that came up and how they were resolved (5.6).
-- Any open commitments / risks the SM flagged.
-- In multi-sprint mode, also print: *"Draft sprints are ready — each will be activated when the previous sprint closes and you run `/conclave-planning` again (or use `/conclave-planning --all` to re-plan the remaining drafts after backlog changes)."*
-- Suggested git command sequence:
+**Multi-sprint mode (`--all`):**
+```
+✓ SPRINT-001 is active
+  SPRINT-002 planned (draft) — N stories
+  SPRINT-003 planned (draft) — N stories
 
-  ```bash
-  git add conclave/
-  git commit -m "conclave: lock SPRINT-NNN — <one-line sprint goal>"
-  gh pr create --title "Sprint Planning: SPRINT-NNN" --body "Goal, assignments, DoR validation."
-  ```
+Draft sprints are ready. Each activates when the previous closes.
+```
 
-- Next step for each dev: `/conclave-dev US-NNN` (planned, not yet shipped — for now, devs work the stories manually).
+Suggested next steps:
+
+```bash
+git add conclave/
+git commit -m "conclave: plan SPRINT-NNN — <sprint goal>"
+gh pr create --title "Sprint Planning: SPRINT-NNN" --body "Goal, assignments, DoR validation."
+
+# Start development:
+/conclave-dev <PREFIX>-001
+/conclave-dev <PREFIX>-001 <PREFIX>-002 <PREFIX>-003   # parallel batch
+/conclave-dev --loop                                    # autonomous three-wave loop
+```
 
 ## Guardrails
 
-- **Do not modify** any file outside `$REPO_ROOT/conclave/`.
-- **Do not commit.** The team reviews planning as a PR.
-- **Never override the structural required flag** for `sprint_planning` or `qa_verification`. If a malformed `config.md` says otherwise, refuse with a clear error.
-- **If any agent's output fails its self-check**, surface the failure to the user verbatim and stop. Do not silently fix.
-- **Preserve every existing comment, note, or hand-edit** in `spec.md`, story files, and `planning.md` if they exist. Re-runs must be idempotent: a second `/conclave-planning` on the same draft sprint should be refused (status would be `active`), not silently re-do the work.
+- Do not modify any file outside `$REPO_ROOT/conclave/`.
+- Do not commit. The team reviews on a PR.
+- `sprint_planning` and `qa_verification` are structural gates — never read `required: false` on them without refusing.
+- If any agent's output fails its self-check, surface the failure verbatim and stop.
+- If the sprint already has `status: active`, refuse re-planning: *"SPRINT-NNN is already active. Wait for it to close before planning again."*
+- Preserve all hand-edits in story files, `spec.md`, and `planning.md` on re-runs.

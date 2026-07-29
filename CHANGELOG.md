@@ -4,6 +4,20 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+### Changed (Breaking)
+
+- **`/conclave-spec` redesigned as a one-time project setup wizard** — no longer takes an `<idea>` argument and no longer invokes any AI agents. It is now a pure wizard that auto-detects the stack, collects project name, story prefix (e.g. `US`, `TASK`, `FEAT`), launch date, team profile, and the path to the product planning document (`docs/mvp.md` or `docs/project.md`). Workspace creation (previously done by `/conclave-init`) is now fully absorbed into `/conclave-spec`. Run it once per repository before `/conclave-planning`.
+
+- **`/conclave-planning` now generates all artifacts (Phase A + Phase B)** — on the first run (no backlog exists yet), it reads the product document and invokes the PM and TL in parallel to produce the full Product Backlog, Architectural Foundation, per-story files, and Gherkin acceptance criteria. The Sprint Planning ceremony (Phase B: SM + scope/feasibility validation) always runs after Phase A. The `--all` flag plans every sprint in the product document at once, activating the first and leaving the rest `draft`. On subsequent runs, Phase A is skipped and only Phase B runs.
+
+### Added
+
+- **`story_prefix` in `config.md`** — a new field (default `US`) that controls the prefix for all story and acceptance file names. Set during `/conclave-spec`; all commands read it when creating or querying story files. Examples: `US-001-login.md` / `AC-US-001.md`, or `TASK-001-login.md` / `AC-TASK-001.md`.
+
+- **`product_doc_path` in `config.md`** — a new field pointing to the product planning document that `/conclave-planning` uses as its source of truth for generating stories and sprints. Set during `/conclave-spec`; can be updated to point to a different document at any time.
+
+- **`launch_date` in `config.md`** — an ISO date (or "TBD") captured during `/conclave-spec` and carried through all generated artifacts.
+
 ### Docs
 
 - **`/es/configuration` — ejemplos mejorados** — la página de referencia de configuración EN/ES ahora incluye: (1) dos ejemplos completos de `config.md` ("proyecto solo / lean" y "equipo distribuido / full-scrum") en lugar de uno solo; (2) el bloque `commands:` reemplazado por tres recetas nombradas y sin comentar ("Dev autónomo sin loop", "Loop de fin de semana", "Loop con Slack"); (3) el ejemplo de `testing-environments.md` muestra ahora un archivo completado con valores realistas de env vars, Postman y usuarios de test, en lugar de solo TBDs.

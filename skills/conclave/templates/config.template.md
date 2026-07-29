@@ -4,6 +4,11 @@ project_type: "{{project_type}}"        # backend | frontend | mobile | devops |
 project_language: "{{project_language}}" # ISO 639-1 code: es | en | pt | fr | de | etc.
                                          # All Conclave-generated markdown (stories, reports,
                                          # acceptance criteria, comments) must be written in this language.
+story_prefix: "{{story_prefix}}"        # Prefix for story IDs: US → US-001, TASK → TASK-001, FEAT → FEAT-001
+launch_date: "{{launch_date}}"          # Target launch date (ISO 8601) or "TBD"
+product_doc_path: "{{product_doc_path}}" # Relative path to the product planning document (e.g. docs/mvp.md)
+                                         # /conclave-planning reads this file to generate stories and sprints.
+                                         # Set by /conclave-spec; edit here to point to a different document.
 stack:
   language: "{{stack_language}}"
   framework: "{{framework}}"
@@ -12,7 +17,7 @@ stack:
 repo_url: "{{repo_url}}"
 claude_md_path: "CLAUDE.md"
 initialized_at: "{{iso_date}}"
-conclave_version: "0.16.0"
+conclave_version: "1.0.0"
 
 # Optional. Which agent runtime(s) this install expects. Informational only —
 # unset means either Claude Code or Cursor is fine (mixed teams OK).

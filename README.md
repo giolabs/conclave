@@ -27,7 +27,7 @@ No central server, no proprietary format, no hidden state. The team coordinates 
 ln -s "$(pwd)" ~/.claude/plugins/conclave
 ```
 
-Restart Claude Code. You should now see `/conclave-init` and `/conclave-spec` in the slash-command list.
+Restart Claude Code. You should now see `/conclave-spec` in the slash-command list.
 
 ### Cursor
 
@@ -49,7 +49,7 @@ Two different directories are involved:
 | Directory | What it is |
 |---|---|
 | **Plugin repo** (`conclave`) | Where you install the Cursor package from — once per machine |
-| **Your app repo** | Where `/conclave-init` creates `conclave/` — once per project |
+| **Your app repo** | Where `/conclave-spec` creates `conclave/` — once per project |
 
 **1. Get the plugin (once per machine)**
 
@@ -63,7 +63,7 @@ cd conclave
 
 1. Enable **Include third-party Plugins, Skills, and other configs** if your Cursor build requires it.
 2. Run **Developer: Reload Window**.
-3. In Agent chat, confirm `/conclave-init` appears.
+3. In Agent chat, confirm `/conclave-spec` appears.
 
 On Team/Enterprise, if nothing loads after a correct install, ask your org admin to allow local plugins (`userLocal` may be false).
 
@@ -76,8 +76,7 @@ cd /path/to/your-app
 In Cursor Agent chat:
 
 ```text
-/conclave-init
-/conclave-spec "your product idea"
+/conclave-spec
 /conclave-planning
 ```
 
@@ -90,24 +89,24 @@ Then use `/conclave-dev`, `/conclave-qa`, etc. as usual. You do **not** need Cla
 In your project repo:
 
 ```bash
-# 1. Bootstrap the Scrum directory (once)
-/conclave-init
+# 1. One-time setup wizard — collects project name, story prefix, stack, launch date,
+#    and finds the product document (mvp.md / project.md). No AI agents.
+/conclave-spec
 
-# 2. Generate the founding artifacts from your product idea (once per project)
-/conclave-spec "REST API for task management with JWT auth"
-
-# 3. Lock the sprint (once per sprint, when you're ready to start)
+# 2. Generate stories + architecture from the product doc and lock Sprint 1 active.
+#    Use --all to plan every sprint from the document at once.
 /conclave-planning
+/conclave-planning --all
 
-# 4. Each dev picks up their assigned story (one story, or several at once)
+# 3. Each dev picks up their assigned story (one story, or several at once)
 /conclave-dev US-001
 /conclave-dev US-001 US-002 US-003   # parallel — each gets its own branch and PR
 
-# 5. QA verifies stories when they reach review (one or several at once)
+# 4. QA verifies stories when they reach review (one or several at once)
 /conclave-qa US-001
 /conclave-qa US-001 US-002           # parallel — each verified on its own branch
 
-# 6. Tech Lead approves the PR (only in profiles where peer_pr_review is on)
+# 5. Tech Lead approves the PR (only in profiles where peer_pr_review is on)
 /conclave-pr-review US-001
 
 # Or: run the entire sprint in one shot (steps 3–6 above, automated)
@@ -144,16 +143,18 @@ In your project repo:
 
 ```
 
-`/conclave-spec` invokes the Tech Lead and Product Manager subagents in parallel to produce:
+`/conclave-spec` is a **one-time wizard** (no AI). It collects project name, story prefix (e.g. `US`, `TASK`, `FEAT`), stack (auto-detected, then confirmed), launch date, and the path to your product planning document (`docs/mvp.md` or `docs/project.md`). It creates the `conclave/` workspace and that's it.
 
-- `conclave/product/backlog.md` — initial Product Backlog
+`/conclave-planning` does the rest. On the **first run** it invokes the Tech Lead and Product Manager in parallel — reading the product document — to produce:
+
+- `conclave/product/backlog.md` — Product Backlog with all stories, estimates, and priorities
 - `conclave/product/architecture.md` — Architectural Foundation with ADRs
-- `conclave/sprints/SPRINT-001/` — Sprint 1 draft with stories and Gherkin acceptance criteria
+- `conclave/sprints/SPRINT-001/stories/` — per-story files (prefixed with your `story_prefix`)
+- `conclave/sprints/SPRINT-001/acceptance/` — per-story Gherkin acceptance criteria
 
-`/conclave-planning` then runs the Sprint Planning ceremony: Scrum Master facilitates, PM validates scope, TL validates feasibility, all in parallel. The output:
+Then (on **every run**) it runs the Sprint Planning ceremony: Scrum Master facilitates, PM validates scope, TL validates feasibility and assigns disciplines. The output:
 
-- Sprint goal confirmed (one sentence)
-- Stories assigned to specific devs
+- Stories assigned to specific devs by discipline
 - Definition-of-Ready check per story
 - Capacity computed vs commitment
 - `conclave/sprints/SPRINT-001/planning.md` — the meeting record
@@ -241,9 +242,8 @@ Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251
 
 ## Shipped so far
 
-- `/conclave-init` — bootstrap the `conclave/` workspace, pick a team profile.
-- `/conclave-spec <idea>` — produce the Product Backlog, Architectural Foundation, and Sprint 1 draft from an idea plus the project's `CLAUDE.md`, installed Skills, and detected stack signals.
-- `/conclave-planning` — run Sprint Planning: confirm the goal, assign stories, validate the DoR, compute capacity, lock the sprint. Profile-aware: depth of the ceremony scales with `team_profile`.
+- `/conclave-spec` — one-time project setup wizard (no AI agents). Auto-detects the stack, collects project name, story prefix, launch date, team profile, and product document path. Creates the `conclave/` workspace.
+- `/conclave-planning [--all]` — generates the full Product Backlog, Architectural Foundation, per-story files, and Gherkin acceptance criteria from the product document (PM + TL in parallel, first run only), then runs the Sprint Planning ceremony and activates the first sprint. `--all` plans every sprint from the document in one pass, activating the first and leaving the rest `draft`.
 - `/conclave-dev US-NNN|BUG-NNN [...]` — Developer picks up a story or bug: branches, implements with tests against each Gherkin scenario, opens a PR. Profile-aware peer-review tagging. Multiple IDs run in concurrent batches of ≤ 3. With `--loop` it instead runs the **Three-Wave Delivery Loop** over the active sprint (or the IDs given) — W1 Dev + green CI → W2 QA → W3 forced TL, failures return to W1 — under a recurring schedule and budgets, leaving approved PRs for a human to merge (ADR-006).
 - `/conclave-qa US-NNN` — QA verifies a story in `status: review` adversarially: re-derives PASS/FAIL per scenario, probes edge cases, appends a verification report, leaves a PR comment with the verdict. Moves story to `verified` (when TL gate is on) or `done` (when off). **Structurally required — cannot be skipped by any profile.** QA does NOT approve the PR itself. When `conclave/team/testing-environments.md` is configured, QA also generates UAT test artifacts from the story's Gherkin scenarios — a Playwright spec (`frontend`/`multi`), the shared project-wide Postman collection run via Newman (`backend`/`multi`), or a manual functional checklist (`mobile`) — pushes them, and gates the verdict on the target repo's own CI actually running them (never executed locally by QA). A `mobile` checklist awaiting a human produces a distinct `pending_uat` outcome, not a failure.
 - `/conclave-pr-review US-NNN` — Tech Lead reviews the code against the architecture, ADRs, and code-level DoD items, then runs `gh pr review --approve` or `--request-changes`. Only runs when `ceremonies.peer_pr_review.required: true`. Story moves from `verified` to `done` on approve.
