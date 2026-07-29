@@ -17,7 +17,7 @@ stack:
 repo_url: "{{repo_url}}"
 claude_md_path: "CLAUDE.md"
 initialized_at: "{{iso_date}}"
-conclave_version: "1.0.0"
+conclave_version: "1.1.0"
 
 # Optional. Which agent runtime(s) this install expects. Informational only —
 # unset means either Claude Code or Cursor is fine (mixed teams OK).

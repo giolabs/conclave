@@ -2,7 +2,7 @@
 
 All notable changes to the Conclave plugin are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.1.0] — 2026-07-29
 
 ### Changed (Breaking)
 
