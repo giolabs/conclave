@@ -6,17 +6,17 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ### Changed (Breaking)
 
-- **`/conclave-spec` redesigned as a one-time project setup wizard** — no longer takes an `<idea>` argument and no longer invokes any AI agents. It is now a pure wizard that auto-detects the stack, collects project name, story prefix (e.g. `US`, `TASK`, `FEAT`), launch date, team profile, and the path to the product planning document (`docs/mvp.md` or `docs/project.md`). Workspace creation (previously done by `/conclave-init`) is now fully absorbed into `/conclave-spec`. Run it once per repository before `/conclave-planning`.
+- **`/conclave-init` is now the one-time project setup wizard** — the wizard logic previously split across `/conclave-spec` (as redesigned last sprint) has been merged into `/conclave-init`. It auto-detects the stack, collects project name, story prefix (e.g. `US`, `TASK`, `FEAT`), launch date, team profile, and the path to the product planning document (`docs/mvp.md` or `docs/project.md`). Run it once per repository before `/conclave-planning`. `/conclave-spec` is now a deprecated shim that tells users to run `/conclave-init` instead.
 
 - **`/conclave-planning` now generates all artifacts (Phase A + Phase B)** — on the first run (no backlog exists yet), it reads the product document and invokes the PM and TL in parallel to produce the full Product Backlog, Architectural Foundation, per-story files, and Gherkin acceptance criteria. The Sprint Planning ceremony (Phase B: SM + scope/feasibility validation) always runs after Phase A. The `--all` flag plans every sprint in the product document at once, activating the first and leaving the rest `draft`. On subsequent runs, Phase A is skipped and only Phase B runs.
 
 ### Added
 
-- **`story_prefix` in `config.md`** — a new field (default `US`) that controls the prefix for all story and acceptance file names. Set during `/conclave-spec`; all commands read it when creating or querying story files. Examples: `US-001-login.md` / `AC-US-001.md`, or `TASK-001-login.md` / `AC-TASK-001.md`.
+- **`story_prefix` in `config.md`** — a new field (default `US`) that controls the prefix for all story and acceptance file names. Set during `/conclave-init`; all commands read it when creating or querying story files. Examples: `US-001-login.md` / `AC-US-001.md`, or `TASK-001-login.md` / `AC-TASK-001.md`.
 
-- **`product_doc_path` in `config.md`** — a new field pointing to the product planning document that `/conclave-planning` uses as its source of truth for generating stories and sprints. Set during `/conclave-spec`; can be updated to point to a different document at any time.
+- **`product_doc_path` in `config.md`** — a new field pointing to the product planning document that `/conclave-planning` uses as its source of truth for generating stories and sprints. Set during `/conclave-init`; can be updated to point to a different document at any time.
 
-- **`launch_date` in `config.md`** — an ISO date (or "TBD") captured during `/conclave-spec` and carried through all generated artifacts.
+- **`launch_date` in `config.md`** — an ISO date (or "TBD") captured during `/conclave-init` and carried through all generated artifacts.
 
 ### Docs
 

@@ -27,7 +27,7 @@ No central server, no proprietary format, no hidden state. The team coordinates 
 ln -s "$(pwd)" ~/.claude/plugins/conclave
 ```
 
-Restart Claude Code. You should now see `/conclave-spec` in the slash-command list.
+Restart Claude Code. You should now see `/conclave-init` in the slash-command list.
 
 ### Cursor
 
@@ -63,7 +63,7 @@ cd conclave
 
 1. Enable **Include third-party Plugins, Skills, and other configs** if your Cursor build requires it.
 2. Run **Developer: Reload Window**.
-3. In Agent chat, confirm `/conclave-spec` appears.
+3. In Agent chat, confirm `/conclave-init` appears.
 
 On Team/Enterprise, if nothing loads after a correct install, ask your org admin to allow local plugins (`userLocal` may be false).
 
@@ -76,7 +76,7 @@ cd /path/to/your-app
 In Cursor Agent chat:
 
 ```text
-/conclave-spec
+/conclave-init
 /conclave-planning
 ```
 
@@ -91,7 +91,7 @@ In your project repo:
 ```bash
 # 1. One-time setup wizard — collects project name, story prefix, stack, launch date,
 #    and finds the product document (mvp.md / project.md). No AI agents.
-/conclave-spec
+/conclave-init
 
 # 2. Generate stories + architecture from the product doc and lock Sprint 1 active.
 #    Use --all to plan every sprint from the document at once.
@@ -143,7 +143,7 @@ In your project repo:
 
 ```
 
-`/conclave-spec` is a **one-time wizard** (no AI). It collects project name, story prefix (e.g. `US`, `TASK`, `FEAT`), stack (auto-detected, then confirmed), launch date, and the path to your product planning document (`docs/mvp.md` or `docs/project.md`). It creates the `conclave/` workspace and that's it.
+`/conclave-init` is a **one-time wizard** (no AI). It collects project name, story prefix (e.g. `US`, `TASK`, `FEAT`), stack (auto-detected, then confirmed), launch date, and the path to your product planning document (`docs/mvp.md` or `docs/project.md`). It creates the `conclave/` workspace and that's it.
 
 `/conclave-planning` does the rest. On the **first run** it invokes the Tech Lead and Product Manager in parallel — reading the product document — to produce:
 
@@ -242,7 +242,7 @@ Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251
 
 ## Shipped so far
 
-- `/conclave-spec` — one-time project setup wizard (no AI agents). Auto-detects the stack, collects project name, story prefix, launch date, team profile, and product document path. Creates the `conclave/` workspace.
+- `/conclave-init` — one-time project setup wizard (no AI agents). Auto-detects the stack, collects project name, story prefix, launch date, team profile, and product document path. Creates the `conclave/` workspace. (`/conclave-spec` is a deprecated alias that redirects here.)
 - `/conclave-planning [--all]` — generates the full Product Backlog, Architectural Foundation, per-story files, and Gherkin acceptance criteria from the product document (PM + TL in parallel, first run only), then runs the Sprint Planning ceremony and activates the first sprint. `--all` plans every sprint from the document in one pass, activating the first and leaving the rest `draft`.
 - `/conclave-dev US-NNN|BUG-NNN [...]` — Developer picks up a story or bug: branches, implements with tests against each Gherkin scenario, opens a PR. Profile-aware peer-review tagging. Multiple IDs run in concurrent batches of ≤ 3. With `--loop` it instead runs the **Three-Wave Delivery Loop** over the active sprint (or the IDs given) — W1 Dev + green CI → W2 QA → W3 forced TL, failures return to W1 — under a recurring schedule and budgets, leaving approved PRs for a human to merge (ADR-006).
 - `/conclave-qa US-NNN` — QA verifies a story in `status: review` adversarially: re-derives PASS/FAIL per scenario, probes edge cases, appends a verification report, leaves a PR comment with the verdict. Moves story to `verified` (when TL gate is on) or `done` (when off). **Structurally required — cannot be skipped by any profile.** QA does NOT approve the PR itself. When `conclave/team/testing-environments.md` is configured, QA also generates UAT test artifacts from the story's Gherkin scenarios — a Playwright spec (`frontend`/`multi`), the shared project-wide Postman collection run via Newman (`backend`/`multi`), or a manual functional checklist (`mobile`) — pushes them, and gates the verdict on the target repo's own CI actually running them (never executed locally by QA). A `mobile` checklist awaiting a human produces a distinct `pending_uat` outcome, not a failure.

@@ -1,9 +1,23 @@
 ---
-description: One-time project wizard. Configures the Conclave workspace for Scrum — collects project name, story ID prefix, stack, launch date, and locates the product planning document. Run once per repo before /conclave-planning.
-allowed-tools: Bash(git rev-parse:*), Bash(ls:*), Bash(find:*), Bash(grep:*), Bash(date:*), Bash(mkdir:*), Bash(cat:*), Read, Write, AskUserQuestion
+description: "[Deprecated] Use /conclave-init instead. This command is kept as a backward-compatible alias — it will tell you to run /conclave-init."
+allowed-tools: []
 ---
 
-# /conclave-spec
+# /conclave-spec — Deprecated
+
+This command has been merged into `/conclave-init`.
+
+Please run `/conclave-init` instead. It does everything this command used to do: detects your stack, collects project metadata, and creates the `conclave/` workspace.
+
+```bash
+/conclave-init
+```
+
+---
+
+<!-- original content preserved below for reference only -->
+
+# /conclave-spec (original)
 
 One-time project setup wizard. Creates the `conclave/` workspace and records the project configuration that every other Conclave command reads.
 

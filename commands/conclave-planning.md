@@ -1,5 +1,5 @@
 ---
-description: Generate stories and acceptance criteria from the product document, run Sprint Planning, and activate the first sprint. Use --all to plan every sprint from the document in one pass. The primary command after /conclave-spec.
+description: Generate stories and acceptance criteria from the product document, run Sprint Planning, and activate the first sprint. Use --all to plan every sprint from the document in one pass. The primary command after /conclave-init.
 allowed-tools: Bash(git rev-parse:*), Bash(ls:*), Bash(find:*), Bash(date:*), Bash(cat:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
@@ -28,7 +28,7 @@ Check if `--all` is present. Set `PLAN_ALL = true` if so, `false` otherwise.
 ## Step 1 — Resolve workspace
 
 1. Run `git rev-parse --show-toplevel` → `REPO_ROOT`. If not a git repo, surface and stop.
-2. Confirm `$REPO_ROOT/conclave/config.md` exists. If not: *"Run `/conclave-spec` first to initialize the workspace."* Stop.
+2. Confirm `$REPO_ROOT/conclave/config.md` exists. If not: *"Run `/conclave-init` first to initialize the workspace."* Stop.
 3. Read `$REPO_ROOT/conclave/config.md`. Extract:
 
 | Field | Variable | Notes |
