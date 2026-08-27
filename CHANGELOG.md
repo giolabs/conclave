@@ -2,6 +2,16 @@
 
 All notable changes to the Conclave plugin are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+
+- **Tech Lead agent (`skills/conclave/agents/tech-lead.md`) — evidence-grounded ADRs**: the TL charter now enforces the full decision protocol before returning any ADR. Four new Mindset principles (evidence tiers, reversibility bar, ACH disconfirmation, confidence/likelihood separation). New "Evidence and quality gates" section with five mandatory pre-emit checks: evidence tier tagging on every claim, Type-1/Type-2 reversibility classification, a 5-step self-critique gate (pre-mortem, key-assumptions check, reversal test, identifier audit, two-sided absence test), an ambiguity sweep against a literal word list, and mandatory Unknowns register + Coverage section. Two new common hard rules: no Tier-D claim in `## Decision`, no unfilled `{{placeholder}}` strings.
+
+- **ADR template (`skills/conclave/templates/adr.template.md`) — agent-executable format**: expanded with `reversibility` and `applies_to` frontmatter fields; evidence tier notation in Alternatives Considered; mandatory `## Unknowns and Assumptions` table with revisit trigger; `## Rules` section (RFC-2119 `MUST`/`MUST NOT`/`SHOULD`); `### Confirmation` with executable `Verify:` command; `## Implementation Notes` (verified entry points, ordered steps each ending in a runnable verification, contracts touched, migration/rollback, out-of-scope); `## Coverage` section. Template comment updated with a full reference guide for each section.
+
+---
+
 ## [1.1.0] — 2026-07-29
 
 ### Changed (Breaking)
