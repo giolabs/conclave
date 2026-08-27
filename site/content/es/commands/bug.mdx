@@ -19,21 +19,26 @@ Reportá un bug en el momento en que aparece — típicamente después de que un
 
 1. Clasifica el argumento — texto libre, o una URL/ID que parece una referencia a una herramienta de logging/error-tracking.
 2. Si parece una referencia, chequea si la sesión actual tiene algún MCP conectado cuyo nombre/descripción coincida con términos de logging/error-tracking (detección genérica por palabra clave — **nunca un nombre de vendor hardcodeado**). Si alguno coincide, intenta traer stack trace/breadcrumbs/contexto. Si no hay match o falla el fetch, cae silenciosamente a texto plano.
-3. Pregunta **título**, **severity** (`critical | high | medium | low`, sin default — debe ser explícito), **discipline** (default `multi`), y una historia/PR relacionada opcional.
-4. Delega al **subagente de QA** — no al Product Manager — para redactar los pasos de reproducción en Gherkin y una nota de severity advisory (la elección explícita del usuario siempre es la autoritativa).
-5. Calcula el próximo `BUG-NNN` — una secuencia monotónica separada de `US-NNN`, contadores independientes, nunca colisionan.
-6. Escribe `conclave/product/bugs/BUG-NNN-<slug>.md` desde `bug.template.md`.
-7. Lo espeja como un issue de GitHub vía `gh issue create` (solo GitHub en esta fase) — el issue es un espejo, nunca la fuente de verdad, misma relación que ya tiene un PR con una historia.
+3. **Refinador previo con Haiku** — despacha un subagente `claude-haiku-4-5-20251001` de solo lectura contra el input crudo y cualquier contexto enriquecido. Devuelve un JSON con: `optimized_title`, `suspected_code_area`, `blocking_questions`, `nonblocking_gaps`, `advisory_severity`, y valores de `prefill` para el formulario del usuario. Corre silenciosamente — nunca bloquea el flujo, solo hace el siguiente paso más inteligente.
+4. **Pide aclaraciones** (`AskUserQuestion`) — condicionalmente: si el refinador no encontró preguntas bloqueantes Y el severity advisory es claro, se salta el paso de preguntas y se usan directamente los valores prefill. Si no, hace hasta 5 preguntas (título, severity, discipline, historia/PR relacionada) con valores prefill del refinador y las 3 primeras preguntas bloqueantes. Severity (`critical | high | medium | low`) no tiene default — debe ser explícito.
+5. Delega al **subagente de QA** — no al Product Manager — para redactar los pasos de reproducción en Gherkin y una nota de severity advisory (la elección explícita del usuario siempre es la autoritativa). El `suspected_code_area` y `nonblocking_gaps` del refinador se pasan como hints de contexto.
+6. Calcula el próximo `BUG-NNN` — una secuencia monotónica separada de `US-NNN`, contadores independientes, nunca colisionan.
+7. Escribe `conclave/product/bugs/BUG-NNN-<slug>.md` desde `bug.template.md`. Incluye `suspected_code_area` (del refinador) y `lab_test_path` (vacío hasta que se genere un lab test).
+8. Lo espeja como un issue de GitHub vía `gh issue create` (solo GitHub en esta fase) — el issue es un espejo, nunca la fuente de verdad.
+9. **Genera una spec de lab test** — si `lab_test.enabled: true` en `conclave/config.md` Y la severity del bug es ≥ `lab_test.bugs.severity_threshold`, despacha el subagente Tech Lead para escribir `BUG-NNN-lab.md`. Requiere `conclave/lab-config.md` (avisa y salta si falta). Actualiza `lab_test_path` en el archivo del bug. Ver [Lab tests](/es/lab-tests).
 
 ## Qué hace `list`
 
 Mecánico — sin llamada a subagente, mismo precedente que [`/conclave-story retire`](/es/commands/story). Globa `conclave/product/bugs/*.md` e imprime una tabla ordenada por severity (`critical → high → medium → low`), después por ID:
 
 ```
-| Bug     | Título                          | Severity | Status       | Relacionado | Issue                          | Assignee |
-|---------|---------------------------------|----------|--------------|-------------|---------------------------------|----------|
-| BUG-004 | Checkout 500 en mobile Safari  | critical | in-progress  | US-042      | https://github.com/…/issues/81 | Cy       |
+| Bug     | Título                          | Severity | Status       | Relacionado | Lab | Issue                          | Assignee |
+|---------|----------------------------------|----------|--------------|-------------|-----|--------------------------------|----------|
+| BUG-004 | Checkout 500 en mobile Safari   | critical | in-progress  | US-042      | ✓   | https://github.com/…/issues/81 | Cy       |
+| BUG-003 | Loop de login en iOS Safari     | high     | ready        | —           | —   | https://github.com/…/issues/80 | —        |
 ```
+
+La columna `Lab` muestra `✓` cuando existe una spec de lab test (`lab_test_path` tiene valor) y `—` en caso contrario.
 
 ## Severity vs priority
 
@@ -53,6 +58,9 @@ El subagente Developer reproduce un bug antes de arreglarlo — usa los pasos de
 - Sin sub-acciones `edit`/`retire`/`split` en esta fase — un bug mal cargado se corrige a mano editando el frontmatter (git preserva el audit trail).
 - Nunca inventa un stack trace, detalle de entorno, o severity que el usuario no dio o que el enrichment no reveló.
 - Nunca hardcodea un nombre de vendor de logging/error-tracking específico en la lógica de detección MCP.
+- El refinador Haiku es una ayuda conveniente, no un gate — si da error, el flujo continúa sin él.
+- `AskUserQuestion` es condicional: se salta (no se "responde automáticamente") solo cuando el refinador no encuentra preguntas bloqueantes Y el severity advisory es claro. Un severity sin recomendación clara siempre dispara el paso de preguntas.
+- La generación de la spec del lab se salta silenciosamente (con un hint de configuración) si `conclave/lab-config.md` está ausente. Nunca es un hard error durante el reporte del bug.
 
 ## Después de que corre
 

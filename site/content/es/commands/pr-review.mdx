@@ -18,9 +18,16 @@ Este comando solo corre cuando `ceremonies.peer_pr_review.required: true` en `co
 1. Resuelve el workspace y chequea el gate del perfil — se rehúsa de inmediato si `peer_pr_review.required: false`.
 2. Resuelve la historia — debe estar en `status: verified` (QA ya pasó).
 3. Cambia a la branch de dev y calcula el diff contra la branch de integración.
-4. Carga contexto en paralelo: config, arquitectura, DoD, los archivos de historia y aceptación (incluyendo el último bloque de verificación de QA), el diff completo, y metadata del PR.
+4. Carga contexto en paralelo: config, arquitectura, DoD, los archivos de historia y aceptación (incluyendo el último bloque de verificación de QA), el diff completo, metadata del PR, y el bloque de configuración `lab_test.*`.
 5. **Delega al subagente Tech Lead**, que chequea el cumplimiento de ADRs, ítems de DoD a nivel de código (linter, cobertura, docs), y calidad de código — condiciones de carrera, olores de seguridad, errores de abstracción — cosas que la verificación de comportamiento de QA no puede detectar.
 6. Escribe las salidas (abajo).
+6.5. **Genera una spec de lab test** (cuando `lab_test.enabled: true` Y `lab_test.stories.generate_on: pr-review` Y el veredicto es `approved`):
+   - Salta silenciosamente si ya existe una spec de lab usable (es decir, `status != blocked`).
+   - Requiere `conclave/lab-config.md` — imprime instrucciones de setup y salta si falta (no es un hard error para la aprobación).
+   - Despacha el subagente Tech Lead con el archivo de historia, los criterios de aceptación, el diff del PR, el variable registry del lab config, y `base_url`.
+   - Escribe `US-NNN-lab.md` en el directorio de historias del sprint.
+   - Actualiza `lab_test_path` en el frontmatter de la historia; commitea y pushea.
+   - Ver [Lab tests](/es/lab-tests) para el formato de spec completo y las reglas de seguridad.
 
 ## Qué produce
 
@@ -40,5 +47,5 @@ Este comando solo corre cuando `ceremonies.peer_pr_review.required: true` en `co
 
 ## Después de que corre
 
-- **Aprobado** — el PR está listo para mergear (una acción humana separada).
-- **Pide cambios** — el dev pushea arreglos, después se vuelve a correr [`/conclave-qa US-NNN`](/es/commands/qa) (los criterios pueden haber cambiado) seguido de `/conclave-pr-review US-NNN` de nuevo.
+- **Aprobado** — el PR está listo para mergear (una acción humana separada). Si los lab tests están habilitados, también se generó una spec de lab — correr `/conclave-qa US-NNN --lab` después de que el PR mergea.
+- **Pide cambios** — el dev pushea arreglos, después se vuelve a correr [`/conclave-qa US-NNN`](/es/commands/qa) (los criterios pueden haber cambiado) seguido de `/conclave-pr-review US-NNN` de nuevo. La generación de la spec del lab se salta en `request_changes` — solo corre cuando el veredicto es `approved`.

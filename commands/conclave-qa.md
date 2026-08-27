@@ -1,9 +1,9 @@
 ---
-description: Verify one or more stories and/or bugs (US-NNN or BUG-NNN) against their Gherkin scenarios on the develop branch. Generates UAT test artifacts (Playwright for frontend/multi, a shared Postman collection for backend/multi, a manual checklist for mobile). Bugs found during QA are reported directly in the active sprint's bugs folder with full story/PR linkage. Sprint cannot close with open critical bugs. QA does NOT approve the PR — that is the Tech Lead's call via /conclave-pr-review.
-allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git rev-parse HEAD:*), Bash(git log:*), Bash(git switch:*), Bash(git checkout:*), Bash(git fetch:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(ls:*), Bash(mkdir:*), Bash(cat:*), Bash(date:*), Bash(find:*), Bash(gh pr view:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh run list:*), Bash(gh run view:*), Read, Write, Edit, Agent, AskUserQuestion
+description: Verify one or more stories and/or bugs (US-NNN or BUG-NNN) against their Gherkin scenarios on the develop branch. Generates UAT test artifacts (Playwright for frontend/multi, a shared Postman collection for backend/multi, a manual checklist for mobile). Bugs found during QA are reported directly in the active sprint's bugs folder with full story/PR linkage. Sprint cannot close with open critical bugs. QA does NOT approve the PR — that is the Tech Lead's call via /conclave-pr-review. Supports `--lab` flag: when passed with a single US-NNN ID, executes that story's TL-generated lab spec (`US-NNN-lab.md`) against the integration branch, records Tier A evidence, and auto-creates BUG-NNN entries for any findings.
+allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git rev-parse HEAD:*), Bash(git log:*), Bash(git switch:*), Bash(git checkout:*), Bash(git fetch:*), Bash(git pull:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(ls:*), Bash(mkdir:*), Bash(cat:*), Bash(date:*), Bash(find:*), Bash(grep:*), Bash(gh pr view:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh run list:*), Bash(gh run view:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
-# /conclave-qa US-NNN|BUG-NNN [US-NNN|BUG-NNN ...]
+# /conclave-qa US-NNN|BUG-NNN [US-NNN|BUG-NNN ...] [--lab]
 
 Verify one or more user stories and/or bugs in `status: review` against their Gherkin scenarios — a `BUG-NNN`'s repro steps are verified exactly like a story's acceptance criteria, same UAT/CI logic, same verdict semantics.
 
@@ -216,6 +216,141 @@ If `gh` is not available, print the prepared `gh pr comment` command for the use
 ### 8.4 Push
 `git push origin $BRANCH` so the verification report, story status update, and (for `mobile`, deferred from Step 5.2) the generated checklist are all visible.
 
+## Step 9.5 — Lab test execution (only when `--lab` flag is present)
+
+This section runs **in addition to** Step 9, not instead of it, and only when the `--lab` flag was passed on the command line. The `--lab` flag is only valid with a single `US-NNN` ID — not with `BUG-NNN` (bugs run their lab test automatically during `/conclave-bug report`) and not in multi-ID mode (Step 0). If `--lab` is passed with a bug ID or multiple IDs, refuse with a usage message and stop.
+
+### 9.5.1 — Prerequisites
+
+1. Confirm `LAB_TEST_ENABLED == true` in config. If false, print:
+   `Lab test requested but lab_test.enabled is false in config.md. Enable it to use --lab.` and stop.
+
+2. **Require `conclave/lab-config.md`**. Attempt to read `$REPO_ROOT/conclave/lab-config.md`:
+   - If **not found**: print the setup instructions below and stop — execution is impossible without env var values:
+     ```
+     ✘  conclave/lab-config.md is missing. Lab test execution requires it.
+        1. Copy the template:
+           cp <plugin_root>/skills/conclave/templates/lab-config.template.md conclave/lab-config.md
+        2. Fill in the environment values (base_url, vars) for the integration environment.
+        3. Add to .gitignore:
+           echo "conclave/lab-config.md" >> .gitignore
+        4. Re-run /conclave-qa US-NNN --lab once configured.
+     ```
+   - If found but the **`integration.vars` block is entirely empty**: warn and ask via `AskUserQuestion` whether to fall back to `local.vars` (with a note that results may not reflect the integration environment). If the user declines, stop.
+   - If found and contains usable vars: parse frontmatter into `LAB_CONFIG`. Check `.gitignore` for the entry; print a one-line warning if missing: `⚠  conclave/lab-config.md is not in .gitignore — add it to avoid leaking local values.`
+
+3. Locate the lab spec file: `$REPO_ROOT/conclave/sprints/$SPRINT_ID/stories/US-NNN-lab.md` (co-located with the story).
+   - If missing: print `No lab spec found for US-NNN. The Tech Lead must generate it first via /conclave-pr-review US-NNN.` and stop.
+   - If `status: pending` in the lab spec frontmatter: continue.
+   - If `status: blocked`: print the lab spec's `## Needs more info` section and stop — a blocked spec cannot be executed.
+   - If `status: passed` or `status: failed`: print the last Evidence log row and ask the user (via `AskUserQuestion`) whether to re-run.
+
+3. Confirm the story's PR is merged into the integration branch:
+   ```
+   gh pr list --head feat/US-NNN-<slug> --state merged --json mergedAt,mergeCommit --jq '.[0]'
+   ```
+   If no merged PR is found, print: `US-NNN has not been merged into the integration branch yet. Merge first, then re-run /conclave-qa US-NNN --lab.` and stop.
+
+### 9.5.2 — Check out the integration branch
+
+1. `git fetch origin $LAB_TEST_BRANCH`.
+2. `git switch $LAB_TEST_BRANCH` (or `git checkout $LAB_TEST_BRANCH`).
+3. `git pull origin $LAB_TEST_BRANCH`.
+4. Capture `git rev-parse HEAD` as `LAB_SHA`.
+
+### 9.5.3 — Set up the environment and execute the Verify command
+
+**Environment setup (before running the Verify command):**
+
+From `LAB_CONFIG`, select the appropriate env var set:
+- Primary: `environments.integration.vars` (preferred — the lab test runs on the integration branch)
+- Fallback: `environments.local.vars` (only if the user approved the fallback in Step 9.5.1)
+
+For each key-value pair in the selected vars block, export the variable to the shell environment before running the command:
+```bash
+export KEY="VALUE"
+```
+**Never print the values in any output, log, or report.** Only the variable names appear in logs, in the format `Exported: KEY1, KEY2, KEY3`.
+
+Also export `BASE_URL` from `environments.integration.base_url` (or `local.base_url`) as the base URL, in case the Verify command references it.
+
+Generate `LAB_TEST_TAG = lab-<unix_timestamp>` and export it. The Verify command uses this prefix when naming any resources it creates, making cleanup safe and unambiguous.
+
+**Safety pre-checks (abort execution if any fail):**
+
+Before running the Verify command, enforce these rules from `LAB_CONFIG.safety`:
+- `payment_mode` must be `test` — if it is `live` or anything else, print `✘ Lab test aborted: safety.payment_mode must be "test". Never run lab tests against a live payment environment.` and stop.
+- If `STRIPE_SECRET_KEY` is in the env var set and its value does NOT start with `sk_test_`, print `✘ Lab test aborted: STRIPE_SECRET_KEY must be a test key (sk_test_*). Found a live key — refusing to execute.` and stop. Never log the key value.
+- Print one line listing exported variable names (never values): `Exported: VAR1, VAR2, VAR3 (LAB_TEST_TAG=lab-<timestamp>)`.
+
+**Execute the Verify command:**
+
+Read the lab spec's `## Verify command` block verbatim. Execute it with the environment set above.
+
+**Timebox**: enforce `LAB_TEST_TIMEBOX` minutes. If the command does not complete within that window, send SIGTERM, capture partial output, and record `result: blocked` with reason `"timed out after Nm"`.
+
+Capture:
+- `LAB_EXIT_CODE` — the command's exit code (or `timeout` if timed out).
+- `LAB_OUTPUT` — the first 200 characters of stdout+stderr combined.
+- `LAB_TIMESTAMP` — ISO-8601 timestamp of the run start.
+- `LAB_RESULT` — `passed` if exit code is 0 AND output contains the expected pattern; `failed` otherwise; `blocked` if timed out.
+
+### 9.5.4 — Record Tier A evidence in the lab spec
+
+Append one row to the `## Evidence log` table in the lab spec file:
+
+```
+| <run_number> | <LAB_SHA> | <LAB_EXIT_CODE> | <LAB_OUTPUT> | <LAB_RESULT> | <LAB_TIMESTAMP> |
+```
+
+Update the lab spec frontmatter:
+- `status`: `passed` | `failed` | `blocked`
+- `last_run_at`: `LAB_TIMESTAMP`
+- `last_run_sha`: `LAB_SHA`
+
+This is Tier A evidence: command + output + SHA, gathered this session.
+
+### 9.5.5 — Auto-create BUG-NNN for failures
+
+If `LAB_RESULT == failed`:
+
+Delegate to the QA subagent via `Agent`:
+- **Model**: `MODEL_FOR_QA` (omit if null).
+- Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/qa.md`.
+- Task: *"Generate a bug report from a lab test failure. Follow the 'How you operate inside lab test execution (--lab)' section of your charter."*
+- Embed: the full lab spec content, `LAB_OUTPUT`, `LAB_EXIT_CODE`, `LAB_SHA`, `LAB_TIMESTAMP`, and the originating story ID (`US-NNN`).
+- Expected output: Gherkin repro steps derived from the failing Verify command, an advisory severity, and a `## Needs more info` note (if applicable).
+
+Wait for the subagent. Then:
+
+1. Compute the next `BUG-NNN` ID: scan `$REPO_ROOT/conclave/product/bugs/BUG-*.md` (note: global bug pool, not sprint-local). `NEW_BUG_ID = max(existing) + 1`, zero-padded to 3 digits.
+
+2. Write `conclave/product/bugs/BUG-NEW_BUG_ID-lab-failure-<slug>.md` from `bug.template.md` with:
+   - `status: ready`
+   - `severity`: from the QA subagent's advisory severity (pre-fill; the team confirms on triage)
+   - `discipline: multi` (lab tests cut across disciplines by default)
+   - `related_story`: `US-NNN`
+   - `suspected_code_area`: from the lab spec's `## Scope` section (what it verifies)
+   - `lab_test_path`: path to the lab spec file
+   - `reported_via: lab_test`
+   - The QA subagent's Gherkin repro steps
+
+3. Update the lab spec frontmatter: add `linked_bug: BUG-NEW_BUG_ID`.
+
+4. Print: `🐛 Lab failure → BUG-NEW_BUG_ID created at conclave/product/bugs/BUG-NEW_BUG_ID-lab-failure-<slug>.md`.
+
+If `LAB_RESULT == blocked` (timeout): print a warning that the lab spec could not be fully executed, note the timeout, and do **not** create a bug — a timeout is not a confirmed failure.
+
+### 9.5.6 — Commit and push lab results
+
+Commit all changes (updated lab spec + any new bug files):
+```
+chore(US-NNN): lab test run — <passed|failed|blocked>
+```
+`git push origin $LAB_TEST_BRANCH`.
+
+---
+
 ## Step 9 — Report to the user
 
 Print:
@@ -234,7 +369,7 @@ Print:
 
 - **QA runs on `$INTEGRATION_BRANCH` (develop / main), not the feature branch.** This is the canonical source of truth for integration state. Never switch to a feature branch during verification.
 - **Do not modify any file outside `conclave/`, the story's acceptance file (or the bug file itself, for `BUG-NNN`), and `tests/uat/<ID>.spec.ts` / `tests/uat/api-collection.postman_collection.json` / `tests/uat/postman-environment.json` / `tests/uat/<ID>-UAT.md`.** QA writes verification reports and UAT artifacts; QA does NOT fix code.
-- **Sprint bugs go in `conclave/sprints/<SPRINT_ID>/bugs/`** — not in `conclave/product/bugs/` (that path is for bugs reported directly via `/conclave-bug report`, outside the QA flow). These two locations are distinct by design.
+- **Sprint bugs go in `conclave/sprints/<SPRINT_ID>/bugs/`** — not in `conclave/product/bugs/` (that path is for bugs reported directly via `/conclave-bug report`, outside the QA flow). These two locations are distinct by design. **Lab-test-sourced bugs go in `conclave/product/bugs/`** — they cross sprint boundaries.
 - **May propose (with human confirmation via `AskUserQuestion`) an addition to `.github/workflows/*.yml` limited to running `tests/uat/`** — no other pipeline changes, and never written without that confirmation.
 - **Never delete prior verification sections.** Each run appends a new `## Verification — <date>` block. The acceptance/bug file is the story's/bug's full audit trail.
 - **Never overwrite another story's requests in the shared Postman collection.** Merge only.
@@ -245,3 +380,8 @@ Print:
 - **Never wait past `ci_wait_timeout_minutes`.** Treat an elapsed timeout as `blocked` and stop — do not keep polling indefinitely.
 - **Do not merge the PR.** Even in `lean` profile where you move the story to `done`, merging is a separate human action so the team can decide when (release windows, batching, etc.).
 - **Re-runs are append-only.** A second `/conclave-qa US-NNN` after dev fixes (or after a human completes a mobile checklist) appends a new verification section; story status transitions to `verified` / `done` (or stays `review`) based on the new run alone — past runs are kept for history but do not affect the verdict.
+- **`--lab` is single-story-only and post-merge-only.** Never run the lab execution path before the PR is merged, and never on multiple IDs or a `BUG-NNN` — bugs run their lab test automatically during `/conclave-bug report`.
+- **Lab timeouts are `blocked`, not `failed`.** A timed-out Verify command does not create a bug automatically — a human must triage the timeout reason.
+- **The Evidence log is Tier A.** Every lab test row is anchored to a real SHA and a real exit code. Never fabricate output or infer a pass from inspection.
+- **Never print env var values.** Only variable names appear in logs and reports. Values from `lab-config.md` are used only at the moment the Verify command runs, and never stored in any Conclave artifact.
+- **`conclave/lab-config.md` must be gitignored.** If it is missing from `.gitignore`, warn — but do not block execution on the warning.

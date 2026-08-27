@@ -3,14 +3,18 @@ title: /conclave-qa
 description: Adversarially verify one or more stories against their Gherkin acceptance criteria. Structurally required. Multiple stories run in concurrent batches of ≤ 3. Runs on the integration branch (develop).
 ---
 
-# /conclave-qa US-NNN [US-NNN ...]
+# /conclave-qa US-NNN [US-NNN ...] [--lab]
 
-Verify one or more user stories in `status: review` against their acceptance criteria.
+Verify one or more user stories in `status: review` against their acceptance criteria — or, with `--lab`, execute a post-merge lab test.
 
 ```
 /conclave-qa US-001                   # single story — identical to previous behaviour
 /conclave-qa US-001 US-002 US-003     # three stories in parallel, each on the integration branch
+/conclave-qa US-001 --lab             # execute US-001's lab test (post-merge, single story only)
+/conclave-qa BUG-004 --lab            # execute BUG-004's lab test
 ```
+
+`--lab` is only accepted for a single story or bug ID, and only after the PR is already merged. It does not run Gherkin verification — it runs the Tech Lead's lab spec instead.
 
 When this finishes, each story has moved to one of four states:
 
@@ -77,17 +81,46 @@ conclave/sprints/SPRINT-NNN/bugs/BUG-NNN-<slug>.md
 
 The file links back to the story, its acceptance criteria, and the PR that introduced the regression. `severity: critical` bugs block sprint closing. These files are **separate** from bugs reported manually via `/conclave-bug report` (which go to `conclave/product/bugs/`).
 
+## Lab test execution (`--lab`)
+
+When `--lab` is passed, the standard Gherkin verification steps are replaced by lab test execution. This requires:
+
+- `lab_test.enabled: true` in `conclave/config.md`
+- A lab spec file (`US-NNN-lab.md` or `BUG-NNN-lab.md`) already written by the Tech Lead
+- `conclave/lab-config.md` present and gitignored (hard stop if missing)
+- The PR for this entity is already merged into `lab_test.integration_branch`
+
+### What `--lab` does
+
+1. Loads `conclave/lab-config.md`, reads the variable registry, confirms the file is gitignored.
+2. Switches to `LAB_TEST_BRANCH`, captures the commit SHA (`LAB_SHA`).
+3. Selects the `integration` environment vars (with user confirmation if `integration.vars` is empty, fallback to `local.vars`).
+4. Exports integration env vars to the shell (values never printed). Generates `LAB_TEST_TAG=lab-<timestamp>`.
+5. **Safety pre-checks** (hard abort if either fails):
+   - `payment_mode` must equal `test`
+   - `STRIPE_SECRET_KEY` must start with `sk_test_`
+6. Executes the Verify command from the lab spec, with the configured timebox. Captures exit code and 200 chars of output.
+7. Appends a row to the Evidence log in the lab spec (Tier A: command + exit code + output + SHA). Updates `status`, `last_run_at`, `last_run_sha`.
+8. **If failed**: dispatches the QA subagent to write a bug report. Bug is written to `conclave/product/bugs/BUG-NNN-lab-failure-<slug>.md`. Lab spec's `linked_bug` is updated.
+9. Commits and pushes the lab spec (with updated Evidence log) to `LAB_TEST_BRANCH`.
+
+A timeout during execution results in `status: blocked` (not `failed`). Blocked specs can be re-run after the timeout is resolved.
+
+See [Lab tests](/en/lab-tests) for the full reference including safety rules, idempotency patterns, and bug filing.
+
 ## Guardrails
 
 - Only ever modifies `conclave/`, this story's acceptance file, and `tests/uat/US-NNN.spec.ts` / the shared Postman collection+environment files / `tests/uat/US-NNN-UAT.md` — QA writes verification reports and UAT artifacts, QA does not fix code.
 - May propose (with human confirmation) adding the one CI job/step that runs `tests/uat/` — no other pipeline changes.
 - Never deletes prior verification sections — the acceptance file is the story's full audit trail.
 - Never overwrites another story's requests in the shared Postman collection.
-- Never resolves, reads, or writes a secret value, anywhere, at any step.
+- Never resolves, reads, or writes a secret value, anywhere, at any step — including during `--lab` execution (values are exported to the shell; QA never sees them).
 - Never runs `gh pr review --approve` or `--request-changes`. That is the Tech Lead's call via `/conclave-pr-review`.
 - Never passes a story when any scenario fails, any required DoD item is unmet, or the generated UAT tests' CI run failed or timed out.
 - Never conflates `pending_uat` with `blocked`.
 - Does not merge the PR, even when the verdict directly produces `status: done`.
+- `--lab` is single-entity, post-merge only — never accepted in a batch or before the PR merges.
+- `--lab` never prints env var values — only variable names appear in logs.
 
 ## After it runs
 
@@ -95,3 +128,8 @@ The file links back to the story, its acceptance criteria, and the PR that intro
 - **Verdict `passed`, `peer_pr_review.required: false`** — no separate gate; the PR is ready to merge.
 - **Verdict `pending_uat`** — a human completes `tests/uat/US-NNN-UAT.md` (mobile checklist), then re-run `/conclave-qa US-NNN`.
 - **Verdict `blocked`** — dev fixes and pushes (or a mobile tester records a FAIL with notes), then re-run `/conclave-qa US-NNN`. Sprint bug files remain open until the fix is verified.
+
+After the PR is merged (and `lab_test.enabled: true`):
+- **Lab test `passed`** — Tier A evidence is in the lab spec's Evidence log. Done.
+- **Lab test `failed`** — a bug file was written to `conclave/product/bugs/`. Fix and re-run `/conclave-qa US-NNN --lab`.
+- **Lab test `blocked`** — the Verify command timed out or the lab spec had no runnable command. Check the lab spec and re-run after the issue is resolved.

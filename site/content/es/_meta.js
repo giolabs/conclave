@@ -26,6 +26,7 @@ export default {
   workflow: "Mapa de flujo",
   scheduling: "Scheduling",
   configuration: "Referencia de configuración",
+  "lab-tests": "Lab tests",
 
   "commands-separator": {
     type: "separator",

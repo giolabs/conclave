@@ -6,10 +6,12 @@ status: ready                    # backlog | ready | in-progress | review | veri
 discipline: "{{discipline}}"    # frontend | backend | qa | design | devops | mobile | multi
 assignee: ""
 related_story: "{{related_story_or_empty}}"    # optional — US-NNN this bug relates to, if known
+suspected_code_area: "{{suspected_code_area_or_empty}}"  # optional — file path(s) or module the Haiku refiner identified as likely culprit; verified by TL when generating the lab test
+lab_test_path: "{{lab_test_path_or_empty}}"    # path to BUG-NNN-lab.md once generated; empty until TL generates it
 github_issue_number: {{issue_number_or_null}}
 github_issue_url: "{{issue_url_or_empty}}"
 created_at: "{{iso_date}}"
-reported_via: "{{manual_or_mcp_tool_name}}"     # how the report originated — audit trail only
+reported_via: "{{manual_or_mcp_tool_name}}"     # how the report originated — manual | mcp:<tool-name> | lab_test
 # Optional retirement fields, same shape as story.template.md, set only via hand-edit (no /conclave-bug retire in this phase)
 # retirement_reason: ""
 # retired_at: ""

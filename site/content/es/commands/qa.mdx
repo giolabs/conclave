@@ -3,14 +3,18 @@ title: /conclave-qa
 description: Verificación adversarial de una o más historias contra sus criterios de aceptación en Gherkin. Estructuralmente requerido. Múltiples historias corren en batches concurrentes de ≤ 3. Corre en la rama de integración (develop).
 ---
 
-# /conclave-qa US-NNN [US-NNN ...]
+# /conclave-qa US-NNN [US-NNN ...] [--lab]
 
-Verifica una o más historias de usuario en `status: review` contra sus criterios de aceptación.
+Verifica una o más historias de usuario en `status: review` contra sus criterios de aceptación — o, con `--lab`, ejecuta un lab test post-merge.
 
 ```
 /conclave-qa US-001                   # historia única — comportamiento idéntico al anterior
 /conclave-qa US-001 US-002 US-003     # tres historias en paralelo, en la rama de integración
+/conclave-qa US-001 --lab             # ejecuta el lab test de US-001 (post-merge, una sola historia)
+/conclave-qa BUG-004 --lab            # ejecuta el lab test de BUG-004
 ```
+
+`--lab` solo se acepta para un único ID de historia o bug, y solo después de que el PR ya fue mergeado. No corre verificación Gherkin — corre la spec del lab del Tech Lead en su lugar.
 
 Cuando termina, cada historia pasó a uno de cuatro estados:
 
@@ -77,17 +81,46 @@ conclave/sprints/SPRINT-NNN/bugs/BUG-NNN-<slug>.md
 
 El archivo vincula de vuelta a la historia, sus criterios de aceptación, y el PR que introdujo la regresión. Los bugs con `severity: critical` bloquean el cierre del sprint. Estos archivos son **distintos** de los bugs reportados manualmente vía `/conclave-bug report` (que van a `conclave/product/bugs/`).
 
+## Ejecución de lab test (`--lab`)
+
+Cuando se pasa `--lab`, los pasos de verificación Gherkin estándar se reemplazan por la ejecución del lab test. Esto requiere:
+
+- `lab_test.enabled: true` en `conclave/config.md`
+- Un archivo de spec del lab (`US-NNN-lab.md` o `BUG-NNN-lab.md`) ya escrito por el Tech Lead
+- `conclave/lab-config.md` presente y en .gitignore (hard stop si falta)
+- El PR de esta entidad ya mergeado en `lab_test.integration_branch`
+
+### Qué hace `--lab`
+
+1. Carga `conclave/lab-config.md`, lee el variable registry, confirma que el archivo está en .gitignore.
+2. Cambia a `LAB_TEST_BRANCH`, captura el SHA del commit (`LAB_SHA`).
+3. Selecciona las vars del entorno `integration` (con confirmación del usuario si `integration.vars` está vacío, fallback a `local.vars`).
+4. Exporta las vars de entorno de integración al shell (los valores nunca se imprimen). Genera `LAB_TEST_TAG=lab-<timestamp>`.
+5. **Pre-checks de seguridad** (hard abort si cualquiera falla):
+   - `payment_mode` debe ser igual a `test`
+   - `STRIPE_SECRET_KEY` debe empezar con `sk_test_`
+6. Ejecuta el comando Verify de la spec del lab, con el timebox configurado. Captura el exit code y 200 chars de output.
+7. Agrega una fila al Evidence log en la spec del lab (Tier A: comando + exit code + output + SHA). Actualiza `status`, `last_run_at`, `last_run_sha`.
+8. **Si falló**: despacha el subagente QA para escribir un reporte de bug. El bug se escribe en `conclave/product/bugs/BUG-NNN-lab-failure-<slug>.md`. Se actualiza `linked_bug` en la spec del lab.
+9. Commitea y pushea la spec del lab (con el Evidence log actualizado) a `LAB_TEST_BRANCH`.
+
+Un timeout durante la ejecución resulta en `status: blocked` (no `failed`). Las specs bloqueadas pueden re-correrse después de resolver el timeout.
+
+Ver [Lab tests](/es/lab-tests) para la referencia completa incluyendo reglas de seguridad, patrones de idempotencia, y apertura de bugs.
+
 ## Salvaguardas
 
 - Solo modifica `conclave/`, el archivo de aceptación de esta historia, y `tests/uat/US-NNN.spec.ts` / los archivos compartidos de colección+environment de Postman / `tests/uat/US-NNN-UAT.md` — QA escribe reportes de verificación y artefactos de UAT, QA no arregla código.
 - Puede proponer (con confirmación humana) agregar el único job/step de CI que corre `tests/uat/` — ningún otro cambio de pipeline.
 - Nunca borra secciones de verificación previas — el archivo de aceptación es el registro de auditoría completo de la historia.
 - Nunca sobreescribe los requests de otra historia en la colección compartida de Postman.
-- Nunca resuelve, lee, ni escribe un valor de secreto, en ningún lado, en ningún paso.
+- Nunca resuelve, lee, ni escribe un valor de secreto, en ningún lado, en ningún paso — incluyendo durante la ejecución de `--lab` (los valores se exportan al shell; QA nunca los ve).
 - Nunca corre `gh pr review --approve` ni `--request-changes`. Esa es decisión del Tech Lead vía `/conclave-pr-review`.
 - Nunca pasa una historia cuando algún escenario falla, algún ítem requerido de DoD no se cumple, o la corrida de CI de los tests UAT generados falló o expiró.
 - Nunca confunde `pending_uat` con `blocked`.
 - No mergea el PR, ni siquiera cuando el veredicto produce `status: done` directamente.
+- `--lab` es solo para una entidad, post-merge — nunca se acepta en batch ni antes de que el PR mergee.
+- `--lab` nunca imprime los valores de las vars — solo los nombres de variables aparecen en los logs.
 
 ## Después de que corre
 
@@ -95,3 +128,8 @@ El archivo vincula de vuelta a la historia, sus criterios de aceptación, y el P
 - **Veredicto `passed`, `peer_pr_review.required: false`** — sin gate separado; el PR está listo para mergear.
 - **Veredicto `pending_uat`** — una persona completa `tests/uat/US-NNN-UAT.md` (checklist de mobile), después se vuelve a correr `/conclave-qa US-NNN`.
 - **Veredicto `blocked`** — el dev arregla y pushea (o una persona tester de mobile registra un FAIL con notas), después se vuelve a correr `/conclave-qa US-NNN`. Los archivos de bugs del sprint permanecen abiertos hasta que el fix sea verificado.
+
+Después de que el PR mergea (y `lab_test.enabled: true`):
+- **Lab test `passed`** — evidencia Tier A en el Evidence log de la spec del lab. Listo.
+- **Lab test `failed`** — se escribió un archivo de bug en `conclave/product/bugs/`. Arreglar y re-correr `/conclave-qa US-NNN --lab`.
+- **Lab test `blocked`** — el comando Verify expiró o la spec del lab no tenía ningún comando ejecutable. Revisar la spec y re-correr después de resolver el problema.

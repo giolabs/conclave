@@ -214,6 +214,34 @@ notifications:
 
 **Override ad-hoc por CLI** — `/conclave-dev --no-interaction US-042`, `/conclave-dev --loop` o `/conclave-sprint --no-interaction` (también `--headless`). No hay `--force-interaction`, ni flag para desactivar un loop configurado.
 
+### Bloque de configuración de lab tests (opcional)
+
+Habilitá y configurá sondas de integración ejecutables (ver [Lab tests](/es/lab-tests)).
+
+```yaml
+# lab_test:
+#   enabled: false
+#   integration_branch: develop    # branch donde corren los lab tests (post-merge)
+#   runner: auto                   # auto | playwright | newman | bash
+#   timebox_minutes: 30            # máximo en minutos antes de marcar la corrida como blocked
+#   stories:
+#     generate_on: pr-review       # pr-review — el TL genera la spec al aprobar el PR
+#   bugs:
+#     severity_threshold: high     # high | critical — solo generar specs de lab para bugs en este nivel o mayor
+```
+
+Todos los campos son opcionales cuando `enabled: false`. Cuando `enabled: true`:
+
+| Campo | Default | Notas |
+|---|---|---|
+| `integration_branch` | `develop` | La branch a la que QA cambia antes de correr el lab test. Debe coincidir con `repo.integration_branch`. |
+| `runner` | `auto` | Selección de runner. `auto` deja que el TL infiera del stack y el tipo de integración. |
+| `timebox_minutes` | `30` | Si el comando Verify no termina dentro de este tiempo, la corrida se marca como `blocked`. |
+| `stories.generate_on` | `pr-review` | Cuándo generar la spec del lab para historias. Solo `pr-review` está soportado en esta versión. |
+| `bugs.severity_threshold` | `high` | Severity mínima para generar la spec del lab en bugs. `high` = genera para `high` y `critical`. |
+
+Los lab tests también requieren `conclave/lab-config.md` — un archivo **gitignoreado** con los valores reales de las variables de entorno. El `lab-config.template.md` commiteado documenta el schema. Copialo y completá los valores antes de correr `/conclave-qa --lab`.
+
 ### Bloque de convenciones
 
 El cuerpo de `config.md` (debajo del frontmatter) también documenta las convenciones del equipo que cada comando respeta:

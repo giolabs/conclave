@@ -1,0 +1,255 @@
+---
+title: Lab tests
+description: Sondas de integración ejecutables generadas por el Tech Lead y corridas por QA después del merge. Evidencia Tier-A de comportamiento en entorno real.
+---
+
+# Lab tests
+
+Los lab tests son sondas de integración ejecutables que el Tech Lead escribe (en formato de spec) y QA corre contra un entorno real después de que un PR es mergeado. Producen **evidencia Tier-A** — un comando real, su exit code, y 200 chars de output capturado — y abren bugs automáticamente cuando fallan.
+
+Son distintos de los tests UAT que genera `/conclave-qa`: los UAT corren en CI contra los criterios de aceptación Gherkin *antes* del merge; los lab tests corren contra un entorno real o de staging *después* del merge para verificar que la integración funciona de verdad.
+
+## Cuándo se generan los lab tests
+
+Los genera el **subagente Tech Lead** en uno de dos momentos, controlado por `lab_test.stories.generate_on` en `conclave/config.md`:
+
+| Trigger | Valor de config | Cuándo |
+|---|---|---|
+| Durante la revisión del PR | `pr-review` (default) | `/conclave-pr-review US-NNN` — si se aprueba, el TL escribe `US-NNN-lab.md` |
+| Durante el reporte del bug | automático | `/conclave-bug report` — si `lab_test.enabled` y severity ≥ threshold, el TL escribe `BUG-NNN-lab.md` |
+
+## Cuándo se ejecutan los lab tests
+
+QA los corre explícitamente después de que el PR es mergeado:
+
+```
+/conclave-qa US-NNN --lab
+/conclave-qa BUG-NNN --lab
+```
+
+`--lab` solo se acepta para una única entidad (no en batch) y solo después de que el PR fue mergeado.
+
+## El flujo
+
+```
+Historia aprobada por el TL (/conclave-pr-review)
+  └─ Subagente TL escribe US-NNN-lab.md  →  status: pending
+
+PR mergeado por una persona
+
+/conclave-qa US-NNN --lab
+  ├─ lee conclave/lab-config.md  (gitignored — valores reales del entorno)
+  ├─ exporta las vars de entorno de integración al shell
+  ├─ pre-checks de seguridad (payment_mode, prefijo STRIPE_SECRET_KEY)
+  ├─ git switch → LAB_TEST_BRANCH, captura LAB_SHA
+  ├─ ejecuta el comando Verify (con timebox)
+  ├─ agrega fila al Evidence log  →  Tier A
+  ├─ actualiza el estado de la spec: passed | failed | blocked
+  └─ si falló → el subagente QA escribe BUG-NNN-lab-failure-<slug>.md
+                  en conclave/product/bugs/
+```
+
+## Configurar `conclave/lab-config.md`
+
+Los lab tests **no pueden correr** sin un archivo `conclave/lab-config.md` que tenga los valores reales de las variables de entorno. Este archivo nunca debe commitearse a git.
+
+### Configuración inicial
+
+1. Copiar la plantilla:
+   ```bash
+   cp conclave/templates/lab-config.template.md conclave/lab-config.md
+   ```
+2. Agregarlo al `.gitignore`:
+   ```
+   conclave/lab-config.md
+   ```
+3. Completar los valores reales para el entorno de integración.
+
+Conclave avisa en el momento de generación si el archivo falta (advertencia + skip, no es un error duro) y en el momento de ejecución si falta (hard stop con estas instrucciones de setup).
+
+### Estructura del archivo
+
+`lab-config.md` es un archivo con frontmatter YAML organizado por tipo de integración:
+
+```yaml
+---
+environments:
+  local:
+    base_url: "http://localhost:3000"
+    vars: {}
+  integration:
+    base_url: "https://staging.example.com"
+    vars:
+      DATABASE_URL: "postgresql://user:pass@staging-db:5432/myapp"
+      STRIPE_SECRET_KEY: "sk_test_..."
+
+runner:
+  default: auto        # auto | playwright | newman | bash
+
+auth:
+  e2e_user_email: "e2e@example.com"
+  e2e_user_password: "..."
+  api_key: ""
+
+databases:
+  postgres:
+    url: "postgresql://..."
+    schema: "public"
+
+aws:
+  region: "us-east-1"
+  access_key_id: "AKIA..."
+  secret_access_key: "..."
+  resources:
+    sqs_queue_url: "https://sqs.us-east-1.amazonaws.com/..."
+    dynamodb_table: "myapp-staging"
+
+safety:
+  payment_mode: test           # DEBE ser "test" — hard abort si no
+  stripe_secret_key: "sk_test_..."  # DEBE empezar con sk_test_ — hard abort si no
+---
+```
+
+### Variable registry
+
+El **variable registry** es una tabla en el cuerpo del `lab-config.md` (no en los valores del frontmatter) que lista los nombres de variables, su ruta de origen, propósito y tipo de integración. El Tech Lead solo lee esta tabla (nombres, nunca valores) al escribir los comandos `Verify`.
+
+```markdown
+| Variable | Ruta de origen | Propósito | Tipo de integración |
+|---|---|---|---|
+| DATABASE_URL | environments.integration.vars | Conexión a Postgres de staging | BE→DB |
+| STRIPE_SECRET_KEY | safety.stripe_secret_key | API key de Stripe en modo test | BE→Payment |
+| SQS_QUEUE_URL | aws.resources.sqs_queue_url | Cola SQS de eventos | BE→AWS |
+```
+
+**Regla dura**: el Tech Lead solo puede referenciar nombres de variables del registry en los comandos `Verify`. Si una variable requerida no está en el registry, la spec del lab se escribe con `status: blocked` en lugar del comando, y el TL explica qué variable hace falta.
+
+## Tipos de integración y runners
+
+| Tipo de integración | Runner | Notas |
+|---|---|---|
+| FE → BE | Playwright | Controlado por browser, necesita `base_url` |
+| BE → DB (REST API) | Newman/curl | Colección HTTP, sin browser |
+| BE → DB (directo) | jest / pytest | Runner de tests del lenguaje |
+| BE → BE (contratos) | Pact CLI | Consumer-driven contract tests |
+| BE → AWS | AWS CLI + jq | Comandos `aws ...`, jq parsea JSON |
+| BE → GCP | gcloud + jq | Comandos `gcloud ...` |
+| BE → Azure | az CLI + jq | Comandos `az ...` |
+| IaC / Terraform | terraform | `-detailed-exitcode`: 0=sin cambios, 2=cambios planificados, 1=error |
+
+Con `runner: auto`, el TL infiere el tipo de la disciplina de la historia, señales del stack, y las variables presentes en el registry.
+
+## El archivo de spec del lab
+
+El TL escribe `US-NNN-lab.md` (o `BUG-NNN-lab.md`) en `conclave/sprints/SPRINT-NNN/stories/` (para historias) o `conclave/product/bugs/` (para bugs). Estructura:
+
+```yaml
+---
+entity_id: "US-042"
+entity_type: story          # story | bug
+entity_title: "Add Stripe checkout"
+generated_by: tech-lead
+generated_at: "2026-08-27T10:00:00Z"
+integration_branch: develop
+runner: newman
+timebox_minutes: 30
+status: pending             # pending | passed | failed | blocked
+last_run_at: ""
+last_run_sha: ""
+---
+
+## Objective
+Declaración en una oración de qué verifica este test en el entorno real.
+
+## Pre-conditions
+- Servicios requeridos corriendo en el entorno de integración
+- Datos o estado específico que debe existir antes de que el test corra
+
+## Verify command
+
+\`\`\`bash
+LAB_TEST_TAG=lab-${LAB_TEST_TAG}
+curl -s -o /dev/null -w "%{http_code}" \
+  -X POST "$BASE_URL/api/checkout" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{"amount": 100, "idempotency_key": "'$LAB_TEST_TAG'"}'
+\`\`\`
+
+Expected exit code: `0`
+Expected output pattern: `200`
+
+## Decision rule
+PASS: exit code 0 Y output coincide con el patrón.
+FAIL: cualquier otro exit code o output.
+
+## Scope
+Este test VERIFICA:
+- El cargo en modo test de Stripe se crea de punta a punta
+
+Este test NO VERIFICA:
+- Entrega de webhooks
+- Flujo de reembolso
+- Keys de Stripe en producción
+
+## Evidence log
+
+| Run at | SHA | Exit code | Output (200 chars) | Result |
+|---|---|---|---|---|
+```
+
+## Reglas de seguridad
+
+Estas reglas se hacen cumplir automáticamente y no pueden saltearse:
+
+- **`payment_mode` debe ser `test`** — si el campo `safety.payment_mode` es cualquier cosa distinta de `"test"`, la ejecución aborta antes de correr cualquier comando.
+- **`STRIPE_SECRET_KEY` debe empezar con `sk_test_`** — si la key empieza con `sk_live_`, la ejecución aborta.
+- **`LAB_TEST_TAG`** — un tag `lab-<timestamp>` se exporta antes de cada corrida; los comandos Verify deben usarlo al nombrar los recursos creados (ej. ítems de DynamoDB, objetos de S3, mensajes de SQS) para identificación y limpieza seguras.
+- **Los valores de las vars nunca se imprimen** — los nombres de variables aparecen en logs y reportes; los valores nunca.
+- **`conclave/lab-config.md` debe estar en .gitignore** — Conclave avisa en la generación y la ejecución si no lo está.
+
+## Apertura de bugs en caso de fallo
+
+Cuando un lab test falla, el subagente QA escribe un reporte de bug automáticamente:
+
+- **Ruta**: `conclave/product/bugs/BUG-NNN-lab-failure-<slug>.md` (bugs globales, no del sprint)
+- **Reproducción Gherkin**: 1–3 escenarios derivados del comando Verify fallido (Given=Pre-conditions, When=comando Verify verbatim, Then=esperado vs actual)
+- **Severity**: advisory, basada en la sección `Scope` de la spec del lab
+- El campo `linked_bug` de la spec del lab se actualiza con el nuevo BUG-NNN
+
+Los bugs del sprint (de `/conclave-qa` durante la verificación) van a `conclave/sprints/SPRINT-NNN/bugs/`. Los bugs de lab test siempre van a `conclave/product/bugs/`.
+
+## Idempotencia
+
+Los comandos Verify deben escribirse para re-corridas seguras:
+
+```bash
+# Patrón de polling para flujos asincrónicos (creación de ítems en DynamoDB, procesamiento SQS, etc.)
+for i in {1..10}; do
+  result=$(aws dynamodb get-item --table-name "$DYNAMODB_TABLE" \
+    --key '{"id": {"S": "'$LAB_TEST_TAG'"}}' --query 'Item' --output text)
+  [ "$result" != "None" ] && break
+  sleep 3
+done
+[ "$result" = "None" ] && exit 1
+echo "Ítem encontrado: $result"
+```
+
+Usar `LAB_TEST_TAG` como identificador del recurso para que el mismo tag nunca se reutilice entre corridas.
+
+## Activar los lab tests
+
+Los lab tests son opt-in. Agregar el bloque `lab_test:` a `conclave/config.md`:
+
+```yaml
+lab_test:
+  enabled: true
+  integration_branch: develop
+  runner: auto
+  timebox_minutes: 30
+  stories:
+    generate_on: pr-review    # generar la spec del lab cuando el TL aprueba
+  bugs:
+    severity_threshold: high  # solo generar specs de lab para bugs high/critical
+```
+
+Ver [Referencia de configuración](/es/configuration) para todos los campos.

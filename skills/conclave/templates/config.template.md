@@ -17,7 +17,7 @@ stack:
 repo_url: "{{repo_url}}"
 claude_md_path: "CLAUDE.md"
 initialized_at: "{{iso_date}}"
-conclave_version: "1.1.0"
+conclave_version: "1.2.0"
 
 # Optional. Which agent runtime(s) this install expects. Informational only —
 # unset means either Claude Code or Cursor is fine (mixed teams OK).
@@ -95,6 +95,21 @@ ceremonies:
 #       #   tech_lead: 70000
 #   sprint:
 #     interactive: true                # false = headless one-pass; never merges, no schedule, no budgets
+
+# Lab test configuration (optional). When enabled, the Tech Lead generates an executable
+# e2e lab test spec whenever a bug is filed (/conclave-bug report) or a story's PR is approved
+# (/conclave-pr-review). The QA agent executes the spec against the integration branch and records
+# Tier A evidence (command + raw output + commit SHA). Findings auto-create BUG-NNN artifacts.
+# lab_test:
+#   enabled: false
+#   integration_branch: develop       # branch/env where lab tests run; defaults to repo.integration_branch
+#   runner: auto                      # auto | playwright | newman | bash
+#   timebox_minutes: 30               # non-fatal time limit per lab run (reports but does not abort on exceed)
+#   stories:
+#     generate_on: pr-review          # when TL generates the spec: pr-review (only supported value)
+#   bugs:
+#     severity_threshold: high        # critical | high → lab test required; medium | low → optional
+#                                     # omit to require lab tests for ALL bugs (when enabled)
 
 # Optional Slack delivery for the delivery loop (webhook URL via env var NAME only).
 # notifications:

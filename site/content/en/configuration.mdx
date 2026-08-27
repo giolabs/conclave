@@ -156,6 +156,34 @@ Assign per-command interaction behavior, and configure the delivery loop.
 
 **Ad-hoc CLI override** — `/conclave-dev --no-interaction US-042`, `/conclave-dev --loop`, or `/conclave-sprint --no-interaction` (also `--headless`). There is no `--force-interaction` flag, and no flag to disable a configured loop.
 
+### Lab test configuration block (optional)
+
+Enable and configure executable integration probes (see [Lab tests](/en/lab-tests)).
+
+```yaml
+# lab_test:
+#   enabled: false
+#   integration_branch: develop    # branch where lab tests run (post-merge)
+#   runner: auto                   # auto | playwright | newman | bash
+#   timebox_minutes: 30            # max seconds before marking the run as blocked
+#   stories:
+#     generate_on: pr-review       # pr-review — TL generates the spec on PR approval
+#   bugs:
+#     severity_threshold: high     # high | critical — only generate lab specs for bugs at or above this level
+```
+
+All fields are optional when `enabled: false`. When `enabled: true`:
+
+| Field | Default | Notes |
+|---|---|---|
+| `integration_branch` | `develop` | The branch QA switches to before running the lab test. Must match `repo.integration_branch`. |
+| `runner` | `auto` | Runner selection. `auto` lets the TL infer from the stack and integration type. |
+| `timebox_minutes` | `30` | If the Verify command does not exit within this many minutes, the run is marked `blocked`. |
+| `stories.generate_on` | `pr-review` | When to generate the lab spec for stories. Only `pr-review` is supported in this version. |
+| `bugs.severity_threshold` | `high` | Minimum severity for lab spec generation on bugs. `high` = generates for `high` and `critical`. |
+
+Lab tests also require `conclave/lab-config.md` — a **gitignored** file with real environment variable values. The committed `lab-config.template.md` documents the schema. Copy it and fill in values before running `/conclave-qa --lab`.
+
 ### Conventions block
 
 `config.md`'s body (below the frontmatter) also documents team conventions every command respects:

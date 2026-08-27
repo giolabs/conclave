@@ -18,9 +18,16 @@ This command runs only when `ceremonies.peer_pr_review.required: true` in `concl
 1. Resolves the workspace and checks the profile gate — refuses immediately if `peer_pr_review.required: false`.
 2. Resolves the story — must be `status: verified` (QA already passed).
 3. Switches to the dev branch and computes the diff against the integration branch.
-4. Loads context in parallel: config, architecture, DoD, the story and acceptance files (including QA's latest verification block), the full diff, and PR metadata.
+4. Loads context in parallel: config, architecture, DoD, the story and acceptance files (including QA's latest verification block), the full diff, PR metadata, and the `lab_test.*` config block.
 5. **Delegates to the Tech Lead subagent**, which checks ADR compliance, code-level DoD items (linter, coverage, docs), and code quality — race conditions, security smells, abstraction mistakes — the things QA's behavioral verification can't catch.
 6. Writes outputs (below).
+6.5. **Generates a lab test spec** (when `lab_test.enabled: true` AND `lab_test.stories.generate_on: pr-review` AND verdict is `approved`):
+   - Skips silently if a usable lab spec already exists (i.e. `status != blocked`).
+   - Requires `conclave/lab-config.md` — prints setup instructions and skips if missing (not a hard error for approval).
+   - Dispatches the Tech Lead subagent with the story file, acceptance criteria, PR diff, lab config variable registry, and `base_url`.
+   - Writes `US-NNN-lab.md` to the sprint stories directory.
+   - Updates `lab_test_path` in the story frontmatter; commits and pushes.
+   - See [Lab tests](/en/lab-tests) for the full spec format and safety rules.
 
 ## What it produces
 
@@ -40,5 +47,5 @@ This command runs only when `ceremonies.peer_pr_review.required: true` in `concl
 
 ## After it runs
 
-- **Approved** — the PR is ready to merge (a separate human action).
-- **Request changes** — dev pushes fixes, then re-run [`/conclave-qa US-NNN`](/en/commands/qa) (criteria may have shifted) followed by `/conclave-pr-review US-NNN` again.
+- **Approved** — the PR is ready to merge (a separate human action). If lab tests are enabled, a lab spec was also generated — run `/conclave-qa US-NNN --lab` after the PR merges.
+- **Request changes** — dev pushes fixes, then re-run [`/conclave-qa US-NNN`](/en/commands/qa) (criteria may have shifted) followed by `/conclave-pr-review US-NNN` again. Lab spec generation is skipped on `request_changes` — it runs only when the verdict is `approved`.

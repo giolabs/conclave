@@ -4,11 +4,47 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+---
+
+## [1.2.0] — 2026-08-27
+
+### Added
+
+- **Lab test feature** (`lab_test:` config block, `lab-test.template.md`, `--lab` flag on `/conclave-qa`): an optional end-to-end verification layer that runs against the integration branch (`develop`). When `lab_test.enabled: true` in `config.md`, the Tech Lead generates an executable lab spec (a `BUG-NNN-lab.md` or `US-NNN-lab.md`) during `/conclave-bug report` (for bugs meeting the configured severity threshold) or during `/conclave-pr-review` (for stories, on approval). The QA agent runs the lab spec post-merge via `/conclave-qa US-NNN --lab`, records Tier A evidence (command + exit code + output + SHA) in the spec's Evidence log, and auto-creates `BUG-NNN` artifacts in the global bug pool for any failures. Lab timeouts produce a `blocked` status rather than a false-negative bug. This feature is opt-in and off by default.
+
+- **`/conclave-bug report` — Haiku pre-analysis refiner**: before asking the user any questions, `/conclave-bug report` now dispatches a lightweight Haiku subagent (read-only) to analyse the raw report. The refiner returns an optimized title, a `suspected_code_area` hint (used by QA when writing repro steps, and by the TL when generating the lab spec), a classification of blocking vs. non-blocking ambiguity, and an advisory severity. If the refiner finds no blocking ambiguity and severity is unambiguous, `AskUserQuestion` is skipped entirely. Non-blocking gaps are promoted to `## Needs more info` without interrupting the user.
+
+- **`/conclave-bug report` — `suspected_code_area` and `lab_test_path` fields**: the bug file template now includes `suspected_code_area` (populated by the Haiku refiner; passed to the QA subagent as a hint) and `lab_test_path` (empty on creation, filled once the TL generates the lab spec).
+
+- **`story.template.md` — `lab_test_path` field**: story files now include a `lab_test_path` field (empty on creation, filled during `/conclave-pr-review` when `lab_test.enabled: true`).
+
+- **`config.template.md` — `lab_test:` block**: new commented-out configuration block documents all lab test options (`enabled`, `integration_branch`, `runner`, `timebox_minutes`, `stories.generate_on`, `bugs.severity_threshold`).
+
+- **`lab-config.template.md` v2.0** — expanded from the initial v1.0 with structured sections for every integration type a modern project may need: `environments` (local/integration flat vars map), `runner` (Playwright/Newman/bash config), `auth` (pre-issued test credentials), `databases` (Postgres/MySQL/MongoDB/Redis), `microservices` (Pact Broker, downstream services), `aws` (region, IAM keys, SQS/SNS/DynamoDB/S3/Lambda/RDS resources), `gcp` (project, SA key base64, Pub/Sub/Firestore/BigQuery/Cloud SQL), `azure` (subscription, App Registration, Service Bus/Cosmos DB/SQL), `terraform` (workspace, remote state backend, var-file), and `safety` (test_tag_prefix, data_ttl_seconds, email_sink, payment_mode, Stripe key). The Variable registry is organized by category (auth, URLs, databases, AWS, GCP, Azure, microservices, IaC, safety) with env var names, frontmatter source path, purpose, and integration type columns. A Runner quick-reference table maps each integration type (FE→BE, BE→DB, BE→AWS, BE→GCP, BE→Azure, BE→BE contracts, IaC drift, Full stack) to the recommended CLI tool and a concrete Verify command pattern. The `safety` block enables agent-enforced pre-checks: `payment_mode` must be `test`; `STRIPE_SECRET_KEY` must start with `sk_test_` (hard abort otherwise); `LAB_TEST_TAG` is exported as `lab-<timestamp>` for idempotent resource naming and cleanup.
+
+- **`lab-test.template.md`**: new template for lab test spec files. Covers entity metadata (entity_id, entity_type, integration_branch, runner, timebox_minutes, status), Objective, Pre-conditions, Verify command (runnable bash block + expected exit code + expected output pattern), Decision rule (Pass/Fail binary), Scope (in/out — both are mandatory), and Evidence log (one row per QA execution, appended by the QA agent).
+
+- **TL charter — "How you operate inside lab test generation" section**: describes both Bug context mode (invoked from `/conclave-bug report`) and Story context mode (invoked from `/conclave-pr-review`). Hard rules: no fabricated commands; every file/endpoint in the Verify command must be verified via Read/Grep/Glob; no Tier-D claims; `status: blocked` is the honest response when context is insufficient.
+
+- **QA charter — "How you operate inside lab test execution (`--lab`)" section**: describes how to translate a machine-generated Verify command failure into a structured bug report (Gherkin repro steps derived from the failing command, advisory severity based on the lab spec's Scope section, `## Needs more info` note for environment-related failures).
+
 ### Changed
 
 - **Tech Lead agent (`skills/conclave/agents/tech-lead.md`) — evidence-grounded ADRs**: the TL charter now enforces the full decision protocol before returning any ADR. Four new Mindset principles (evidence tiers, reversibility bar, ACH disconfirmation, confidence/likelihood separation). New "Evidence and quality gates" section with five mandatory pre-emit checks: evidence tier tagging on every claim, Type-1/Type-2 reversibility classification, a 5-step self-critique gate (pre-mortem, key-assumptions check, reversal test, identifier audit, two-sided absence test), an ambiguity sweep against a literal word list, and mandatory Unknowns register + Coverage section. Two new common hard rules: no Tier-D claim in `## Decision`, no unfilled `{{placeholder}}` strings.
 
 - **ADR template (`skills/conclave/templates/adr.template.md`) — agent-executable format**: expanded with `reversibility` and `applies_to` frontmatter fields; evidence tier notation in Alternatives Considered; mandatory `## Unknowns and Assumptions` table with revisit trigger; `## Rules` section (RFC-2119 `MUST`/`MUST NOT`/`SHOULD`); `### Confirmation` with executable `Verify:` command; `## Implementation Notes` (verified entry points, ordered steps each ending in a runnable verification, contracts touched, migration/rollback, out-of-scope); `## Coverage` section. Template comment updated with a full reference guide for each section.
+
+- **`/conclave-bug report` — conditional `AskUserQuestion`**: the question round is now gated on the Haiku refiner's output. When the refiner finds no blocking ambiguity and severity is clear, the interaction is skipped. When questions are needed, they are pre-filled from refiner output and limited to the first 3 blocking questions (max 5 total); the rest go to `## Needs more info`.
+
+- **`/conclave-bug list`** — table now includes a `Lab` column (`✓` / `—`) indicating whether a lab spec has been generated for each bug.
+
+### Docs
+
+- **Lab tests — new page EN/ES** (`site/content/{en,es}/lab-tests.mdx`): complete reference for the lab test feature. Covers the full flow (TL generates spec → PR merged → QA runs `--lab` → Tier A evidence → auto-bug on failure), `conclave/lab-config.md` setup (copy template, gitignore, fill in values), Variable registry format and rules, integration type / runner reference table, lab spec file structure, safety rules (`payment_mode: test`, `STRIPE_SECRET_KEY` prefix check, `LAB_TEST_TAG` idempotency), bug filing on failure, and enabling via the `lab_test:` config block.
+- **`/conclave-bug` docs EN/ES** — updated to document: Haiku pre-analysis refiner behavior (read-only subagent, returns structured JSON, never blocks the flow); conditional `AskUserQuestion` (skipped when no blocking questions and severity is clear); `suspected_code_area` and `lab_test_path` fields in the bug template; lab test spec generation as Step 9 (gated on `lab_test.enabled` and `severity_threshold`); `Lab` column in `list` output.
+- **`/conclave-qa` docs EN/ES** — updated to document the `--lab` flag: command syntax, prerequisites, step-by-step execution flow (env var export → safety checks → Verify command → Evidence log → bug on failure), `blocked` vs `failed` distinction, and after-it-runs section extended for post-merge lab test outcomes.
+- **`/conclave-pr-review` docs EN/ES** — updated to document Step 6.5 lab spec generation: conditions (enabled + `generate_on: pr-review` + `approved`), `lab-config.md` requirement (soft skip), spec written to sprint stories directory, `lab_test_path` frontmatter update, and after-it-runs note about running `--lab` post-merge.
+- **Configuration reference EN/ES** — new "Lab test configuration block" section documenting all `lab_test:` fields with defaults and notes, plus the `conclave/lab-config.md` gitignored-file requirement.
 
 ---
 
