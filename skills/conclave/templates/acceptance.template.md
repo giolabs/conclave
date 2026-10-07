@@ -32,7 +32,7 @@ generated_at: "{{iso_date}}"
 
 > QA appends one section per verification run. Do not delete past runs — they are the story's audit trail.
 
-<!-- Example structure (filled in by /conclave-qa, planned, not yet shipped):
+<!-- Example structure (filled in by /conclave-qa):
 ## Verification — YYYY-MM-DD
 
 - Commit tested: <sha>

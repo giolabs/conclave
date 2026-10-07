@@ -20,6 +20,7 @@ generated_by: conclave
 
 ## Capacity
 
+- Capacity source: {{capacity_source}}   <!-- "average velocity of SPRINT-x..y" or "fixed formula (no closed sprints yet)" -->
 - Team capacity for the sprint: {{team_capacity_summary}}
 - Sum of selected story estimates: {{committed_total}}
 - Headroom / buffer: {{buffer_summary}}
@@ -54,11 +55,17 @@ generated_by: conclave
 
 {{scope_findings}}
 
-## Active experiments
+## Roadmap slot and epics
 
-> Carried in from `../SPRINT-{{prev_sprint_id}}/retro.md`. Each experiment has a hypothesis, a measure, and an end date. If there is no prior retro, this section says "none".
+- Slot: **{{slot}}** — {{slot_goal}}
+- Epics refined this planning: {{epics_list}}
+- Stories generated from those epics (inline refinement): {{refined_stories}}
 
-{{active_experiments}}
+## Retro action items carried in
+
+> Every `open` action item from `../SPRINT-{{prev_sprint_id}}/retro.md`. If there is no prior retro (or retro is off), this section says "none".
+
+{{retro_actions}}
 
 ## Commitments and risks raised
 
@@ -78,4 +85,4 @@ generated_by: conclave
 - Each assigned dev runs `/conclave-dev US-NNN` to start their story.
 - QA runs `/conclave-qa US-NNN` as stories enter `review`.
 - Tech Lead runs `/conclave-pr-review US-NNN` as stories enter `verified` *(only when `peer_pr_review.required: true` in `conclave/config.md`; in `lean` profile, QA's pass moves the story directly to `done`)*.
-- The team runs `/conclave-standup` daily *(if `daily_standup.required: true`; otherwise silent — and the command itself is planned, not yet shipped)*.
+- At sprint end, run `/conclave-close` (Review, plus Retro when `ceremonies.close.retro: true`). The next `/conclave-planning` refuses to run until this sprint is `closed`.

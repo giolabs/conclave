@@ -9,7 +9,8 @@ A story is **Ready** to be pulled into a sprint when all of the following are tr
 
 ## Must-have (PM-owned)
 
-- [ ] Story is written in INVEST form: *"As a X, I want Y, so that Z"*.
+- [ ] Story is written in INVEST form: *"As a X, I want Y, so that Z"* — or, for `type: enabler`, *"In order to X, we need Y"*.
+- [ ] Story references its epic (`epic: EP-NNN`) unless it is an ad-hoc story or a bug.
 - [ ] At least one Gherkin acceptance scenario is written.
 - [ ] Priority is assigned (must / should / could / wont).
 - [ ] The "So that" clause names a concrete user benefit, not a vague quality.

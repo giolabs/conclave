@@ -66,7 +66,7 @@ Do not skip the CHANGELOG entry for "small" changes — an incomplete changelog 
 
 ### The core pattern: prose-orchestrated subagents
 
-There is no orchestration DSL. A slash command is a markdown file with numbered steps in its body. When a step says "spawn a subagent loaded with `skills/conclave/agents/tech-lead.md`," Claude reads that role-charter file and dispatches an `Agent` tool call using its full content as system-prompt context, then continues once the subagent returns. Two role subagents can run concurrently by issuing both `Agent` calls in the same message (e.g. PM + TL in `/conclave-spec`).
+There is no orchestration DSL. A slash command is a markdown file with numbered steps in its body. When a step says "spawn a subagent loaded with `skills/conclave/agents/tech-lead.md`," Claude reads that role-charter file and dispatches an `Agent` tool call using its full content as system-prompt context, then continues once the subagent returns. Two role subagents can run concurrently by issuing both `Agent` calls in the same message (e.g. PM + TL during `/conclave-init` inception).
 
 Role charters (`skills/conclave/agents/*.md`) have **no frontmatter** — pure prose, loaded by name/path from command bodies. This is the same pattern used by the `code-review` and `skill-creator` skills elsewhere in the Claude Code ecosystem.
 
@@ -82,27 +82,29 @@ Commands read/write a `conclave/` directory at the root of whatever repo the plu
 conclave/
 ├── config.md              # team_profile: lean | full-scrum | custom, plus per-ceremony required: flags
 ├── team/roster.md, ceremonies.md
-├── product/backlog.md, architecture.md, definition-of-ready.md, definition-of-done.md
+├── product/vision.md, epics/EP-NNN-*.md, roadmap.md, backlog.md, architecture.md, adr/, definition-of-ready.md, definition-of-done.md
 ├── context/                # frozen snapshots (CLAUDE.md, skills inventory, rules) for auditability
-└── sprints/SPRINT-NNN/meta.md, spec.md, stories/US-NNN-*.md, acceptance/AC-US-NNN.md
+└── sprints/SPRINT-NNN/meta.md, spec.md, planning.md, review.md, retro.md, stories/US-NNN-*.md, acceptance/AC-US-NNN.md
 ```
 
 Invariants any command touching this directory must respect (defined in `skills/conclave/SKILL.md`):
 - Markdown only — structured data goes in YAML frontmatter, never JSON/SQLite/binary.
-- Append, don't clobber — a second `/conclave-spec` run creates `SPRINT-002/`, doesn't overwrite `SPRINT-001/`.
+- Append, don't clobber — the next `/conclave-planning` run creates `SPRINT-002/`, doesn't overwrite `SPRINT-001/`.
+- **v2 lifecycle (Scrum Lite):** `/conclave-init` (setup + inception: vision/Product Goal, epics, architecture, roadmap) → `/conclave-planning` (one roadmap slot, inline refinement, velocity capacity) → build → `/conclave-close` (review + retro, the only command that sets a sprint `closed`). Sprint status is `draft → active → closed`; one active sprint at a time; `SPRINT-000` is the optional walking-skeleton sprint of `type: enabler` stories. v1.x workspaces migrate with `/conclave-init --upgrade`.
 - Every artifact-generating command snapshots its inputs to `conclave/context/`.
 - `SPRINT-NNN` / `US-NNN` IDs increment monotonically and are never reused.
 - Non-markdown views live **outside** `conclave/`: `conclave-board/` (Kanban scaffold).
 - **No command merges a PR.** Since v0.15.0 (ADR-006) nothing runs `gh pr merge` — QA verification and Tech Lead approval are gates, and a human lands the code. ADR-004's merging sprint loop and ADR-005's merging dev loop are superseded.
 - **One autonomous delivery loop: `/conclave-dev --loop`** (v0.15.0+, ADR-006). It takes the active sprint (or the IDs passed, bugs included) and runs **W0** conflict ordering, **W1** Dev to green CI, **W2** headless QA, **W3** forced Tech Lead review, returning any failing story to W1. Waves never overlap; it never closes a sprint. Config lives under `commands.dev.*`: a recurring local-time `schedule` (`timezone`, `days`, `start_time`, `end_time`, `duration_days`, `active_from`) and `budgets`; the pre-0.15.0 `window_start`/`window_end` pair is refused with a migration message. It writes `RUN-NNN-dev-loop.md` under `conclave/sprints/SPRINT-NNN/runs/` (or `conclave/runs/` in a repo with no sprint) from `sprint-run-report.template.md`, including a token ledger and per-role productivity, and posts optional Slack messages from `slack-loop-{success,partial,hitl}.template.json` — HITL alerts fire the moment the blocker occurs. Requires GitHub CLI (`gh`) installed and authenticated with repo access; Conclave does not install or configure it. `/conclave-sprint --no-interaction` is now a headless one-pass runner only. See the docs Scheduling page.
 
-### Team profiles and the two structural gates
+### Team profiles and the structural gates
 
-`conclave/config.md` sets `team_profile: lean | full-scrum | custom`, which toggles ceremonies (standup, grooming, peer PR review, sprint review, retro) on/off. Two gates are **structurally required and cannot be turned off** regardless of profile:
+`conclave/config.md` sets `team_profile: lean | full-scrum | custom`, which toggles two settings: Tech Lead PR approval (`ceremonies.peer_pr_review.required`) and the retrospective inside `/conclave-close` (`ceremonies.close.retro`). `lean` = both off, `full-scrum` = both on. The v1 keys `daily_standup`, `backlog_grooming`, `sprint_review`, `sprint_retrospective` were removed in v2.0.0. Three steps are **structurally required** regardless of profile:
 - **Sprint Planning** (`/conclave-planning`) — no sprint exists without a locked goal + story list.
 - **QA Verification** (`/conclave-qa`) — every `done` story must carry a verification report.
+- **Sprint Review** (inside `/conclave-close`) — the sprint never closes, and velocity is never recorded, without it.
 
-These two gates are separate from **Tech Lead PR approval** (`/conclave-pr-review`), which only runs when `ceremonies.peer_pr_review.required: true`. QA never runs `gh pr review --approve`; only the TL does. Story status flow:
+QA never runs `gh pr review --approve`; only the TL does (`/conclave-pr-review`). Story status flow:
 
 ```
 backlog → ready → in-progress → review → [verified] → done

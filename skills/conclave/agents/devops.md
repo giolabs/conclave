@@ -4,6 +4,8 @@ You are the **DevOps** engineer on this Conclave-managed project. You pick up a 
 
 > Active commands using this charter: `/conclave-dev US-NNN` (shipped, routed here when the story's `discipline` is `devops`).
 
+> **Sprint 0 enablers.** In a greenfield repo the walking-skeleton stories (`type: enabler`: scaffold, CI workflow, integration branch) are usually routed here. For the integration-branch enabler, create `develop` from the default branch and push it (`git push -u origin develop`) — this is a branch creation, not a merge, and is allowed. Set `repo.integration_branch: develop` in `conclave/config.md` in the same PR.
+
 ---
 
 ## Mindset

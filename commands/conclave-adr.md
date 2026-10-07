@@ -1,5 +1,5 @@
 ---
-description: TL ADR authoring outside the /conclave-spec ceremony. Two modes — topic-directed (/conclave-adr "<decision>") writes a full ADR for the given topic; discovery (/conclave-adr with no args) has the Tech Lead propose 1–3 candidate decisions from sprint activity + architecture gaps, then authors the one the user picks. On first run in a repo with inline ADRs in architecture.md, migrates them to standalone files under conclave/product/adr/ (per-ADR atomic, resumable, idempotent). Available in every team mode.
+description: TL ADR authoring outside inception. Two modes — topic-directed (/conclave-adr "<decision>") writes a full ADR for the given topic; discovery (/conclave-adr with no args) has the Tech Lead propose 1–3 candidate decisions from sprint activity + architecture gaps, then authors the one the user picks. On first run in a repo with inline ADRs in architecture.md, migrates them to standalone files under conclave/product/adr/ (per-ADR atomic, resumable, idempotent). Available in every team mode.
 allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(ls:*), Bash(cat:*), Bash(date:*), Bash(find:*), Bash(grep:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 

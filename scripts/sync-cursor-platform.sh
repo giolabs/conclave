@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sync canonical Conclave methodology into the Cursor plugin tree.
-# Source of truth: skills/conclave/{SKILL.md,templates/,board-app/}
+# Source of truth: skills/conclave/{SKILL.md,templates/,references/,board-app/}
 # Destination:    platforms/cursor/skills/conclave/
 #
 # Usage:
@@ -34,6 +34,10 @@ mkdir -p "$stage/templates"
 
 cp "$SRC/SKILL.md" "$stage/SKILL.md"
 cp -R "$SRC/templates/." "$stage/templates/"
+if [[ -d "$SRC/references" ]]; then
+  mkdir -p "$stage/references"
+  cp -R "$SRC/references/." "$stage/references/"
+fi
 
 # board-app is required for /conclave-board parity after local Cursor install
 if [[ -d "$SRC/board-app" ]]; then
@@ -67,6 +71,9 @@ if [[ "$CHECK" -eq 1 ]]; then
   # Compare SKILL.md + templates (board-app may be large)
   diff -rq "$stage/SKILL.md" "$DST/SKILL.md" >/dev/null
   diff -rq "$stage/templates" "$DST/templates" >/dev/null
+  if [[ -d "$stage/references" ]]; then
+    diff -rq "$stage/references" "$DST/references" >/dev/null
+  fi
   if [[ -d "$stage/board-app" ]]; then
     if [[ ! -d "$DST/board-app" ]]; then
       echo "error: board-app missing from Cursor tree" >&2

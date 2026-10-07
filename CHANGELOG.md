@@ -6,6 +6,61 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ---
 
+## [2.0.0] — 2026-10-07
+
+**Breaking release — "Scrum Lite" lifecycle.** Conclave now drives a project from a raw idea to sprint N through a reduced Scrum cycle: inception (vision, Product Goal, epics, roadmap) → Sprint Planning per roadmap slot → build → Sprint Close (review + retro). Before this release Conclave assumed a product document already split into `## Sprint N` existed, had no epic layer, no Sprint 0, and never closed a sprint (review, retro, standup and grooming were config flags without commands; velocity never fed capacity). Existing v1.x workspaces must run `/conclave-init --upgrade` once before `/conclave-planning`, `/conclave-close` or `/conclave-epic` will run.
+
+### Added
+
+- **`/conclave-discovery`** — new command that turns a raw idea (or an incomplete document via `--from`) into the product documentation package inception needs, written to `docs/product/` (team-owned, outside `conclave/`): `00-discovery.md` (problem, ICP, personas, business model, Haiku-researched competitors, UVP, MoSCoW features), `01-tech-stack.md` (choice per layer with why / reconsider-when, test+lint+CI, rejected alternatives, evidence tiers), `02-data-model.md` (Mermaid ER, entities, structural decisions), `03-bloc.md` (numbered invariants, use cases and edge cases, state machines) and `04-mvp.md` (Product Goal, metrics, scope, candidate epics, Sprint 0, sequencing), plus an index `README.md`. Adapted from the `mvp-idea` discovery flow without its stakeholder questionnaire — open questions are recorded instead. One checkpoint (ICP / problem / UVP) before the rest is derived. New templates `product-*.template.md` and references `skills/conclave/references/{discovery-methodology,tech-stack-decision-tree}.md`.
+- **Product-document scan in `/conclave-init`.** Init now looks for a discovery package first, then scores every `.md` in the repo (location, filename, five coverage signals: problem, users, goal/metrics, features/scope, MVP boundary) and offers the top 3. With nothing found it offers `/conclave-discovery` (run inline) or a one-paragraph idea; a chosen document covering fewer than 4 signals gets a "complete it with `/conclave-discovery --from`" option. A package's `01-tech-stack.md` pre-fills the stack confirmation in greenfield repos; its candidate epics become the inception epics and its tech-stack choices become the initial ADRs.
+- **BLOC-driven acceptance criteria.** When `product_doc_path` points to a discovery package, `/conclave-planning` passes `03-bloc.md` to the PM, and every invariant / use case / edge case a story touches must appear as a Gherkin scenario.
+- **Inception in `/conclave-init`.** After the setup wizard, the PM (vision + feature epics) and TL (architecture, initial ADRs, Sprint 0 enabler epic) run in parallel, then the SM sequences the epics into a roadmap. One confirmation checkpoint before anything is written. Starts from free text or an existing document — a product document is no longer required. Writes `product/vision.md`, `product/epics/EP-NNN-*.md`, `product/roadmap.md`, `product/adr/`, and an empty backlog. Detects greenfield repos (no application code) and defaults Sprint 0 on for them.
+- **`/conclave-init --upgrade`** migrates a v1.x workspace in place: removes the dropped ceremony keys, maps `sprint_retrospective.required` → `ceremonies.close.retro`, adds the `sprint:` block, rewrites sprint `status: done|archived` → `closed` with recorded velocity, groups existing stories into epics (PM), builds the roadmap with closed/active slots and a seeded burnup (SM), and adds `type`/`epic` to every story. Never deletes or renames a sprint, story or report.
+- **`/conclave-close`** — new command, the only one that sets a sprint `closed`. Runs the critical-bug gate, asks what happens to unfinished stories (next sprint or back to backlog), Sprint Review by the PM (Sprint Goal verdict, epic and Product Goal progress, adaptation proposals), the Retrospective by the SM when `ceremonies.close.retro: true` (keep / change / try, at most 3 action items), records velocity, appends a burnup row and re-forecasts the roadmap, marks finished epics `done`, and writes `review.md`, `retro.md` plus the closing report, UAT guide and `dora-data.yml` (moved here from `/conclave-sprint`).
+- **`/conclave-epic new | edit | split | retire`** — keeps the epic layer alive after inception; the SM re-slots new or changed epics into future roadmap slots (never `active` or `closed` ones). Split is coverage-checked like `/conclave-story split`.
+- **Sprint 0 / walking skeleton.** With `sprint.sprint_zero: true` the first sprint is `SPRINT-000`, made of `type: enabler` stories (scaffold, test framework + one passing test, lint, CI, `develop` integration branch). The Developer charter now treats a missing test framework as expected when the enabler story is the one that bootstraps it, so `/conclave-dev --loop` no longer aborts on a fresh repo; the DevOps charter covers creating `develop`.
+- **Velocity-based capacity.** `/conclave-planning` sizes the sprint on the average velocity of the last 3 closed sprints and records which source it used; the fixed `devs × weeks × 5` formula only applies before any sprint has closed.
+- **Templates**: `vision`, `epic`, `roadmap`, `sprint-review`, `retro`.
+- **Story frontmatter**: `type: feature | enabler` and `epic: EP-NNN`. **Sprint `meta.md`**: `slot`, `epics`, `committed_units`, `velocity`, `sprint_goal_met`, `closed_at`.
+- **Config**: `ceremonies.close.retro`, `sprint.length_weeks`, `sprint.sprint_zero`.
+
+### Changed
+
+- **`/conclave-planning` plans one roadmap slot at a time** with inline refinement: Wave 1 PM turns the slot's epics into stories + Gherkin (TL writes enabler stories when the slot has an enabler epic), Wave 2 TL feasibility + discipline, Wave 3 SM planning record with retro action items carried in. Refuses while a sprint is still `active` — close it with `/conclave-close` first. Reads vision/epics/roadmap instead of `product_doc_path`.
+- **Sprint status is `draft → active → closed`** (was `draft | active | done | archived`). Exactly one sprint is active at a time.
+- **`/conclave-sprint` covers the build phase only.** Phase 1 runs `/conclave-planning` when no sprint is active; it no longer writes the closing report or checks the close gate — it prints a hint to run `/conclave-close`.
+- **Profiles**: `lean` = TL gate off, retro off; `full-scrum` = both on. Sprint Review is now structural (always runs inside `/conclave-close`), alongside Sprint Planning and QA Verification.
+- **`/conclave-story new`** asks for the epic and type; `split` children inherit them; epics track their stories.
+- **Charters**: PM gains inception, refinement, review and epic modes; SM gains roadmap and retro modes and loses the never-shipped standup/review/retro command tables; TL gains inception (greenfield ADRs, enabler epic) and the Wave 1 / Wave 2 planning split.
+- **`product_doc_path`** is now optional inception input, not the planning source of truth.
+- **Solo roster** uses `git config user.name` as the person name (was the project name, which then failed assignee matching in `/conclave-dev`).
+- `/conclave-init` now also writes `team/PR_REVIEW_TEMPLATE.md` and `team/testing-environments.md`, which the directory contract already promised.
+- `scripts/generate-cursor-platform.py` reads the version from `.claude-plugin/plugin.json` (it was hard-coded to `0.15.0`) and removes Cursor commands whose canonical source was deleted.
+- Cursor package regenerated and re-synced; this also ships v1.2.0 charter and template changes that had not been synced to `platforms/cursor/`.
+
+### Removed
+
+- **`/conclave-spec`** (deprecated since v1.1.0).
+- **`/conclave-planning --all`** — the roadmap is the multi-sprint view; stories are refined per slot.
+- **Config keys** `ceremonies.daily_standup`, `ceremonies.backlog_grooming`, `ceremonies.sprint_review`, `ceremonies.sprint_retrospective`. Commands warn once and ignore them; `--upgrade` deletes them. There is no standup or grooming ceremony: the board and story statuses are the daily view, and refinement happens inside planning.
+- `sprints/SPRINT-NNN/daily/` from the directory contract (nothing ever wrote it).
+
+### Fixed
+
+- Stale references to `/conclave-spec`, `/conclave-review`, `/conclave-sprint close` and "planned, not yet shipped" commands across commands, templates and the board empty state.
+- `SKILL.md` §5 template list now includes every shipped template.
+
+### Upgrade
+
+```bash
+/conclave-init --upgrade   # once per existing workspace; review the diff, then commit
+/conclave-close            # if the active sprint is finished
+/conclave-planning         # plan the next roadmap slot
+```
+
+---
+
 ## [1.2.0] — 2026-08-27
 
 ### Added

@@ -522,11 +522,10 @@ If a sprint was in scope, re-read every non-retired story under `$SPRINT_PATH/st
 
 ```
 All non-retired stories in ${SPRINT_ID} are done, with PRs awaiting human merge.
-This command does not close sprints — merge the PRs, then run /conclave-review (or
-/conclave-sprint) to close it.
+This command does not close sprints — merge the PRs, then run /conclave-close.
 ```
 
-Never set `meta.md`'s `status: done` from here. A delivery loop has no mandate over the sprint's commitment as a whole (ADR-006).
+Never set `meta.md`'s `status: closed` from here. A delivery loop has no mandate over the sprint's commitment as a whole (ADR-006).
 
 ## Slack notifications
 
@@ -555,7 +554,7 @@ Delivery rules:
 - **Do not touch any file under `conclave/` except the single story/bug file's frontmatter and (in autonomous mode) its body.** The `## Autonomous run —` section appended in Step 8.5 is the sole additional write allowed. In loop mode, the run report under `runs/` is the one further exception — every other `conclave/` path stays untouched, and QA's `tests/uat/` writes plus git operations on feature branches remain as they are outside `conclave/`. Architecture changes still go in a separate ADR PR raised by the Tech Lead.
 - **Never merge a PR, in any mode.** No path in this command runs `gh pr merge`. QA approval and Tech Lead approval are gates, not merge authorizations; the loop's terminal state is an approved PR and a human does the merge (ADR-006). Never `--admin`, never force-push.
 - **Loop mode forces the Tech Lead gate** for the run even when `ceremonies.peer_pr_review.required: false`. Never permanently mutate that flag in `config.md`.
-- **Loop mode never closes a sprint.** It prints a hint when the sprint looks complete; `/conclave-review` (or `/conclave-sprint`) owns the close.
+- **Loop mode never closes a sprint.** It prints a hint when the sprint looks complete; `/conclave-close` owns the close.
 - **Waves never overlap.** Wave N+1 starts only once wave N has resolved for every story in scope. Batch-of-3 concurrency exists only inside Wave 1, and only for stories with no dependency and no recorded path overlap between them.
 - **Every wave failure returns to Wave 1.** QA blocked → Wave 1. Tech Lead `request_changes` → Wave 1, then Wave 2 again. Never re-run QA against code nobody changed, and never let the Tech Lead approve a story QA has not seen in its current state.
 - **A dependency cycle aborts the run.** Print the cycle, alert, stop. Never invent an execution order.

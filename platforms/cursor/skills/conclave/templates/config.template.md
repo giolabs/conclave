@@ -1,15 +1,23 @@
 ---
 project_name: "{{project_name}}"
 project_type: "{{project_type}}"        # backend | frontend | mobile | devops | multi
+project_language: "{{project_language}}" # ISO 639-1 code: es | en | pt | fr | de | etc.
+                                         # All Conclave-generated markdown (stories, reports,
+                                         # acceptance criteria, comments) must be written in this language.
+story_prefix: "{{story_prefix}}"        # Prefix for story IDs: US → US-001, TASK → TASK-001, FEAT → FEAT-001
+launch_date: "{{launch_date}}"          # Target launch date (ISO 8601) or "TBD"
+product_doc_path: "{{product_doc_path}}" # Optional. Relative path to an existing product document used as extra input
+                                         # during inception (/conclave-init). Since v2.0.0 the source of truth is
+                                         # conclave/product/vision.md + epics/ + roadmap.md, not this file.
 stack:
-  language: "{{language}}"
+  language: "{{stack_language}}"
   framework: "{{framework}}"
   datastore: "{{datastore}}"
   infrastructure: "{{infrastructure}}"
 repo_url: "{{repo_url}}"
 claude_md_path: "CLAUDE.md"
 initialized_at: "{{iso_date}}"
-conclave_version: "0.15.0"
+conclave_version: "2.0.0"
 
 # Optional. Which agent runtime(s) this install expects. Informational only —
 # unset means either Claude Code or Cursor is fine (mixed teams OK).
@@ -29,16 +37,17 @@ ceremonies:
   qa_verification:
     required: true                      # ALWAYS required (structural — no done without a quality gate)
     ci_wait_timeout_minutes: 20          # how long /conclave-qa polls CI for a UAT run's conclusion before treating it as blocked
-  daily_standup:
-    required: {{daily_standup_required}}
-  backlog_grooming:
-    required: {{backlog_grooming_required}}
   peer_pr_review:
     required: {{peer_pr_review_required}}
-  sprint_review:
-    required: {{sprint_review_required}}
-  sprint_retrospective:
-    required: {{sprint_retrospective_required}}
+  close:
+    retro: {{close_retro}}               # /conclave-close runs the retrospective after the review (review itself always runs)
+  # daily_standup / backlog_grooming / sprint_review / sprint_retrospective were removed in v2.0.0.
+  # Commands warn once and ignore them if still present.
+
+# Sprint cadence (v2.0.0+). Read by /conclave-init (roadmap dates), /conclave-planning and /conclave-close.
+sprint:
+  length_weeks: {{sprint_length_weeks}}
+  sprint_zero: {{sprint_zero}}           # true = roadmap starts with SPRINT-000 (walking skeleton of enabler stories)
 
 # Model configuration (optional). Omit this block entirely to use the parent session model for all roles.
 # Valid model IDs: claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5-20251001
@@ -88,6 +97,21 @@ ceremonies:
 #   sprint:
 #     interactive: true                # false = headless one-pass; never merges, no schedule, no budgets
 
+# Lab test configuration (optional). When enabled, the Tech Lead generates an executable
+# e2e lab test spec whenever a bug is filed (/conclave-bug report) or a story's PR is approved
+# (/conclave-pr-review). The QA agent executes the spec against the integration branch and records
+# Tier A evidence (command + raw output + commit SHA). Findings auto-create BUG-NNN artifacts.
+# lab_test:
+#   enabled: false
+#   integration_branch: develop       # branch/env where lab tests run; defaults to repo.integration_branch
+#   runner: auto                      # auto | playwright | newman | bash
+#   timebox_minutes: 30               # non-fatal time limit per lab run (reports but does not abort on exceed)
+#   stories:
+#     generate_on: pr-review          # when TL generates the spec: pr-review (only supported value)
+#   bugs:
+#     severity_threshold: high        # critical | high → lab test required; medium | low → optional
+#                                     # omit to require lab tests for ALL bugs (when enabled)
+
 # Optional Slack delivery for the delivery loop (webhook URL via env var NAME only).
 # notifications:
 #   slack:
@@ -110,11 +134,15 @@ This file captures the project-level configuration Conclave uses to generate and
 
 `runtime` — when set, records which agent platform(s) this install expects: `claude-code`, `cursor`, or `both`. Informational only; commands do not refuse a mismatched runtime. Unset means either Claude Code or Cursor is fine (mixed teams OK). Invalid values: warn once and treat as unset.
 
+## Project language
+
+`{{project_language}}` — the natural language all Conclave-generated markdown must be written in (stories, acceptance criteria, comments, reports, bug descriptions). Use an ISO 639-1 code (`es`, `en`, `pt`, `fr`, `de`, etc.). Every command reads this field and instructs its role subagents accordingly. Defaults to `es` if absent.
+
 ## Project type
 `{{project_type}}`
 
 ## Confirmed stack
-- **Language**: `{{language}}`
+- **Language**: `{{stack_language}}`
 - **Framework**: `{{framework}}`
 - **Datastore**: `{{datastore}}`
 - **Infrastructure**: `{{infrastructure}}`
@@ -123,20 +151,25 @@ This file captures the project-level configuration Conclave uses to generate and
 
 `{{team_profile}}` — sets which ceremonies and quality gates this team commits to. Three options:
 
-| Profile | When to use | Standup | Grooming | Peer PR review | Sprint review | Retro |
-|---------|-------------|---------|----------|----------------|----------------|-------|
-| `lean` | Solo devs, small (2–3) teams, internal tools | off | off | off | off | off |
-| `full-scrum` | Cross-functional teams, stakeholders to demo to | required | required | required | required | required |
-| `custom` | Mixed needs | per-ceremony flags below | | | | |
+| Profile | When to use | Peer PR review (TL gate) | Retro inside `/conclave-close` |
+|---------|-------------|--------------------------|--------------------------------|
+| `lean` | Solo devs, small (2–3) teams, internal tools | off | off |
+| `full-scrum` | Cross-functional teams, stakeholders to demo to | required | on |
+| `custom` | Mixed needs | `ceremonies.peer_pr_review.required` | `ceremonies.close.retro` |
 
-Two gates are **always required** regardless of profile because they are structural to Scrum:
+Three steps are **always required** regardless of profile because they are structural to Scrum:
 
 - **Sprint Planning** — without a plan there is no sprint.
 - **QA verification** — without a quality gate there is no Definition of Done.
+- **Sprint Review** (inside `/conclave-close`) — without inspecting the Increment the sprint never closes, velocity is never recorded, and the next sprint cannot be planned.
 
 Anything Conclave generates (stories with Gherkin acceptance criteria, DoD checklist, ADR-based architecture) is also non-negotiable — it is the structure that makes everything else work.
 
-To change the profile, edit `team_profile` in the frontmatter above. To override a single ceremony without changing the profile, edit its `required:` flag under `ceremonies:` and set `team_profile: custom`. Conclave's ceremony commands (`/conclave-planning`, `/conclave-standup`, `/conclave-review`, `/conclave-retro`) read these flags and skip silently when `required: false`.
+To change the profile, edit `team_profile` in the frontmatter above. To override a single setting without changing the profile, edit `ceremonies.peer_pr_review.required` or `ceremonies.close.retro` and set `team_profile: custom`.
+
+## Sprint cadence
+
+`sprint.length_weeks` (default `2`) drives the dates in `product/roadmap.md` and the default sprint end date in `/conclave-planning`. `sprint.sprint_zero` (default `true` for a repo with no code, `false` otherwise) makes the roadmap start with `SPRINT-000`, a walking-skeleton sprint made of `type: enabler` stories (repo scaffold, test framework, CI, integration branch) so that `/conclave-dev --loop` has something to run tests against from Sprint 1 on.
 
 ## UAT / CI gate
 
@@ -222,7 +255,7 @@ Default: `false`. When `true` — or when `--loop` is passed — `/conclave-dev`
 - **No PR is ever merged.** The loop's terminal state is approved PRs waiting for a human. `repo.integration_branch` is only the PRs' base branch.
 - **Implies `interactive: false`** — a loop that prompts is not a loop.
 - **Forces the Tech Lead gate** for the run even when `peer_pr_review.required: false`, without rewriting this file.
-- **Never closes the sprint.** It prints a hint when every non-retired story is `done`; closing stays with `/conclave-sprint` / `/conclave-review`.
+- **Never closes the sprint.** It prints a hint when every non-retired story is `done`; closing is `/conclave-close`.
 - Accepts `BUG-NNN` when passed explicitly (the sprint scan never picks bugs up).
 - Writes `RUN-NNN-dev-loop.md` under the active sprint's `runs/`, or `conclave/runs/` in a repo with no sprint. The report is also the concurrency lock: a run whose scope shares an ID with a live run is refused; non-overlapping scopes may run in parallel.
 
