@@ -133,7 +133,8 @@ Continue to Step 9.
    If any field is missing or if `status != "proposed"`, refuse to write and surface: `TL subagent output has malformed frontmatter (status='<value>', expected 'proposed'). Aborting.`
    If the body has no Decision section, refuse: `ADR is missing the Decision section. Aborting.`
 3. **Append a row** to `architecture.md` section 4 (the referenced-ADR table): `| [ADR-NEXT_ID](adr/ADR-NEXT_ID-<slug>.md) | <title> | proposed | <today ISO date> |`. If Step 5 wrote a placeholder row for the new ADR, replace that row instead of appending.
-4. Do NOT commit. Do NOT push. Do NOT open a PR.
+4. **Link to an epic** (v2.1.0+) — `AskQuestion`: *"Which epic does this decision serve?"* — the non-retired epics, plus `none` (default; the TL may suggest one in the ADR's Context). For a chosen epic: append the ID to its `adrs:`; if the epic's SPEC is `approved`, warn *"SPEC-NNN §3 does not list this ADR yet — revise it with `/conclave-spec EP-NNN`."*; if the epic has an open question this ADR answers, suffix that line with `— decided by ADR-NNN`.
+5. Do NOT commit. Do NOT push. Do NOT open a PR.
 
 ## Step 10 — Report
 
@@ -155,7 +156,7 @@ Print:
 
 - **Never write `status: accepted` from the subagent.** Only migration writes `accepted` (for pre-existing inline ADRs whose team already acted on). New ADRs are always `proposed`.
 - **Never commit**, push, or open a PR.
-- **Never modify any story file** or any file outside `conclave/product/{architecture.md, adr/**}` and `conclave/context/`.
+- **Never modify any story file** or any file outside `conclave/product/{architecture.md, adr/**}`, the linked epic's `adrs:` / open-questions lines (Step 9.4), and `conclave/context/`.
 - **Migration is idempotent and resumable**. A second `/conclave-adr` run on a repo where migration already completed finds no inline ADRs and skips migration cleanly. A run interrupted mid-migration can be resumed by re-invoking the command — the per-ADR existence check in Step 5.3 detects already-extracted ADRs and skips them.
 - **Never invent an ADR number**. The orchestrator computes `NEXT_ID` in Step 6 — the subagent uses it verbatim.
 - **Do not touch section 5 or 6 of `architecture.md`**. Only section 4 (the referenced-ADR table) and (during migration) inline `### ADR-NNN` sections are edited by this command. Cross-cutting concerns and risk tables stay untouched.

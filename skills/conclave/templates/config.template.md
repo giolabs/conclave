@@ -48,6 +48,15 @@ ceremonies:
 sprint:
   length_weeks: {{sprint_length_weeks}}
   sprint_zero: {{sprint_zero}}           # true = roadmap starts with SPRINT-000 (walking skeleton of enabler stories)
+  planned_sprints: {{planned_sprints}}   # v2.1.0+: auto = the roadmap holds as many sprints as the must/should epics need;
+                                         # a number = fixed horizon (epics that do not fit go to "Beyond the horizon").
+                                         # Change it with /conclave-roadmap replan --sprints N.
+
+# Spikes, ADRs and SPECs (v2.1.0+). Read by /conclave-planning, /conclave-spike and /conclave-spec.
+delivery:
+  spike_max_timebox: M                   # largest timebox a spike may take: XS | S | M
+  spec_gate: {{spec_gate}}               # warn | require — what /conclave-planning does when a slot epic has needs_spec: true
+                                         # and no approved SPEC. warn = ask and record the risk; require = refuse until approved.
 
 # Model configuration (optional). Omit this block entirely to use the parent session model for all roles.
 # Valid model IDs: claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5-20251001

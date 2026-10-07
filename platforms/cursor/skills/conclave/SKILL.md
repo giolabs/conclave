@@ -25,13 +25,26 @@ Conclave v2 runs a **reduced Scrum cycle** ("Scrum Lite"): the artifacts and com
 
 ```
 /conclave-discovery   optional, once       → docs/product/ package: discovery · tech stack · data model · BLOC · MVP
-/conclave-init        inception, once      → vision (Product Goal) · epics · architecture · roadmap
+/conclave-init        inception, once      → vision (Product Goal) · epics (risk: uncertainty, needs_spec, open questions)
+                                             · architecture + ADRs · roadmap (how many sprints, spikes ahead of risky epics)
+/conclave-roadmap     anytime              → release plan: re-sequence future slots, change the number of sprints
+/conclave-spike       anytime              → timeboxed spike story: one question → findings + proposed ADR / draft SPEC
+/conclave-spec        before an epic's slot → SPEC-NNN: the epic's technical design, composed from its ADRs
+/conclave-adr         anytime              → one architectural decision
 /conclave-planning    every sprint start   → refine next roadmap slot into stories · lock sprint
 /conclave-dev → /conclave-qa → /conclave-pr-review    build
 /conclave-close       every sprint end     → review · retro · velocity · roadmap re-plan
 ```
 
 Hierarchy: **Product Goal → Epic (`EP-NNN`) → Story (`<PREFIX>-NNN`)**. Refinement is just in time: epics stay coarse until their roadmap slot is planned. There is no standup or grooming ceremony — the board and story statuses are the daily view; refinement happens inside planning.
+
+**Knowledge before code (v2.1.0+).** An epic carries the Tech Lead's risk assessment: `uncertainty` (low / medium / high), `needs_spec`, and open questions. The path from an epic to its stories is:
+
+```
+Epic (what · why)  →  Spike(s) (unknowns, timeboxed)  →  ADR(s) (one decision each)  →  SPEC (how: the epic's design)  →  Stories (/conclave-planning)
+```
+
+Every step is optional for a well-understood epic and enforced only where the epic says so: `uncertainty: high` → the roadmap schedules `spike:EP-NNN` one slot ahead and planning offers the spike first; `needs_spec: true` → planning requires (or warns about, per `delivery.spec_gate`) an approved SPEC, and refines the stories from its §11 breakdown. A spike is a story (`type: spike`) — planned, sized by its timebox, counted in velocity, verified by QA on its deliverable — but it ships knowledge, not code.
 
 Mapping to Scrum, with a small accommodation for real engineering teams:
 
@@ -42,7 +55,10 @@ Mapping to Scrum, with a small accommodation for real engineering teams:
 | Scrum Master | **Scrum Master (SM)** | An **optional process role** (v0.2.0+), not a discipline. Facilitates ceremonies, removes blockers, when someone holds it. If nobody does, the Tech Lead and team decide process by consensus. |
 | Product Goal | `conclave/product/vision.md` (`product_goal`) | Commitment of the Product Backlog. Written at inception. |
 | Epics | `conclave/product/epics/EP-NNN-<slug>.md` | Coarse chunks of value with a binary success criterion. `proposed → active → done \| retired`. |
-| Release plan | `conclave/product/roadmap.md` | Epics sequenced into sprint slots, burnup, forecast against `launch_date`. |
+| Release plan | `conclave/product/roadmap.md` | How many sprints (`horizon`: auto or fixed N), epics and spike entries sequenced into sprint slots, epics beyond the horizon, burnup, forecast against `launch_date`. Re-planned by `/conclave-roadmap`. |
+| Spike | Story with `type: spike` | Timeboxed (XS–M) research answering one question; produces `sprints/SPRINT-NNN/spikes/<ID>-findings.md` and, when declared, a proposed ADR or draft SPEC. Run by the Tech Lead. |
+| Architecture decision | `conclave/product/adr/ADR-NNN-<slug>.md` | One decision with alternatives and evidence tiers. `proposed → accepted \| superseded`. |
+| Technical specification | `conclave/product/specs/SPEC-NNN-<slug>.md` | The design of one epic composed from its ADRs: contracts, data, tests, rollout, story breakdown. `draft → approved \| superseded`. |
 | Product Backlog | `conclave/product/backlog.md` | Ordered list of user stories (with their epic). |
 | Sprint Backlog | `conclave/sprints/SPRINT-NNN/spec.md` selected stories table | Snapshot at planning time. |
 | Sprint Goal | `meta.md` / `planning.md` | One sentence, traceable to the roadmap slot goal. |
@@ -78,7 +94,8 @@ conclave/                             # VISIBLE top-level directory, all markdow
 │   ├── roadmap.md                    # epics → sprint slots, burnup, forecast (inception, /conclave-close)
 │   ├── backlog.md                    # ordered Product Backlog (stories)
 │   ├── architecture.md               # living architectural doc (ADR index)
-│   ├── adr/                          # ADR-NNN-<slug>.md standalone ADRs (inception, /conclave-adr)
+│   ├── adr/                          # ADR-NNN-<slug>.md standalone ADRs (inception, /conclave-adr, /conclave-spec, spikes)
+│   ├── specs/                        # SPEC-NNN-<slug>.md technical spec per epic (/conclave-spec, spikes) — v2.1.0+
 │   ├── definition-of-ready.md        # team-agreed DoR
 │   ├── definition-of-done.md         # team-agreed DoD
 │   └── bugs/                         # BUG-NNN-<slug>.md via /conclave-bug report — flat, no index
@@ -107,6 +124,7 @@ conclave/                             # VISIBLE top-level directory, all markdow
         │   └── US-NNN-<slug>.md
         ├── acceptance/
         │   └── AC-US-NNN.md
+        ├── spikes/                   # <PREFIX>-NNN-findings.md — one per spike run (v2.1.0+)
         ├── bugs/                     # QA-detected bugs (v0.16.0+) — BUG-NNN-<slug>.md
         │                             # linked to story + acceptance + PR that introduced them
         │                             # Critical bugs block sprint close
@@ -144,6 +162,8 @@ GitHub templates written by `/conclave-init` (outside `conclave/`, not part of t
 - **One active sprint, closed by a ceremony (v2.0.0+).** Sprint status is `draft → active → closed`. Exactly one sprint is `active`; `/conclave-planning` refuses while one is, and only `/conclave-close` sets `closed` (after the critical-bug gate). v1 `done`/`archived` values are rewritten to `closed` by `/conclave-init --upgrade`.
 - **Sprint 0 is `SPRINT-000` (v2.0.0+).** When `sprint.sprint_zero: true` the first sprint is `SPRINT-000`, a walking skeleton of `type: enabler` stories. Otherwise numbering starts at `SPRINT-001`.
 - **Epics are the planning unit (v2.0.0+).** `EP-NNN` IDs are monotonic and never reused. Every story created through planning carries `epic: EP-NNN`; `/conclave-planning` only refines stories for epics in the current roadmap slot.
+- **Spikes, ADRs and SPECs (v2.1.0+).** A spike is a story with `type: spike`, a `question` and a `timebox` ≤ `delivery.spike_max_timebox`; its PR holds only markdown under `conclave/` (prototypes stay on a lab branch or worktree). ADRs are always written `proposed` and SPECs `draft` by agents; only humans accept an ADR or approve a SPEC (`/conclave-spec approve`). `SPEC-NNN` IDs are monotonic and never reused, like `ADR-NNN`. Epic fields `uncertainty`, `needs_spec`, `spec`, `adrs`, `spikes` are optional — absent means `low`, `false`, none.
+- **Release horizon (v2.1.0+).** `sprint.planned_sprints` (`auto` or N) sets how many slots the roadmap holds; with a number, what does not fit is listed under *Beyond the horizon*, never silently dropped. Only `/conclave-init` and `/conclave-roadmap replan` change it.
 - **Snapshot context.** Every artifact-generating command writes a fresh snapshot under `conclave/context/` so the artifact is auditable against the inputs that produced it.
 - **Reference, don't duplicate.** Stories reference their acceptance file (`See acceptance/AC-<PREFIX>-NNN.md`); sprint spec references `product/definition-of-done.md` rather than copying it.
 - **Numbering is sticky.** `SPRINT-NNN` and `<story_prefix>-NNN` IDs increment monotonically and are never reused.
@@ -168,13 +188,13 @@ Role charters are markdown files under `skills/conclave/agents/`. They have no f
 
 | Subagent file | Used by |
 |---|---|
-| `agents/product-manager.md` | `/conclave-discovery` (`00-discovery.md`, `04-mvp.md`), `/conclave-init` (inception: vision + feature epics; upgrade: group existing stories into epics), `/conclave-planning` (Wave 1 refinement: Sprint Goal + stories for the slot's epics), `/conclave-close` (review), `/conclave-epic` (new / edit / split), `/conclave-story` (new / edit / split — `retire` is mechanical) |
-| `agents/tech-lead.md` | `/conclave-discovery` (`01-tech-stack.md`, `02-data-model.md`, `03-bloc.md`), `/conclave-init` (architecture, initial ADRs, Sprint 0 enabler epic), `/conclave-planning` (Wave 1 enabler stories when the slot has an enabler epic; Wave 2 feasibility + discipline), `/conclave-pr-review` (code review + approval), `/conclave-adr` |
-| `agents/scrum-master.md` | `/conclave-init` (roadmap), `/conclave-planning` (Wave 3 planning record: capacity from velocity, assignments, retro actions), `/conclave-close` (retro), `/conclave-epic` (roadmap insert) |
+| `agents/product-manager.md` | `/conclave-discovery` (`00-discovery.md`, `04-mvp.md`), `/conclave-init` (inception: vision + feature epics; upgrade: group existing stories into epics), `/conclave-planning` (Wave 1 refinement: Sprint Goal + stories for the slot's epics), `/conclave-close` (review, including spike outcomes), `/conclave-spec` (scope check of the SPEC against the epic), `/conclave-epic` (new / edit / split), `/conclave-story` (new / edit / split — `retire` is mechanical) |
+| `agents/tech-lead.md` | `/conclave-discovery` (`01-tech-stack.md`, `02-data-model.md`, `03-bloc.md`), `/conclave-init` (architecture, initial ADRs, Sprint 0 enabler epic, risk pass over the PM's epics), `/conclave-epic` (risk pass), `/conclave-spike` (spike authoring), `/conclave-spec` (SPEC authoring + any missing ADRs), `/conclave-dev` (**every `type: spike` story**, whatever its discipline — findings, proposed ADR, draft SPEC, docs-only PR), `/conclave-planning` (Wave 1 enabler stories when the slot has an enabler epic, spike stories for `spike:EP-NNN` entries; Wave 2 feasibility + discipline + `SPIKE_NEEDED`), `/conclave-pr-review` (code review + approval), `/conclave-adr` |
+| `agents/scrum-master.md` | `/conclave-init` (roadmap: horizon, slots, spike entries), `/conclave-roadmap replan`, `/conclave-planning` (Wave 3 planning record: capacity from velocity, assignments, retro actions), `/conclave-close` (retro), `/conclave-epic` (roadmap insert) |
 | `agents/developer.md` | `/conclave-dev US-NNN\|BUG-NNN [US-NNN\|BUG-NNN ...]` (items with `discipline: frontend \| backend \| mobile \| multi`, or unset) — one Agent call per item, ≤ 3 concurrent per batch, story and bug IDs may be mixed in one invocation. For a `BUG-NNN`, reproduces via the bug file's inline Gherkin repro steps before fixing, and the rendered PR body includes `Fixes #<github_issue_number>` (v0.10.0+). **Autonomous mode (v0.9.0+)**: `--no-interaction` CLI flag or `commands.dev.interactive: false` in `config.md` makes the command run headless — no `AskUserQuestion` prompts; defaults or `AUTONOMOUS_ABORT: <reason>`; per-run report appended to the file; ends at `review`, never merges. `/conclave-sprint` Phase 2 always forces autonomous (stories only — see below). **Autonomous Three-Wave Delivery Loop (v0.15.0+)**: `--loop` or `commands.dev.loop: true` takes the active sprint (or the IDs passed) and runs **W1 Dev + green CI → W2 QA → W3 forced TL review**, with any wave failure returning the affected stories to W1; W0 orders the scope by `dependencies:` and serializes file overlaps. Recurring local-time schedule + budgets from `commands.dev.*`, run report `RUN-NNN-dev-loop.md` with token and agent-productivity statistics, Slack templates. Implies autonomous; accepts `BUG-NNN`; **never merges**; never closes a sprint. See ADR-006. |
 | `agents/designer.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: design`) |
 | `agents/devops.md` | `/conclave-dev US-NNN [US-NNN ...]` (stories with `discipline: devops`) |
-| `agents/qa.md` | `/conclave-qa US-NNN\|BUG-NNN [US-NNN\|BUG-NNN ...]` — one Agent call per item, ≤ 3 concurrent per batch, story and bug IDs may be mixed. A bug's repro steps are verified exactly like a story's Gherkin scenarios. |
+| `agents/qa.md` | `/conclave-qa US-NNN\|BUG-NNN [US-NNN\|BUG-NNN ...]` — one Agent call per item, ≤ 3 concurrent per batch, story and bug IDs may be mixed. A bug's repro steps are verified exactly like a story's Gherkin scenarios. A spike's scenarios are checked against its findings report and declared outputs (no UAT, no CI wait). |
 | `agents/qa.md` (again) | `/conclave-bug report` (v0.10.0+) — one Agent call per invocation, authors Gherkin repro steps + an advisory severity note from the report's raw input. `/conclave-bug list` is mechanical (frontmatter-only) and skips the agent, same precedent as `/conclave-story retire`. |
 | *(all of the above)* | `/conclave-sprint` — sequential four-phase one-pass runner over the build phase (Planning of the next slot if no sprint is active → Dev batch-of-3 → QA batch-of-3 → PR review if `peer_pr_review.required`). Never closes the sprint — that is `/conclave-close`. **Headless one-pass** (`--no-interaction` / `commands.sprint.interactive: false`) is the same pass with documented planning defaults and zero prompts. Neither mode merges, self-heals, reads a schedule, or spends a budget — since v0.15.0 unattended delivery is `/conclave-dev --loop` (ADR-006). Each Agent/Task call uses the role model from `models:`. |
 | `agents/product-manager.md` (again) | `/conclave-story <new\|edit\|split>` — one Agent call per invocation. `/conclave-story retire` is mechanical (frontmatter-only) and skips the agent. Available in every `team_mode` (solo, lean, full-scrum). |
@@ -230,8 +250,10 @@ Templates available:
 - `slack-loop-hitl.template.json` — posted the moment a blocker needs a human (structural abort, dependency cycle, missing `gh`, attempts exhausted, `pending_uat`)
 - `product-discovery.template.md`, `product-tech-stack.template.md`, `product-data-model.template.md`, `product-bloc.template.md`, `product-mvp.template.md`, `product-docs-readme.template.md` — the `docs/product/` package written by `/conclave-discovery`
 - `vision.template.md` — `product/vision.md`, written at inception by `/conclave-init`
-- `epic.template.md` — `product/epics/EP-NNN-<slug>.md`, written by `/conclave-init` and `/conclave-epic`
-- `roadmap.template.md` — `product/roadmap.md`, written by `/conclave-init`, updated by `/conclave-planning`, `/conclave-close`, `/conclave-epic`
+- `epic.template.md` — `product/epics/EP-NNN-<slug>.md`, written by `/conclave-init` and `/conclave-epic`; risk fields (`uncertainty`, `needs_spec`, `spec`, `adrs`, `spikes`, open questions) since v2.1.0
+- `tech-spec.template.md` — `product/specs/SPEC-NNN-<slug>.md`, written by `/conclave-spec` (and spikes that declare a `spec` output); approved by `/conclave-spec approve`
+- `spike-findings.template.md` — `sprints/SPRINT-NNN/spikes/<PREFIX>-NNN-findings.md`, written by the Tech Lead when `/conclave-dev` runs a `type: spike` story
+- `roadmap.template.md` — `product/roadmap.md`, written by `/conclave-init`, updated by `/conclave-planning`, `/conclave-close`, `/conclave-epic`, `/conclave-roadmap`
 - `sprint-review.template.md` — `sprints/SPRINT-NNN/review.md`, written by `/conclave-close`
 - `retro.template.md` — `sprints/SPRINT-NNN/retro.md`, written by `/conclave-close`
 - `sprint-closing-report.template.md`, `sprint-uat-summary.template.md` — `report/SPRINT-NNN/`, written by `/conclave-close`
@@ -294,6 +316,7 @@ backlog → ready → in-progress → review → [verified] → done
 - Any failure: back to `review`. The dev fixes, pushes, then QA re-verifies (and TL re-reviews if applicable).
 - **`retired` (v0.8.0+)** — a parallel terminal state to `done`. Entered via `/conclave-story retire` (explicit retirement with `retirement_reason` and `retired_at` set) or `/conclave-story split` (on the parent, when it is decomposed into children — `superseded_by:` also populated). A retired story is **excluded from every command's story collection** (`/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, `/conclave-sprint`) — it is a historical record only. There is no un-retire command; teams that change their mind hand-edit the frontmatter (git preserves the audit trail). `/conclave-planning` (Phase A) is intentionally exempt from the filter — it authors new stories rather than collecting existing ones.
 - **UAT pending (v0.3.0+, no new status value).** When `testing-environments.md` is configured, `/conclave-qa` generates CI-runnable UAT tests (Playwright/Newman for `frontend`/`backend`/`multi`, a manual checklist for `mobile`) and folds the result into its verdict. A `mobile` story whose checklist is awaiting or mid-completion produces `verdict: pending_uat` — the story frontmatter stays `review`, same as a real failure, but the appended section is `## QA pending`, not `## QA blockers`, since nothing has actually failed yet. A failed CI run on the generated tests is treated exactly like a failing Gherkin scenario.
+- **Spikes (`type: spike`, v2.1.0+) reuse this exact state machine.** `/conclave-dev` routes them to the Tech Lead, `review` means the docs-only PR is open, QA checks the findings and declared outputs against the spike's Gherkin, and `done` means the knowledge exists — not that a feature shipped. `outcome: not-answered` can still be `done` when the report is honest about why; `/conclave-close` writes the findings back into the epic.
 - **`BUG-NNN` artifacts (v0.10.0+) reuse this exact state machine.** A bug reported via `/conclave-bug report` is written directly in `status: ready` — bugs never pass through `backlog` or Sprint Planning; `/conclave-bug report` is the only way one is created, and it always starts dev-ready. From there it follows the identical path a story does (`/conclave-dev` → `/conclave-qa` → `/conclave-pr-review` if applicable), including `retired` as a manual escape hatch (no `/conclave-bug retire` sub-action yet — hand-edit the frontmatter).
 
 ### Skippable per team profile

@@ -102,6 +102,16 @@ In your project repo:
 /conclave-init
 /conclave-init --upgrade             # existing v1.x workspace: migrate to v2 instead
 
+# 1b. Release plan: how many sprints, and what goes in each (optional — init already
+#     asked; the TL flagged risky epics and the SM scheduled spikes ahead of them).
+/conclave-roadmap show
+/conclave-roadmap replan --sprints 6   # fit the release into 6 sprints; the rest is listed "beyond the horizon"
+
+# 1c. Knowledge before code, per epic — Epic → Spike → ADR → SPEC → Stories
+/conclave-spike "Can Postgres LISTEN/NOTIFY carry our realtime load?" --epic EP-003
+/conclave-spec EP-003                  # TL designs the epic from its ADRs (+ missing ADRs), PM checks scope
+/conclave-spec approve SPEC-001        # planning now refines EP-003's stories from the SPEC
+
 # 2. Plan the next roadmap slot: refine its epics into stories just in time,
 #    size against velocity, assign by discipline, lock the sprint active.
 /conclave-planning
@@ -165,11 +175,13 @@ In your project repo:
 - `conclave/product/vision.md` — problem, personas, **Product Goal**, success metrics, MVP scope
 - `conclave/product/epics/EP-NNN-<slug>.md` — 3–8 epics, each with a success criterion
 - `conclave/product/architecture.md` + `product/adr/` — Architectural Foundation and ADRs
-- `conclave/product/roadmap.md` — epics sequenced into sprint slots up to the MVP, with a forecast
+- `conclave/product/roadmap.md` — the release plan: how many sprints (auto or a number you set), epics and spikes sequenced into sprint slots, what falls beyond the horizon, and a forecast
+
+Every epic also carries the Tech Lead's risk assessment — `uncertainty`, whether it `needs_spec`, and its open questions. High-uncertainty epics get a timeboxed **spike** scheduled one sprint ahead; epics that change the data model or a public contract get a **SPEC** (`/conclave-spec`) composed from their **ADRs** before their stories are refined.
 
 On a repo with no code yet, the roadmap starts with **Sprint 0** (`SPRINT-000`): a walking skeleton of `type: enabler` stories — scaffold, test framework, lint, CI, `develop` branch.
 
-`/conclave-planning` then plans **one slot at a time**. The PM refines only that slot's epics into INVEST stories with Gherkin acceptance criteria, the TL checks feasibility and assigns disciplines, and the SM assigns stories and sizes the commitment against the average velocity of the last 3 closed sprints. The sprint moves from `draft` → `active`.
+`/conclave-planning` then plans **one slot at a time**. A readiness gate first checks the slot's epics (approved SPEC where one is needed, spike done or scheduled where uncertainty is high). The PM refines only that slot's epics into INVEST stories with Gherkin acceptance criteria — from the SPEC's story breakdown when there is one — the TL turns spike entries into timeboxed spike stories, the TL checks feasibility and assigns disciplines, and the SM assigns stories and sizes the commitment against the average velocity of the last 3 closed sprints. The sprint moves from `draft` → `active`.
 
 `/conclave-close` ends every sprint: the PM reviews the Increment against the Sprint Goal, the SM runs the retro (when enabled), velocity is recorded, the roadmap forecast is recomputed, and the sprint report, UAT guide and DORA snapshot are written. It is the only command that sets a sprint `closed`, and `/conclave-planning` won't plan the next sprint until it has run.
 
@@ -291,7 +303,10 @@ Valid model IDs: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251
 - `/conclave-board` — one-time scaffold of a local, branded Kanban board (Next.js + shadcn/ui) at `conclave-board/`, a sibling of `conclave/`. Columns mirror the story state machine; cards show ID, title, discipline, assignee, priority, and estimate. A plugin hook regenerates the board's data automatically whenever `conclave/` changes — no CI, no server, no LLM in the update loop. Read-only; never writes back to `conclave/`.
 
 - `/conclave-close` — closes the active sprint: critical-bug gate, unfinished-story decisions, PM Sprint Review (`review.md`: Sprint Goal verdict, epic and Product Goal progress), SM retro when `ceremonies.close.retro: true` (`retro.md`, ≤ 3 action items), velocity, roadmap burnup and forecast, plus `report.md`, `UAT.md` and `dora-data.yml`. The only command that sets a sprint `closed`.
-- `/conclave-epic <new | edit EP-NNN | split EP-NNN | retire EP-NNN>` — Product Manager epic authoring after inception; the Scrum Master re-slots the roadmap. `retire` is mechanical and also retires the epic's unstarted stories.
+- `/conclave-roadmap <show | replan [--sprints N|auto]>` — release planning: how many sprints the release has and what goes in each. `show` prints the release plan (MVP slot, launch risk, spikes, epics beyond the horizon); `replan` has the Scrum Master re-sequence every future slot against a fixed number of sprints or as many as the must/should epics need. Never touches active or closed sprints.
+- `/conclave-spike "<question>" [--epic EP-NNN] [--timebox XS|S|M]` — a timeboxed `type: spike` story that answers one question. The Tech Lead runs it through `/conclave-dev` and writes a findings report plus the declared outputs (a proposed ADR, a draft SPEC, re-estimates) in a docs-only PR; QA verifies the deliverable; `/conclave-close` feeds the findings back into the epic.
+- `/conclave-spec <EP-NNN | approve SPEC-NNN>` — the technical specification of an epic (`conclave/product/specs/SPEC-NNN-<slug>.md`): decisions (ADRs, writing missing ones as proposed), design, contracts, data changes, domain rules, test strategy, rollout and a story breakdown, scope-checked by the PM. Once approved, `/conclave-planning` refines the epic's stories from it.
+- `/conclave-epic <new | edit EP-NNN | split EP-NNN | retire EP-NNN>` — Product Manager epic authoring after inception; the Tech Lead adds the risk assessment and the Scrum Master re-slots the roadmap. `retire` is mechanical and also retires the epic's unstarted stories.
 - `/conclave-sprint` — run the build phase of a sprint in one pass: planning (if no sprint is active) → batched Dev → QA → TL PR review (if required). Closing stays with `/conclave-close`. **Headless** (`--no-interaction` / `commands.sprint.interactive: false`) is the same pass with documented planning defaults and zero prompts. Neither mode merges, self-heals, or reads a schedule — unattended delivery is `/conclave-dev --loop` (ADR-006).
 - `/conclave-story <new | edit US-NNN | split US-NNN | retire US-NNN>` — Product Manager mid-sprint story authoring, in every team mode. `new` allocates the next monotonic ID, links it to an epic (`epic:`) and a `type` (`feature | enabler`), and lands the story in backlog (default) or the active sprint; `edit` revises a `ready`/`backlog` story; `split` decomposes a parent into 2–4 children (with a hard scenario-coverage safety rule enforced by the PM subagent); `retire` is a mechanical status change with no LLM call. Introduces the `retired` terminal state — retired stories are excluded from every command's collection queries.
 - `/conclave-adr [topic]` — Tech Lead ADR authoring. Topic-directed: `/conclave-adr "<decision>"` researches and writes a standalone ADR at `conclave/product/adr/ADR-NNN-<slug>.md`. Discovery: `/conclave-adr` (no args) has the TL propose 1–3 candidate decisions from sprint activity + architecture gaps, then authors the one the user picks. On first run in a repo with inline ADRs, migrates them to standalone files (atomic per ADR, resumable, idempotent). Every new ADR is `status: proposed`; the team promotes to `accepted` on PR merge.

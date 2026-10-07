@@ -222,8 +222,10 @@ Only ask what `IDEA` does not already answer — a discovery package answers the
 2. **Product Goal hint** — what measurable outcome would make the MVP a success? (or "let the PM propose")
 3. **Hard constraints** — deadlines, compliance, budgets, banned technologies.
 4. **Sprint 0** — "Start with a walking-skeleton sprint (scaffold, tests, CI)?" Default `yes` when `GREENFIELD = true` (or when the package's `04-mvp.md` lists Sprint 0 enablers), `no` otherwise.
+5. **How many sprints?** — **"Auto — as many as the must/should epics need"** (default) or a number (Sprint 0 included). When `launch_date` is set, show the sprints that fit before it as a hint (`weeks to launch ÷ sprint.length_weeks`). A number fixes the release horizon: epics that do not fit go to *Beyond the horizon* and the forecast names any `must` epic left out.
+6. **SPEC gate** — "When an epic needs a technical spec, should planning **warn** (default) or **require** an approved SPEC?"
 
-Carry the answers as `INCEPTION_PREFS`. Set `SPRINT_ZERO` from question 4.
+Carry the answers as `INCEPTION_PREFS`. Set `SPRINT_ZERO` from question 4, `PLANNED_SPRINTS` (`auto` or the integer) from question 5, `SPEC_GATE` from question 6 (`require` is the default for `full-scrum`).
 
 ## Step 5 — Create the workspace skeleton
 
@@ -235,6 +237,7 @@ Create all files in parallel where possible.
 mkdir -p $REPO_ROOT/conclave/team
 mkdir -p $REPO_ROOT/conclave/product/epics
 mkdir -p $REPO_ROOT/conclave/product/adr
+mkdir -p $REPO_ROOT/conclave/product/specs
 mkdir -p $REPO_ROOT/conclave/context
 mkdir -p $REPO_ROOT/conclave/sprints
 mkdir -p $REPO_ROOT/conclave/runs
@@ -267,6 +270,8 @@ Read `skills/conclave/templates/config.template.md`. Fill in all `{{placeholders
 | `{{close_retro}}` | `true` for full-scrum, `false` for lean and custom |
 | `{{sprint_length_weeks}}` | from Step 2 (default `2`) |
 | `{{sprint_zero}}` | `SPRINT_ZERO` from Step 4.2 |
+| `{{planned_sprints}}` | `PLANNED_SPRINTS` from Step 4.2 (`auto` or an integer) |
+| `{{spec_gate}}` | `SPEC_GATE` from Step 4.2 (`warn` or `require`) |
 
 Write to `$REPO_ROOT/conclave/config.md`.
 
@@ -332,6 +337,22 @@ Issue **two `Task` tool calls in a single message**:
 
 Wait for both. If either errors, surface and stop.
 
+## Step 6.5 — Inception, wave 1.5: Tech Lead risk pass (v2.1.0+)
+
+The PM wrote the epics without seeing the architecture; the TL wrote the architecture without seeing the epics. One more `Agent` call joins them before the roadmap:
+
+- **Model**: `MODEL_FOR_TL`. Prompt prefix: `tech-lead.md`.
+- Task: **inception risk pass** (charter section "How you operate inside `/conclave-init` (inception)" → *Risk pass*).
+- Inputs: the PM's epic blocks, the TL's architecture and ADR blocks, confirmed stack, `GREENFIELD`.
+- Output: one `## Risk` block per epic (by its order in the PM output):
+  - `uncertainty: low | medium | high` with one-line reason
+  - `needs_spec: true | false` with one-line reason (true when the epic changes the data model, a public contract, or more than one component)
+  - `adrs:` — which of the TL's initial ADRs the epic depends on
+  - `open_questions:` — 0–3 questions phrased as decisions; at least one when `uncertainty: high`
+  - optional `technical_notes` for the epic
+
+Merge each block into its epic (frontmatter + `## Open questions (spike candidates)` + `## Technical notes`). The PM's scope is never changed here.
+
 ## Step 7 — Inception, wave 2: SM roadmap
 
 One `Agent` call:
@@ -339,8 +360,8 @@ One `Agent` call:
 - **Model**: `MODEL_FOR_SM` (omit if null).
 - Prompt prefix: full content of `agents/scrum-master.md`.
 - Task: **roadmap mode** (charter section "How you operate inside `/conclave-init` (roadmap)").
-- Inputs: the PM's epics (with size and dependencies), the TL's enabler epic (if any), `roster.md` (team size), `sprint.length_weeks`, `launch_date`, today's date, `roadmap.template.md`.
-- Output: the body of `roadmap.template.md` — slots, target dates, MVP slot, forecast.
+- Inputs: the PM's epics (with size, dependencies and the Step 6.5 risk fields), the TL's enabler epic (if any), `roster.md` (team size), `sprint.length_weeks`, `launch_date`, `PLANNED_SPRINTS`, today's date, `roadmap.template.md`.
+- Output: the body of `roadmap.template.md` — release plan, slots (with `spike:EP-NNN` entries ahead of every `uncertainty: high` epic), beyond the horizon, target dates, MVP slot, forecast.
 
 ## Step 8 — Checkpoint: user confirms inception
 
@@ -349,23 +370,26 @@ Show the user a compact summary:
 ```
 Product Goal:  <one sentence>
 Personas:      <names>
-Epics:         EP-001 <title> [M, must] · EP-002 <title> [S, should] · …
-Roadmap:       S0 walking skeleton · S1 EP-001 · S2 EP-001, EP-002 · … MVP at SPRINT-00N (<date>)
+Epics:         EP-001 <title> [M, must] · EP-002 <title> [S, should, uncertainty: high, needs SPEC] · …
+Sprints:       <N> planned (<auto | fixed>) · Sprint 0: <yes/no> · beyond the horizon: <epics or none>
+Roadmap:       S0 walking skeleton · S1 EP-001, spike:EP-002 · S2 EP-001, EP-002 · … MVP at SPRINT-00N (<date>)
+Spikes:        <n> scheduled — EP-002: "<first open question>"
+ADRs:          ADR-001 <title> · ADR-002 <title> · …
 Launch risk:   <on track | at risk — reason>
 ```
 
 Then one `AskQuestion`:
 - **"Looks right — write it"**
-- **"Change something"** — the user states the change in free text; re-run only the affected agent (PM for vision/epics, TL for enablers, SM for roadmap — always re-run SM if epics changed), then show the summary again. Max 3 rounds; after that, write what exists and tell the user to edit the files directly.
+- **"Change something"** — the user states the change in free text; re-run only the affected agent (PM for vision/epics, TL for enablers, SM for roadmap or sprint count — always re-run the risk pass and the SM if epics changed), then show the summary again. Max 3 rounds; after that, write what exists and tell the user to edit the files directly.
 
 ## Step 9 — Write inception artifacts
 
 1. `product/vision.md` ← `vision.template.md` + PM vision block.
-2. Epics: number from `EP-001` (enabler epic first when present). For each: `product/epics/EP-NNN-<slug>.md` ← `epic.template.md` + block; set `roadmap_slots` from the SM's roadmap.
+2. Epics: number from `EP-001` (enabler epic first when present). For each: `product/epics/EP-NNN-<slug>.md` ← `epic.template.md` + block + risk fields; set `roadmap_slots` from the SM's roadmap (a `spike:EP-NNN` entry counts as a slot of that epic). The enabler epic gets `uncertainty: low`, `needs_spec: false`.
 3. `product/architecture.md` ← TL output; each ADR → `product/adr/ADR-NNN-<slug>.md`, and the ADR index table in `architecture.md` lists them.
 4. `product/roadmap.md` ← `roadmap.template.md` + SM output.
 5. `product/backlog.md` ← `product-backlog.template.md` with an **empty** table (stories arrive at planning).
-6. Append `## /conclave-init inception — <ISO>` to `conclave/context/claude-md.snapshot.md` recording: idea source (`PRODUCT_DOC_PATH` or `context/idea.md`), epic count, slot count, MVP slot.
+6. Append `## /conclave-init inception — <ISO>` to `conclave/context/claude-md.snapshot.md` recording: idea source (`PRODUCT_DOC_PATH` or `context/idea.md`), epic count, slot count and horizon, MVP slot, spikes scheduled, epics flagged `needs_spec`.
 
 ## Step U — Upgrade a v1.x workspace (`--upgrade`)
 
@@ -386,7 +410,10 @@ Migrates in place. **Append, don't clobber**: existing sprints, stories, accepta
 - `IDEA` = product doc (if any) + current backlog table + `architecture.md` overview.
 - PM task: **inception mode, upgrade variant** — group existing stories into epics (every non-retired story lands in exactly one epic) and write `vision.md`. Return a story → epic map.
 - TL: skip; keep `architecture.md`. If inline `### ADR-NNN:` sections exist, tell the user to run `/conclave-adr` once to migrate them.
+- Risk pass (Step 6.5): run it on the derived epics with the existing `architecture.md` and ADRs, so every epic gets `uncertainty`, `needs_spec` and open questions.
 - SM: roadmap where already-closed sprints are `closed` slots, the active sprint (if any) is the `active` slot, and remaining epics fill future slots. Seed the burnup table from closed sprints' velocities.
+
+A workspace already on v2.0.0 does not need `--upgrade` for v2.1.0: epics without `uncertainty` / `needs_spec` read as `low` / `false`, a roadmap without `horizon` reads as `auto`, and `config.md` without `sprint.planned_sprints` / `delivery:` uses the defaults. Run `/conclave-roadmap replan` once to add the release-plan section and spike entries.
 
 **U.5 — Story frontmatter.** For every story file add `type: feature` and `epic: <EP-NNN from the map>` when missing. No other field changes.
 
@@ -411,7 +438,8 @@ Next: review the diff, commit, then /conclave-close (if the active sprint is fin
   Project:        <project_name>
   Product Goal:   <one sentence>
   Epics:          <n> (EP-001 … EP-00N)
-  Roadmap:        <n> slots · Sprint 0: <yes/no> · MVP at <SPRINT-NNN> (<date>)
+  Roadmap:        <n> slots (<auto | fixed>) · Sprint 0: <yes/no> · MVP at <SPRINT-NNN> (<date>)
+  Spikes:         <n> scheduled · SPECs needed: <EP-…, or none>
   Story prefix:   <prefix>-001, <prefix>-002, …
   Stack:          <framework> / <language>
   Profile:        <team_profile> · sprints of <n> week(s)
@@ -422,6 +450,10 @@ Then suggest:
 ```bash
 git add conclave/ .github/
 git commit -m "conclave: inception for <project_name>"
+
+# Optional, before the epic's slot comes up:
+/conclave-spec EP-NNN                # technical spec for each epic flagged needs_spec
+/conclave-roadmap replan --sprints N # change how many sprints the release has
 
 # Plan the first slot (Sprint 0 when enabled):
 /conclave-planning

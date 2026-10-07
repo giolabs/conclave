@@ -12,6 +12,7 @@ Pick up user stories and/or bugs and drive them through implementation. Without 
 - **Autonomous mode** (`/conclave-dev --no-interaction US-001` OR `commands.dev.interactive: false` in `conclave/config.md`): the command never calls `AskUserQuestion`. Every prompt site applies a documented sensible default (assignee takeover, branch recreate/resume) or aborts with `AUTONOMOUS_ABORT: <reason>` when no safe default exists. A `## Autonomous run — <ISO>` section is appended to the file with outcome, decisions, files touched, and blockers if any. Synonym: `--headless`. **This mode stops at `status: review` and never merges.**
 - **Autonomous Three-Wave Delivery Loop** (v0.15.0+, `/conclave-dev --loop` OR `commands.dev.loop: true`): the single autonomous delivery loop in Conclave. It takes the **active sprint** (or the IDs you pass), orders the work by dependencies and file conflicts, then runs **W1 Dev + green CI → W2 QA → W3 forced Tech Lead review**. A failure in any wave sends the affected stories back to **W1**. Gated by a recurring local-time schedule and budgets, and it writes a run report with token and agent-productivity statistics. `--loop` implies `--no-interaction`. See §"Autonomous Three-Wave Delivery Loop" below and ADR-006.
 - **No PR is ever merged.** No mode of this command runs `gh pr merge`. The loop's terminal state is an approved PR; the human merges it.
+- **Spikes (`type: spike`, v2.1.0+) research, they do not ship.** A spike story is routed to the Tech Lead charter whatever its `discipline`; it writes a findings report and the outputs it declared (a proposed ADR, a draft SPEC, re-estimates) and opens a **docs-only PR** — any prototype stays on a lab branch or worktree and is never pushed in the PR. See Step 6.
 - **Bugs (`BUG-NNN`) reproduce before they fix.** The Developer subagent confirms the bug is still present using its Gherkin repro steps before writing any fix code, and the PR body includes `Fixes #<github_issue_number>` so the mirrored GitHub issue closes when a human merges. See Step 6.
 
 Outside loop mode, at least one `US-NNN`/`BUG-NNN` argument is required; every `US-NNN` must match a story file under the active sprint, every `BUG-NNN` must match a bug file under `conclave/product/bugs/`. In loop mode the argument list is optional — with no IDs the loop collects the active sprint.
@@ -48,6 +49,7 @@ Follow these steps in order.
    ```
 5. **If loop mode is on** (`CLI_LOOP` or `commands.dev.loop: true` — resolved in Step 1.5): do **not** batch here. Print `Mode: autonomous-dev-three-wave` and hand the validated ID list to §"Autonomous Three-Wave Delivery Loop" (Steps W0–W5), which owns its own scheduling of the work across waves. Skip points 6–8 of this step entirely. Every ID, including a single-ID invocation, goes through that path.
 6. Partition the validated IDs into **batches of ≤ 3** (preserve order, story/bug IDs mixed freely).
+6.5. **Reserve artifact numbers for spikes.** When more than one spike in the run declares `adr` or `spec` outputs, compute `NEXT_ADR_ID` / `NEXT_SPEC_ID` once here (as in `/conclave-adr` Step 6 and `/conclave-spec` Step 3) and hand each spike a disjoint range (2 ADR numbers, 1 SPEC number per spike, in ID order) so concurrent spikes never write the same number. Unused numbers are simply skipped — numbering stays monotonic, gaps are allowed.
 7. For each batch:
    - Issue one `Agent` tool call per ID **in the same message** (concurrent). Each Agent call encapsulates all single-ID steps (Steps 1–9 of this command) for that ID. **Propagate `CLI_NO_INTERACTION`** into each per-ID invocation so they resolve `INTERACTIVE` identically to the parent.
    - Wait for all calls in the batch to return.
@@ -140,6 +142,7 @@ Read:
   - `MODEL_FOR_DEVELOPER` = resolve `models.overrides.developer` → `models.default` → null (session)
   - `MODEL_FOR_DESIGNER`  = resolve `models.overrides.designer`  → `models.default` → null
   - `MODEL_FOR_DEVOPS`    = resolve `models.overrides.devops`    → `models.default` → null
+  - `MODEL_FOR_TL`        = resolve `models.overrides.tech_lead` → `models.default` → null — used only for `type: spike` stories
 
   Resolution rule: if the configured value is not one of `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, print `WARNING: Unknown model '<value>' for role <role>. Falling back to <next_fallback>.` and continue. If the `models:` block is absent, all three resolve to null — no warning, no change from v0.6.0 behavior.
 
@@ -150,6 +153,8 @@ Read:
 - The story file (`stories/US-NNN-*.md`)
 - The acceptance file (`acceptance/AC-US-NNN.md`)
 - The sprint's `spec.md` (for the sprint goal as context)
+- When the story has `spec: SPEC-NNN`: `conclave/product/specs/SPEC-NNN-*.md`, and every ADR in the story's `adrs:` — the Developer implements against them
+- **Spike stories only**: the epic file (open questions, technical notes), the epic's SPEC (when set), the full ADR index, `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/spike-findings.template.md`, `adr.template.md`, `tech-spec.template.md`, and the reserved `NEXT_ADR_ID` / `NEXT_SPEC_ID` (Step 0.6.5, or computed here for a single spike)
 
 ## Step 4 — Create the feature branch
 
@@ -171,10 +176,11 @@ Update the story file's frontmatter `status: in-progress` and `assignee: <curren
 
 ## Step 6 — Delegate to the execution subagent
 
-Read the `discipline` field (present on both stories and bugs — same frontmatter shape) and select the charter to load:
+Read the `type` and `discipline` fields (present on both stories and bugs — same frontmatter shape) and select the charter to load. `type: spike` wins over any discipline:
 
-| `discipline` | Charter |
+| `type` / `discipline` | Charter |
 |---|---|
+| `type: spike` (any discipline) | `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/tech-lead.md`, task **spike execution** (charter section "How you operate inside `/conclave-dev` (spike execution)"), model `MODEL_FOR_TL` |
 | `design` | `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/designer.md` |
 | `devops` | `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/devops.md` |
 | `frontend`, `backend`, `mobile`, `multi`, or empty/unset (pre-0.2.0 stories) | `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/developer.md` (no dedicated mobile charter yet — `mobile` stories route here same as `frontend`/`backend`) |
@@ -187,7 +193,8 @@ Issue a single `Agent` tool call with:
   > `Autonomous mode. Do not call AskUserQuestion. Follow the "How you operate in autonomous mode" section of your charter — apply documented defaults or return exactly one line: AUTONOMOUS_ABORT: <one-line reason>. Include an autonomous_decisions list in your final payload.`
   When `INTERACTIVE == true`, do not prepend anything — the subagent runs in its default interactive mode.
 - **Bug preamble** — when the ID is a `BUG-NNN`, additionally prepend (after the autonomous preamble, if both apply): *"This is BUG-NNN, not a story. First reproduce the failure using its Gherkin repro steps before writing any fix — treat a failure to reproduce as grounds to pause and ask (interactive mode) or `AUTONOMOUS_ABORT: could not reproduce BUG-NNN's repro steps` (autonomous mode)."*
-- Task body: implement the story or bug fix end-to-end per the charter.
+- **Spike preamble** — when the story is `type: spike`, prepend: *"This is a spike, not a feature. Answer the question in its frontmatter within its timebox. Write `conclave/sprints/<SPRINT_ID>/spikes/<ID>-findings.md` from the spike-findings template and every declared output (ADR → `conclave/product/adr/` with `status: proposed` using the reserved number; SPEC → `conclave/product/specs/` with `status: draft`). Any prototype runs in a disposable worktree or a `lab/<ID>-*` branch and is never committed to this branch. Commit only markdown under `conclave/`. Ending without an answer is allowed: say so honestly in the findings (`outcome: not-answered`) and return normally."*
+- Task body: implement the story or bug fix end-to-end per the charter (for a spike: run it and write its deliverables).
 - Inputs to embed in the prompt:
   - Story (or bug) file content
   - Acceptance file content with full Gherkin scenarios (a bug's repro steps live inline in its own file instead — see `bug.template.md`)
@@ -200,7 +207,7 @@ Issue a single `Agent` tool call with:
     - For `US-NNN`: link targets are unchanged from today (`../conclave/sprints/$SPRINT_ID/stories/US-NNN-$SLUG.md`, `.../spec.md`, `.../acceptance/AC-US-NNN.md`); no `Fixes #` line.
     - For `BUG-NNN`: the "Implements" line targets `../conclave/product/bugs/BUG-NNN-$SLUG.md` and drops the "from sprint ..." clause (a bug has no sprint); the "Scenario → test mapping" intro targets that same bug file instead of a separate acceptance file (bugs have none); and, when the bug file's `github_issue_number` is populated, a `Fixes #<github_issue_number>` line is included directly under the title heading (omitted entirely — not even blank — when no issue number is on file, e.g. `gh` was unavailable at report time).
 - Expected output:
-  - **Success path**: a structured payload containing `branch`, `commits` (list of commit subjects authored), `tests_added` (paths), `pr_body` (the fully rendered PR body string), and optionally `adr_proposal` (the markdown of any proposed ADR change). In autonomous mode, also `autonomous_decisions` (list of `{ decision, chosen, reason }` — may be empty). The subagent commits the code itself; the orchestrator does not need to commit further.
+  - **Success path**: a structured payload containing `branch`, `commits` (list of commit subjects authored), `tests_added` (paths), `pr_body` (the fully rendered PR body string), and optionally `adr_proposal` (the markdown of any proposed ADR change). A spike returns `findings_path`, `produced_adrs`, `produced_spec`, `outcome` and `tests_added: []` instead. In autonomous mode, also `autonomous_decisions` (list of `{ decision, chosen, reason }` — may be empty). The subagent commits the code itself; the orchestrator does not need to commit further.
   - **Autonomous abort path**: a single line `AUTONOMOUS_ABORT: <reason>` — the orchestrator recognises this and moves to run-report emission (Step 8.5) with `outcome: aborted`.
 
 Wait for the subagent. Handle its return:
@@ -217,7 +224,7 @@ Wait for the subagent. Handle its return:
 
 ## Step 8 — Update the story file
 
-Set frontmatter `status: review`. Commit with `chore(US-NNN): ready for QA verification`. Push.
+Set frontmatter `status: review`. For a spike also set `findings_path`, and update the epic: `adrs` ∪= `produced_adrs`, `spec` = `produced_spec` when it was empty, and append each new ADR row to `architecture.md` §4. Commit with `chore(US-NNN): ready for QA verification`. Push.
 
 ## Step 8.5 — Emit the autonomous run report (autonomous mode only)
 
@@ -417,7 +424,7 @@ For each story in `PENDING_W1`, in the W0.4 execution order. Stories with **no d
    - `review` with an open PR → skip Dev, go straight to the checks poll
    - `verified` / `done` → should not be in `PENDING_W1`; note and drop it
    - `retired` / `backlog` → drop with a note
-3. **Dev leg**: run Steps 2–9 of this command for this single ID with `INTERACTIVE = false`, branching from `INTEGRATION_BRANCH`. Set the run-report `Config source` field to `forced by /conclave-dev three-wave delivery loop (Wave 1)`. Ledger += one `developer` (or `designer` / `devops`) row.
+3. **Dev leg**: run Steps 2–9 of this command for this single ID with `INTERACTIVE = false`, branching from `INTEGRATION_BRANCH`. Set the run-report `Config source` field to `forced by /conclave-dev three-wave delivery loop (Wave 1)`. Ledger += one `developer` (or `designer` / `devops`, or `tech_lead` for a `type: spike` story) row.
    - **On re-entry from W2 or W3**, pass the failure verbatim as the primary context: the QA verification report's blockers, or the Tech Lead's `request_changes` findings. The Developer addresses those first and pushes to the **same branch and PR** — never open a second PR for the same story.
    - Structural `AUTONOMOUS_ABORT` (no test framework, unauthorised dependency, ambiguous Gherkin, architecture change required, another dev's commits on the branch) → mark the story `incomplete`, emit a **HITL Slack alert** immediately, and **stop retrying it**. A retry cannot resolve a decision that needs a human.
    - Any other failure → retry while attempts remain.

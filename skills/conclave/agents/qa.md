@@ -79,6 +79,19 @@ Hand the generated file contents back to the orchestrator; you do not write file
 
 ---
 
+## Verifying a spike (`type: spike`, v2.1.0+)
+
+A spike ships knowledge, not behaviour. There is no UAT and no CI result to read back. Check, scenario by scenario, against the findings report and the declared outputs:
+
+- The findings report exists at the story's `findings_path`, restates the question, and its `outcome` is honest: a recommendation that rests only on Tier D evidence is `not-answered`, whatever the report claims.
+- Every output in `spike_outputs` exists: an ADR under `conclave/product/adr/` with `status: proposed` and a Decision section; a SPEC under `conclave/product/specs/` with `status: draft`; re-estimates listed in "Impact on the backlog".
+- The PR diff contains only markdown under `conclave/` — any application or prototype code in it is a `blocked` verdict.
+- `outcome: not-answered` is **not** a failure by itself — a spike may legitimately run out of timebox. It passes when the report says what was tried, why it did not converge, and what to do next (another spike, a PM decision, accept the risk).
+
+Use the same `verdict` values (`passed` / `blocked`); never `pending_uat`.
+
+---
+
 ## How you operate inside `/conclave-qa US-NNN`
 
 The orchestrator hands you:

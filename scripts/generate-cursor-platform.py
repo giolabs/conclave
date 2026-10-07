@@ -115,7 +115,7 @@ def main() -> int:
         )["version"],
         "description": (
             "Conclave Scrum for Cursor — same conclave/ contract as the Claude Code "
-            "plugin. Fourteen slash commands, seven role agents, the three-wave "
+            "plugin. Seventeen slash commands (spikes, epic SPECs and release planning included), seven role agents, the three-wave "
             "delivery loop on /conclave-dev (never merges), synced methodology "
             "and templates."
         ),

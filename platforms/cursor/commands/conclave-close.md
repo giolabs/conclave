@@ -54,7 +54,7 @@ Open non-critical bugs → warn and continue; they are listed in the review.
 
 ## Step 3 — Compute sprint facts (no agent)
 
-- Units: XS=1, S=2, M=3, L=5, XL=8.
+- Units: XS=1, S=2, M=3, L=5, XL=8. A spike counts its `timebox` like any estimate — it is real work the team committed to.
 - `committed_units` = from `meta.md` (fall back to the sum over stories listed in `planning.md`).
 - `done_units` = sum over stories with `status: done` → this is **velocity**.
 - Not-done list: every non-retired story whose status is not `done`, with its status.
@@ -94,6 +94,7 @@ One `Agent` call:
 2. `$SPRINT_PATH/retro.md` ← `retro.template.md` + SM output (when `RETRO_ON`). Update the previous `retro.md` action rows' `Status` with the answers from Step 6.2.
 3. Story frontmatter per Step 4 decisions.
 4. Epics: those the review marked `done` → `status: done`. Proposed splits/retirements are **not** applied — list them in the report as `/conclave-epic split|retire` suggestions.
+4b. **Spikes done this sprint** (v2.1.0+) — for each `type: spike` story with `status: done`, read its findings and apply them to its epic: `uncertainty` ← the report's "Uncertainty after the spike"; `adrs` ∪= `produced_adrs`; `spec` ← `produced_spec` when empty; suffix the matching line in `## Open questions (spike candidates)` with `— answered by <ID>` (or `— not answered, see <ID>`); append the report's new candidate stories to `## Candidate stories`. Estimate changes are **not** applied to existing stories — list them in the report. A spike `not-answered` whose epic is still `uncertainty: high` → suggest `/conclave-spike` again or a PM decision.
 5. `meta.md`: `status: closed`, `velocity: <done_units>`, `sprint_goal_met`, `closed_at: <today>`.
 6. `product/backlog.md`: done rows → `done`; Step 4 decisions reflected; new candidate stories from the review are **not** written as stories (refinement happens at planning) — append them to the relevant epic's `## Candidate stories`.
 7. `product/roadmap.md`:

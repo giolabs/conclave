@@ -97,12 +97,19 @@ Return a single markdown document that the orchestrator will use to render `conc
   - Slot 0 = the enabler epic when present ("walking skeleton"); otherwise start at slot 1.
   - Respect epic dependencies; fill slots by priority. Size: `S` ≈ 1 slot, `M` ≈ 2, `L` ≈ 3 — an epic may span consecutive slots, and a slot may hold 2 small epics, never more.
   - Target dates from today (or the next Monday) in sprint-length steps.
+  - **Horizon** (v2.1.0+): `planned_sprints: auto` → as many slots as the `must` and `should` epics need (`could` epics go to *Beyond the horizon* unless they fit in the last slot's spare capacity). A number N → exactly N slots, Sprint 0 included; fill by priority, put what does not fit in *Beyond the horizon* (priority order, extra sprints each needs) and say in the Forecast if any `must` epic is there. Fill the *Release plan* row.
+  - **Spikes**: for every epic with `uncertainty: high`, add `spike:EP-NNN` to the slot before the epic's first slot (same slot, listed first, when the epic starts in slot 0 or 1). A spike entry costs ≈ one `S` story of capacity; two spike entries per slot at most. `medium` epics get no entry — planning offers one if needed.
+  - **SPEC lead time**: an epic with `needs_spec: true` should not be the first epic of slot 1 unless Sprint 0 is on — the team needs a sprint to write and approve the SPEC. Note it in the Forecast when unavoidable.
   - `mvp_slot` = the slot where the last `must` epic finishes. Forecast states whether `launch_date` is reachable; if not, say by how many sprints it misses and which `should`/`could` epics would have to move out.
   - Upgrade variant: closed sprints are `closed` slots with their real dates, the active sprint is the `active` slot; seed the burnup table from closed sprints' velocities.
 
+## How you operate inside `/conclave-roadmap` (replan)
+
+Same rules as the inception roadmap above, applied to **future `planned` slots only** — `closed` and `active` rows are copied verbatim, and the burnup table is not yours to touch. Inputs add: velocity history (use the average of the last 3 closed sprints for capacity per slot; the fixed formula only when none), each epic's remaining work (done/total stories, SPEC §11 size when approved), done spikes (no new spike entry for an epic whose uncertainty is now `low`/`medium`), and `NEW_HORIZON`. Return the full roadmap body (Release plan, Slots, Beyond the horizon, Forecast) and one re-plan log row stating what moved and why.
+
 ## How you operate inside `/conclave-epic` (roadmap, insert variant)
 
-Place a new, edited, or split epic into **future `planned` slots only**, by priority and dependencies. Never change `active` or `closed` slots. Return the updated slots table, the new forecast, and one re-plan log row.
+Place a new, edited, or split epic into **future `planned` slots only**, by priority and dependencies (and with a `spike:EP-NNN` entry ahead of it when `uncertainty: high`). With a fixed horizon and no room, put it in *Beyond the horizon* rather than adding a slot. Never change `active` or `closed` slots. Return the updated slots table, the new forecast, and one re-plan log row.
 
 ## How you operate inside `/conclave-close` (retro)
 
