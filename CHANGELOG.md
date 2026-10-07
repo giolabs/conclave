@@ -51,6 +51,10 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 - Stale references to `/conclave-spec`, `/conclave-review`, `/conclave-sprint close` and "planned, not yet shipped" commands across commands, templates and the board empty state.
 - `SKILL.md` §5 template list now includes every shipped template.
 
+### Security
+
+- **Docs site dependencies** (`site/`): `npm audit fix` moves `next` to 16.4.0 (fixes the critical advisory in `next` ≤ 16.3.5) plus `postcss`, `nanoid`, `sharp`, `source-map-js`, `dompurify`, `brace-expansion`; `overrides` pin `@xmldom/xmldom` ^0.9.12 and `katex` ^0.18.2 (transitive via `nextra`). `nextra`/`nextra-theme-docs` stay at 4.5.1 and the `patch-package` fix is untouched. 7 high advisories remain, all from `braces` ≤ 3.0.3 (no patched release exists) through `fast-glob`/`micromatch` in `nextra` and `patch-package`; they affect build-time tooling only, not the exported static site. Site builds (61 pages).
+
 ### Upgrade
 
 ```bash
