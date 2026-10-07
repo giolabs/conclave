@@ -59,3 +59,10 @@ Cada paso es idempotente; si falla a mitad de camino, volvé a correr el comando
 - Si el sprint activo ya terminó, corré [`/conclave-close`](/es/commands/close); si no, seguí trabajando y cerralo cuando termine.
 - Planificá el próximo sprint con [`/conclave-planning`](/es/commands/planning) — ahora se niega mientras haya un sprint `active`.
 - Reemplazá cualquier script o paso de CI que llamara a `/conclave-planning --all` o `/conclave-spec`.
+
+## De v2.0.0 a v2.1.0
+
+v2.1.0 es aditiva — no hace falta migrar. Las épicas sin `uncertainty` / `needs_spec` se leen como `low` / `false`, un roadmap sin `horizon` se lee como `auto`, y un `config.md` sin `sprint.planned_sprints` ni `delivery:` usa los defaults (`auto`, `spike_max_timebox: M`, `spec_gate: warn`).
+
+- Corré [`/conclave-roadmap replan`](/es/commands/roadmap) una vez para agregar la sección del plan de release, el horizonte y las entradas de spike.
+- `/conclave-spec` vuelve con un **significado distinto**: ya no redirige a `/conclave-init`, sino que escribe la especificación técnica de una épica ([`/conclave-spec`](/es/commands/spec)). Un script viejo que lo llame ahora intentaría redactar una SPEC.

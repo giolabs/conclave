@@ -1,0 +1,120 @@
+---
+title: /conclave-spec
+description: Especificación técnica de una épica — el Tech Lead compone el diseño a partir de sus ADRs, el Product Manager revisa el alcance, y el resultado es SPEC-NNN en draft. /conclave-spec approve la aprueba para que /conclave-planning refine las historias de la épica a partir de ella.
+---
+
+# /conclave-spec
+
+La SPEC está entre una épica y sus historias:
+
+```
+Épica (qué · por qué)  →  Spike(s) (incógnitas)  →  ADR(s) (decisiones)  →  SPEC (cómo)  →  Historias (/conclave-planning)
+```
+
+- **ADR** — una decisión, sus alternativas y evidencia. Chico, permanente. Ver [`/conclave-adr`](/es/commands/adr).
+- **SPEC** — el diseño de una épica, compuesto a partir de sus ADRs: componentes, contratos, datos, tests, rollout, y el desglose de historias que refina el planning. Vive en `conclave/product/specs/SPEC-NNN-<slug>.md`.
+
+```
+/conclave-spec EP-003              # redactar (o revisar) la SPEC de EP-003
+/conclave-spec approve SPEC-002    # aprobarla — el planning ya puede refinar EP-003 desde ella
+```
+
+No se commitea nada. Agregado en v2.1.0.
+
+> Antes de v2.0.0, `/conclave-spec` era un alias obsoleto de `/conclave-init`, eliminado en 2.0.0. El nombre ahora corresponde a este comando, sin relación con aquel.
+
+## ¿Cuándo hace falta una SPEC?
+
+Cuando la pasada de riesgo del Tech Lead (inception) o [`/conclave-epic`](/es/commands/epic) marcaron `needs_spec: true` en la épica — típicamente una épica que cambia el modelo de datos, un contrato público, o más de un componente. [`/conclave-planning`](/es/commands/planning) lo hace cumplir según `delivery.spec_gate`:
+
+| `spec_gate` | Épica del slot con `needs_spec: true` y sin SPEC aprobada |
+|---|---|
+| `warn` (default) | Pregunta: escribir la SPEC ahora (inline), planificar sin ella (riesgo registrado), o spike primero |
+| `require` (default en `full-scrum`) | Se niega a refinar la épica hasta que la SPEC esté aprobada |
+
+Cualquier épica puede tener SPEC, marcada o no.
+
+## Redacción — `/conclave-spec EP-NNN`
+
+### SPEC existente
+
+Decide el campo `spec:` de la épica:
+
+- **Vacío** → SPEC nueva con el siguiente `SPEC-NNN`.
+- **Apunta a un `draft`** → se revisa en el lugar (mismo ID); decís qué cambiar.
+- **Apunta a una SPEC `approved`** → ofrece escribir una **nueva versión** (`supersedes: <anterior>`; la anterior pasa a `superseded` al escribir). Las historias ya en curso mantienen el link a la versión anterior.
+
+Rechaza épicas `retired` y `done`.
+
+### Inputs
+
+La épica (objetivo, alcance, criterio de éxito, historias candidatas, preguntas abiertas, `adrs`, `spikes`), el Product Goal, `architecture.md`, cada ADR (texto completo para los de la épica, índice para el resto), los hallazgos de los spikes terminados de la épica, `02-data-model.md` y `03-bloc.md` del paquete de discovery cuando existen, y la SPEC existente. Se hace snapshot en `conclave/context/`.
+
+### Wave 1 — El Tech Lead redacta la SPEC
+
+El TL completa cada sección de `tech-spec.template.md`:
+
+| § | Sección |
+|---|---|
+| 1 | Contexto y objetivo |
+| 2 | Alcance (adentro / afuera) |
+| 3 | Decisiones — cada ADR en el que se apoya el diseño |
+| 4 | Diseño — componentes, responsabilidades, un diagrama Mermaid |
+| 5 | Interfaces y contratos — cambios breaking marcados |
+| 6 | Cambios de datos — entidades, migraciones, backfills |
+| 7 | Reglas de dominio cubiertas — invariantes, casos de uso y edge cases del BLOC |
+| 8 | Requisitos no funcionales — solo presupuestos medibles |
+| 9 | Estrategia de testing |
+| 10 | Rollout y migración |
+| 11 | **Desglose de historias** — filas tamaño INVEST (XS–L) que refina el planning |
+| 12 | Riesgos y preguntas abiertas — cada una con `Resolve by: spike \| ADR \| PM decision \| accept risk` |
+| 13 | Aprobación |
+
+Una decisión que el diseño necesita y que ningún ADR registra se escribe como un nuevo **ADR propuesto** (como máximo 3 — más significa que la épica necesita un spike primero). Cuando una incógnita hace que cualquier diseño sea adivinar, el TL devuelve líneas `SPEC_BLOCKED: <pregunta>` y elegís: **crear spikes para ellas** (corre [`/conclave-spike`](/es/commands/spike) una vez por pregunta), **escribir la SPEC igual** (cada pregunta va a §12 con `Resolve by: spike`), o cancelar.
+
+### Wave 2 — El Product Manager revisa el alcance
+
+El PM contrasta el diseño con la épica de la que es dueño — no revisa el diseño en sí. Lee §2 Alcance y §11 Desglose y devuelve `SCOPE_OK` o hallazgos: alcance que la épica no pidió, una parte del criterio de éxito que ninguna fila entrega, una fila feature sin valor para el usuario, un orden que demora el slice más valioso sin razón técnica. Los hallazgos disparan una revisión del TL; lo que quede va a §12 como fila `PM decision`.
+
+### Checkpoint
+
+```
+SPEC-002  Actualizaciones de tareas en tiempo real  (EP-003)
+  Decisions: ADR-004 (accepted), ADR-007 (new, proposed)
+  Stories:   7 candidates — 2 enabler, 5 feature — ≈ 18 units ≈ 2 sprints at current velocity
+  Open:      2 questions (1 spike, 1 PM decision)
+  PM check:  OK
+```
+
+**Escribirla** / **Cambiar algo** (hasta 2 rondas) / **Cancelar**.
+
+### Escritura
+
+- `product/specs/SPEC-NNN-<slug>.md` con `status: draft`, `epic`, `adrs`, `spikes`, `authors`.
+- ADRs nuevos en `product/adr/` (`status: proposed`) con filas en `architecture.md` §4.
+- Frontmatter de la épica: `spec: SPEC-NNN`, `adrs` ampliado, `needs_spec: true`; una nota bajo `## Candidate stories` de que ahora §11 guía el planning.
+- Si el tamaño total de §11 difiere del `size` de la épica en un sprint completo o más, sugiere [`/conclave-roadmap replan`](/es/commands/roadmap).
+
+## Aprobar — `/conclave-spec approve SPEC-NNN`
+
+Mecánico, sin subagente. Solo se aprueba un `draft`. Avisa (no rechaza) por cada fila de §12 marcada `spike` cuyo spike no está `done`, y por cada ADR todavía `proposed` — *"el planning va a cargar con el riesgo"* — y después setea `status: approved`, `approved_at`, `approved_by` y completa §13. Aprobar una SPEC **no** acepta sus ADRs; mantienen su propio ciclo de vida.
+
+## Cómo usa el planning una SPEC aprobada
+
+El PM refina las historias de la épica desde §11 en lugar de las historias candidatas de la épica: una historia por fila, mismo orden y dependencias, cada una con `spec: SPEC-NNN` y los `adrs:` que implementa; las reglas de dominio de §7 y la estrategia de testing de §9 dan forma al Gherkin. El Developer implementa contra la SPEC y esos ADRs.
+
+## Ciclo de vida de la SPEC
+
+```
+draft ──/conclave-spec approve──→ approved ──/conclave-spec EP-NNN (nueva versión)──→ superseded
+```
+
+Ver [máquinas de estado](/es/state-machine#specs-y-adrs).
+
+## Guardrails
+
+- Nunca commitea, pushea ni abre un PR.
+- Solo escribe en `conclave/product/` — `specs/`, `adr/`, `architecture.md` §4, el frontmatter de la épica y la nota de historias candidatas — más `conclave/context/`.
+- Nunca escribe archivos de historia — el planning refina historias desde §11.
+- Nunca escribe `status: approved` desde un subagente; solo `approve` (corrido por un humano) aprueba.
+- Los números `SPEC-NNN` y de ADR los calcula el orquestador, son monotónicos y nunca se reusan.

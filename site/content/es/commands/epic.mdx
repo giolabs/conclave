@@ -1,6 +1,6 @@
 ---
 title: /conclave-epic
-description: Gestión de épicas del PM después de la inception — new, edit, split, retire — con el roadmap reacomodado por el Scrum Master.
+description: Gestión de épicas del PM después de la inception — new, edit, split, retire — con una pasada de riesgo del Tech Lead y el roadmap reacomodado por el Scrum Master.
 ---
 
 # /conclave-epic
@@ -22,24 +22,24 @@ Requiere un workspace v2 (`conclave_version >= 2.0.0` y `product/epics/`) y un w
 
 | Sub-acción | Subagente | Efecto |
 |---|---|---|
-| `new` | Product Manager, después Scrum Master | Escribe `EP-NNN-<slug>.md` con `status: proposed` y la ubica en slots futuros del roadmap. |
-| `edit EP-NNN` | Product Manager (+ SM si cambió tamaño/prioridad) | Revisa la épica; mantiene ID, estado, historias y slots. |
-| `split EP-NNN` | Product Manager, después Scrum Master | La descompone en 2–4 épicas hijas; la madre pasa a `retired`. |
+| `new` | Product Manager, Tech Lead (pasada de riesgo), después Scrum Master | Escribe `EP-NNN-<slug>.md` con `status: proposed` y la ubica en slots futuros del roadmap. |
+| `edit EP-NNN` | Product Manager (+ TL si cambió el alcance, + SM si cambió tamaño/prioridad/incertidumbre) | Revisa la épica; mantiene ID, estado, historias, slots y los campos del TL. |
+| `split EP-NNN` | Product Manager, Tech Lead (pasada de riesgo por hija), después Scrum Master | La descompone en 2–4 épicas hijas; la madre pasa a `retired`. |
 | `retire EP-NNN` | **Ninguno** | Mecánico: la épica y sus historias no empezadas → `retired`, el roadmap se limpia. |
 
 ## `new`
 
-Pregunta título, el resultado que debe entregar, tipo (`feature | enabler`) y prioridad (`must | should | could`, default `should`). El PM escribe la épica contra `vision.md`, revisando las épicas existentes para evitar solapamientos. Después el Scrum Master la ubica en slots `planned` futuros por prioridad y dependencias — sin tocar nunca slots `active` o `closed`. Confirmás el cambio de slots antes de que se escriban `roadmap.md` (con una fila en el log de re-planificación) y los `roadmap_slots` de la épica.
+Pregunta título, el resultado que debe entregar, tipo (`feature | enabler`) y prioridad (`must | should | could`, default `should`). El PM escribe la épica contra `vision.md`, revisando las épicas existentes para evitar solapamientos. Una **pasada de riesgo del Tech Lead** (v2.1.0+, igual que en la inception) define `uncertainty`, `needs_spec`, los ADRs de los que depende y sus preguntas abiertas. Después el Scrum Master la ubica en slots `planned` futuros por prioridad y dependencias — con una entrada `spike:EP-NNN` antes si es `uncertainty: high`, y en *Beyond the horizon* si un horizonte fijo no tiene lugar — sin tocar nunca slots `active` o `closed`. Confirmás el cambio de slots antes de que se escriban `roadmap.md` (con una fila en el log de re-planificación) y los `roadmap_slots` de la épica.
 
 ## `edit EP-NNN`
 
-Rechaza épicas `retired` y `done` (*"creá una épica nueva"*). Pregunta qué cambiar; el PM devuelve la épica completa, preservando ID, `status`, `stories:`, `roadmap_slots` y `created_at`. Si cambió `size` o `priority`, el SM la reubica.
+Rechaza épicas `retired` y `done` (*"creá una épica nueva"*). Pregunta qué cambiar; el PM devuelve la épica completa, preservando ID, `status`, `stories:`, `roadmap_slots`, `created_at` y los campos del Tech Lead (`uncertainty`, `needs_spec`, `spec`, `adrs`, `spikes`, preguntas abiertas). Si cambió el alcance, se vuelve a correr la pasada de riesgo del TL; si cambió `size`, `priority` o `uncertainty`, el SM la reubica. Si la épica tiene una SPEC aprobada y cambió el alcance, se te pide revisarla con [`/conclave-spec EP-NNN`](/es/commands/spec).
 
 ## `split EP-NNN`
 
 Rechaza épicas `retired` y `done`. Pregunta cuántas hijas (2, 3 o 4) y el eje de división. Regla dura: cada historia no retirada y no terminada de la madre, y cada historia candidata, cae en exactamente una hija; si no, el PM devuelve `SPLIT_UNSAFE: <motivo>` y no se escribe nada. El orquestador vuelve a verificar cantidad y cobertura de forma mecánica.
 
-Si sale bien: las hijas llevan `split_from: EP-NNN` y `status: proposed` (o `active` si alguna de sus historias está en el sprint activo); las historias movidas actualizan su `epic:`, igual que la columna Epic del backlog; la madre pasa a `retired` con `superseded_by` y conserva sus historias `done`. El SM reubica las hijas.
+Si sale bien: las hijas llevan `split_from: EP-NNN` y `status: proposed` (o `active` si alguna de sus historias está en el sprint activo); las historias movidas actualizan su `epic:`, igual que la columna Epic del backlog; la madre pasa a `retired` con `superseded_by` y conserva sus historias `done`. La pasada de riesgo del TL corre para cada hija — ninguna hereda la `spec` de la madre, y los `adrs` de la madre se copian a cada hija que todavía depende de ellos — y después el SM reubica las hijas.
 
 ## `retire EP-NNN`
 
@@ -64,4 +64,5 @@ Mirá la página de [máquinas de estado](/es/state-machine#épicas) para el det
 - Nunca commitea, pushea ni abre un PR.
 - Solo escribe en `conclave/product/` (épicas, roadmap, backlog) y en los campos de frontmatter de historias `epic`, `status` y de retiro.
 - Nunca escribe archivos de historia.
+- Nunca escribe una SPEC ni un ADR — eso lo hacen [`/conclave-spec`](/es/commands/spec) y [`/conclave-adr`](/es/commands/adr).
 - Nunca modifica slots `active` o `closed` del roadmap.

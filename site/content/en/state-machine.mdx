@@ -5,12 +5,15 @@ description: How epics, sprints, and stories move through their states — profi
 
 # State machines
 
-Conclave tracks three levels of work, each with its own status field in YAML frontmatter:
+Conclave tracks three levels of work, each with its own status field in YAML frontmatter, plus the two design artifacts that sit between an epic and its stories:
 
 ```
 Product Goal (product/vision.md)
 └── Epic   EP-NNN   proposed → active → done | retired
+    ├── ADR    ADR-NNN    proposed → accepted | superseded
+    ├── SPEC   SPEC-NNN   draft → approved | superseded
     └── Story  US-NNN   backlog → ready → in-progress → review → [verified] → done | retired
+                        (type: feature | enabler | spike)
 Sprint  SPRINT-NNN     draft → active → closed
 ```
 
@@ -32,6 +35,24 @@ proposed ──/conclave-planning──→ active ──/conclave-close──→
 ```
 
 `/conclave-close` never applies a split or retirement itself — it proposes them, and you run [`/conclave-epic`](/en/commands/epic).
+
+Since v2.1.0 an epic also carries the Tech Lead's risk assessment — `uncertainty` (`low | medium | high`), `needs_spec`, open questions — and links to its `spec`, `adrs` and `spikes`. These are not states; they gate [`/conclave-planning`](/en/commands/planning)'s readiness check. A `proposed` epic may already have had a spike run for it.
+
+## SPECs and ADRs
+
+Both are written by agents in their initial state and only humans move them forward.
+
+| Artifact | States | Who moves it |
+|---|---|---|
+| ADR (`product/adr/ADR-NNN-*.md`) | `proposed → accepted \| superseded` | Written `proposed` by `/conclave-adr`, `/conclave-spec`, inception, or a spike. The team edits it to `accepted` on PR merge; `supersedes` / `superseded_by` link versions. |
+| SPEC (`product/specs/SPEC-NNN-*.md`) | `draft → approved → superseded` | Written `draft` by [`/conclave-spec`](/en/commands/spec) (or a spike with a `spec` output). `/conclave-spec approve SPEC-NNN` approves it. Re-authoring an approved SPEC writes a new version and marks the old one `superseded`. |
+
+```
+ADR:   proposed ──team accepts──→ accepted ──newer ADR──→ superseded
+SPEC:  draft ──/conclave-spec approve──→ approved ──/conclave-spec EP-NNN (new version)──→ superseded
+```
+
+Approving a SPEC does not accept its ADRs. With `delivery.spec_gate: require`, an epic with `needs_spec: true` cannot be refined until its SPEC is `approved`.
 
 ## Sprints
 
@@ -122,6 +143,22 @@ review ──/conclave-qa──→ passed  → verified/done as above
 - **`pending_uat`** — only reachable for `mobile` stories, whose checklist has just been generated or is still incomplete. The story stays `review`, but the appended section is `## QA pending`, not `## QA blockers` — nothing has actually failed, a human just hasn't finished yet. Re-run `/conclave-qa` once the checklist records an `Overall result`.
 - **`blocked` via UAT** — a CI run on the generated Playwright/Newman tests fails, or no run is found / the wait times out (`ceremonies.qa_verification.ci_wait_timeout_minutes`, default 20). Both are treated exactly like a failing Gherkin scenario — never silently `passed`.
 - **Not configured yet** — a missing or all-`TBD` `testing-environments.md` degrades gracefully: `/conclave-qa` skips UAT entirely and verifies acceptance criteria exactly as it did before this file existed.
+
+### Spikes reuse this exact state machine (v2.1.0+)
+
+A `type: spike` story follows the same path — no new status:
+
+```
+backlog → ready → in-progress → review → [verified] → done
+           (/conclave-dev routes it to the Tech Lead; review = docs-only PR open;
+            QA checks the findings and declared outputs; done = the knowledge exists)
+```
+
+- It is sized by its `timebox` (`XS | S | M`) and counts in committed units and velocity like any estimate.
+- `outcome: not-answered` can still reach `done` when the findings say honestly why.
+- At `/conclave-close`, the findings are written back into the epic (`uncertainty`, `adrs`, `spec`, open questions, candidate stories).
+
+See [`/conclave-spike`](/en/commands/spike).
 
 ### Bugs reuse this exact state machine (v0.10.0+)
 

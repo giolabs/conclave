@@ -34,6 +34,8 @@ After step 2 the sprint is `active`, every story has an assignee and a disciplin
 
 `/conclave-init` does not need a finished product document. It scans the repo for one, scores what it finds on five coverage signals (problem, users, goal/metrics, features/scope, MVP boundary), and when nothing usable exists offers [`/conclave-discovery`](/en/commands/discovery) — a guided pass that writes discovery, tech stack, data model, domain rules (BLOC) and MVP to `docs/product/`. A one-paragraph idea still works too, for a thinner inception. The Product Manager writes the vision (with the **Product Goal**) and 3–8 epics, the Tech Lead writes the architecture and ADRs, and the Scrum Master sequences the epics into roadmap slots. You confirm a one-screen summary before anything is written.
 
+Inception also asks **how many sprints** the release should have (`auto` or a fixed number), and the Tech Lead flags each epic's `uncertainty` and whether it `needs_spec`. Risky epics get a timeboxed spike scheduled one slot ahead.
+
 `/conclave-planning` then refines only the epics of the next slot into stories with Gherkin acceptance criteria, sizes the commitment against velocity, assigns by discipline, and locks the sprint.
 
 ## The sprint cycle
@@ -54,6 +56,12 @@ After step 2 the sprint is `active`, every story has an assignee and a disciplin
 
 # At sprint end: review, optional retro, velocity, roadmap re-plan, reports
 /conclave-close
+
+# Anytime, before an epic's slot comes up (v2.1.0+):
+/conclave-spike "Which of A or B …?" --epic EP-003   # timeboxed research story
+/conclave-adr "…"                                    # one architectural decision
+/conclave-spec EP-003                                # the epic's technical design
+/conclave-roadmap replan --sprints 6                 # change how many sprints the release has
 
 # Next slot
 /conclave-planning
@@ -81,6 +89,7 @@ conclave/
 │   ├── backlog.md                    # stories as they are refined
 │   ├── architecture.md
 │   ├── adr/ADR-NNN-<slug>.md
+│   ├── specs/SPEC-NNN-<slug>.md      # technical specs (v2.1.0+)
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
 ├── context/                          # frozen snapshots of inputs used

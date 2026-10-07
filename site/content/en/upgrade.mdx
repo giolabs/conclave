@@ -59,3 +59,10 @@ Each step is idempotent; re-run the command after a partial failure and it resum
 - If the active sprint is finished, run [`/conclave-close`](/en/commands/close); otherwise keep working and close it when it ends.
 - Plan the next sprint with [`/conclave-planning`](/en/commands/planning) — it now refuses while a sprint is still `active`.
 - Replace any script or CI step that called `/conclave-planning --all` or `/conclave-spec`.
+
+## From v2.0.0 to v2.1.0
+
+v2.1.0 is additive — no migration is needed. Epics without `uncertainty` / `needs_spec` read as `low` / `false`, a roadmap without `horizon` reads as `auto`, and a `config.md` without `sprint.planned_sprints` or `delivery:` uses the defaults (`auto`, `spike_max_timebox: M`, `spec_gate: warn`).
+
+- Run [`/conclave-roadmap replan`](/en/commands/roadmap) once to add the release-plan section, the horizon and spike entries.
+- `/conclave-spec` is back with a **different meaning**: it no longer redirects to `/conclave-init`, it writes an epic's technical specification ([`/conclave-spec`](/en/commands/spec)). Any old script calling it would now try to author a SPEC.

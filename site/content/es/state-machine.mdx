@@ -5,12 +5,15 @@ description: Cómo épicas, sprints e historias pasan por sus estados — según
 
 # Máquinas de estado
 
-Conclave sigue tres niveles de trabajo, cada uno con su propio campo de estado en el frontmatter YAML:
+Conclave sigue tres niveles de trabajo, cada uno con su propio campo de estado en el frontmatter YAML, más los dos artefactos de diseño que quedan entre una épica y sus historias:
 
 ```
 Product Goal (product/vision.md)
 └── Épica   EP-NNN   proposed → active → done | retired
+    ├── ADR    ADR-NNN    proposed → accepted | superseded
+    ├── SPEC   SPEC-NNN   draft → approved | superseded
     └── Historia  US-NNN   backlog → ready → in-progress → review → [verified] → done | retired
+                           (type: feature | enabler | spike)
 Sprint  SPRINT-NNN     draft → active → closed
 ```
 
@@ -32,6 +35,24 @@ proposed ──/conclave-planning──→ active ──/conclave-close──→
 ```
 
 `/conclave-close` nunca aplica una división o un retiro por sí mismo — los propone, y vos corrés [`/conclave-epic`](/es/commands/epic).
+
+Desde v2.1.0 una épica también lleva la evaluación de riesgo del Tech Lead — `uncertainty` (`low | medium | high`), `needs_spec`, preguntas abiertas — y links a su `spec`, `adrs` y `spikes`. No son estados; condicionan el readiness gate de [`/conclave-planning`](/es/commands/planning). Una épica `proposed` puede ya haber tenido un spike.
+
+## SPECs y ADRs
+
+Los dos los escriben agentes en su estado inicial y solo humanos los hacen avanzar.
+
+| Artefacto | Estados | Quién lo mueve |
+|---|---|---|
+| ADR (`product/adr/ADR-NNN-*.md`) | `proposed → accepted \| superseded` | Se escribe `proposed` desde `/conclave-adr`, `/conclave-spec`, la inception o un spike. El equipo lo edita a `accepted` en el merge del PR; `supersedes` / `superseded_by` vinculan versiones. |
+| SPEC (`product/specs/SPEC-NNN-*.md`) | `draft → approved → superseded` | Se escribe `draft` desde [`/conclave-spec`](/es/commands/spec) (o un spike con salida `spec`). `/conclave-spec approve SPEC-NNN` la aprueba. Re-redactar una SPEC aprobada escribe una nueva versión y marca la anterior `superseded`. |
+
+```
+ADR:   proposed ──el equipo acepta──→ accepted ──ADR más nuevo──→ superseded
+SPEC:  draft ──/conclave-spec approve──→ approved ──/conclave-spec EP-NNN (nueva versión)──→ superseded
+```
+
+Aprobar una SPEC no acepta sus ADRs. Con `delivery.spec_gate: require`, una épica con `needs_spec: true` no se puede refinar hasta que su SPEC esté `approved`.
 
 ## Sprints
 
@@ -122,6 +143,22 @@ review ──/conclave-qa──→ passed  → verified/done como arriba
 - **`pending_uat`** — solo alcanzable en historias `mobile`, cuyo checklist se acaba de generar o sigue incompleto. La historia se queda en `review`, pero la sección agregada es `## QA pending`, no `## QA blockers` — nada falló realmente, una persona simplemente todavía no terminó. Volvé a correr `/conclave-qa` una vez que el checklist tenga un `Overall result` registrado.
 - **`blocked` vía UAT** — una corrida de CI sobre los tests Playwright/Newman generados falla, o no se encuentra ninguna corrida / la espera expira (`ceremonies.qa_verification.ci_wait_timeout_minutes`, default 20). Ambos casos se tratan exactamente igual que un escenario Gherkin que falla — nunca se pasa silenciosamente.
 - **Todavía no configurado** — un `testing-environments.md` faltante o completamente `TBD` degrada con gracia: `/conclave-qa` se salta UAT por completo y verifica los criterios de aceptación exactamente como lo hacía antes de que este archivo existiera.
+
+### Los spikes reusan esta misma máquina de estados (v2.1.0+)
+
+Una historia `type: spike` sigue el mismo camino — sin estados nuevos:
+
+```
+backlog → ready → in-progress → review → [verified] → done
+           (/conclave-dev la enruta al Tech Lead; review = PR solo de docs abierto;
+            QA verifica los hallazgos y las salidas declaradas; done = el conocimiento existe)
+```
+
+- Se dimensiona por su `timebox` (`XS | S | M`) y cuenta en unidades comprometidas y velocity como cualquier estimación.
+- `outcome: not-answered` igual puede llegar a `done` si los hallazgos explican con honestidad por qué.
+- En `/conclave-close`, los hallazgos se vuelcan en la épica (`uncertainty`, `adrs`, `spec`, preguntas abiertas, historias candidatas).
+
+Ver [`/conclave-spike`](/es/commands/spike).
 
 ### Los bugs reusan esta misma máquina de estados (v0.10.0+)
 

@@ -5,6 +5,7 @@ export default {
   },
   discovery: "/conclave-discovery",
   init: "/conclave-init",
+  roadmap: "/conclave-roadmap",
 
   "cycle-separator": {
     type: "separator",
@@ -25,6 +26,8 @@ export default {
   story: "/conclave-story",
   bug: "/conclave-bug",
   adr: "/conclave-adr",
+  spike: "/conclave-spike",
+  spec: "/conclave-spec",
 
   "views-separator": {
     type: "separator",

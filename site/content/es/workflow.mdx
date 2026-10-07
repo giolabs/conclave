@@ -13,12 +13,16 @@ Conclave corre exactamente los mismos comandos si trabajás solo o en equipo —
 flowchart LR
     Disc(["/conclave-discovery<br/>(opcional, una vez)"]) -.-> Init
     Init(["/conclave-init<br/>(una vez)"]) --> Plan(["/conclave-planning"])
+    Init -.-> Design["Antes del slot de una épica (opcional)<br/>/conclave-spike · /conclave-adr · /conclave-spec<br/>/conclave-roadmap replan"]
+    Design -.-> Plan
     Plan --> Build["Build<br/>/conclave-dev · /conclave-qa · /conclave-pr-review<br/>(o /conclave-dev --loop, /conclave-sprint)"]
     Build --> Close(["/conclave-close"])
     Close --> Plan
 ```
 
 `/conclave-discovery` es opcional: en un repo greenfield sin documento de producto escribe el paquete `docs/product/` (discovery, tech stack, modelo de datos, BLOC, MVP) que lee la inception. Corrélo vos, o dejá que `/conclave-init` lo ofrezca y lo corra inline.
+
+Entre la inception y el slot de una épica, el equipo puede bajarle el riesgo y diseñarla — ver [De la épica a las historias](#de-la-épica-a-las-historias) más abajo.
 
 No hay comandos de standup, grooming, review ni retro: el board y los estados de las historias son la vista diaria, el refinamiento pasa dentro del planning, y review + retro pasan dentro del close.
 
@@ -38,13 +42,30 @@ flowchart TD
     Disc --> Idea
 
     Idea --> Wave1["Ola 1 (en paralelo)<br/>PM: visión + épicas<br/>TL: arquitectura + ADRs + épica enabler"]
-    Wave1 --> Wave2["Ola 2<br/>SM: slots del roadmap + forecast"]
+    Wave1 --> Risk["Ola 1.5<br/>TL pasada de riesgo: uncertainty,<br/>needs_spec, preguntas abiertas"]
+    Risk --> Wave2["Ola 2<br/>SM: plan de release — horizonte,<br/>slots, entradas de spike, forecast"]
     Wave2 --> Check{"Checkpoint<br/>¿está bien?"}
     Check -->|cambiar algo| Wave1
     Check -->|escribirlo| Artifacts["vision.md · epics/ · architecture.md<br/>adr/ · roadmap.md · backlog.md vacío"]
 ```
 
 Solo y equipo corren la misma inception — la rama solo cambia lo que preguntó `/conclave-init` y cómo se ve `roster.md`.
+
+La inception también decide **cuántos sprints** tiene el release: `auto` (tantos como necesiten las épicas `must`/`should`) o un número fijo, con lo que no entra listado en *Beyond the horizon*. Se vuelve a decidir en cualquier momento con [`/conclave-roadmap replan`](/es/commands/roadmap).
+
+## De la épica a las historias
+
+```mermaid
+flowchart LR
+    Epic["Épica<br/>qué · por qué<br/>uncertainty · needs_spec"] -->|"uncertainty: high"| Spike["Spike(s)<br/>/conclave-spike<br/>hallazgos"]
+    Spike --> ADR["ADR(s)<br/>/conclave-adr<br/>una decisión cada uno"]
+    Epic -->|bien entendida| ADR
+    ADR -->|"needs_spec: true"| Spec["SPEC<br/>/conclave-spec<br/>draft → approved"]
+    ADR -->|sin SPEC| Stories
+    Spec --> Stories["Historias<br/>/conclave-planning<br/>(desde la §11 de la SPEC)"]
+```
+
+Cada paso es opcional para una épica bien entendida. Una entrada `spike:EP-NNN` del roadmap se vuelve una historia spike en el planning; un spike pasa por `/conclave-dev` → `/conclave-qa` como cualquier historia, pero lo ejecuta el Tech Lead y entrega un PR solo de docs.
 
 ## Sprint Planning — un slot a la vez
 
@@ -53,7 +74,9 @@ flowchart TD
     Plan(["/conclave-planning"]) --> Gate{"¿Hay un sprint<br/>todavía activo?"}
     Gate -->|sí| Refuse["Se niega:<br/>corré /conclave-close primero"]
     Gate -->|no| Slot["Próximo slot planned del roadmap<br/>(SPRINT-000 con sprint_zero)"]
-    Slot --> W1["Ola 1: el PM refina las épicas del slot<br/>en historias + Sprint Goal<br/>(el TL escribe historias enabler)"]
+    Slot --> Ready{"Readiness gate<br/>¿SPEC aprobada?<br/>¿spike hecho?"}
+    Ready -->|"spec_gate: require, sin SPEC"| RefuseSpec["Rechaza:<br/>primero /conclave-spec"]
+    Ready -->|"ok, o warn + decisión"| W1["Ola 1: el PM refina las épicas del slot<br/>en historias + Sprint Goal<br/>(el TL escribe historias enabler y spike)"]
     W1 --> W2["Ola 2: factibilidad del TL<br/>+ disciplina por historia"]
     W2 --> W3["Ola 3: el SM asigna por disciplina<br/>capacidad desde la velocidad, acciones de la retro"]
     W3 --> Match{"¿Algún miembro<br/>del roster cubre<br/>la disciplina?"}
@@ -73,6 +96,8 @@ flowchart TD
     Route -->|frontend / backend / mobile / multi| Developer["developer.md"]
     Route -->|design| Designer["designer.md"]
     Route -->|devops| DevOps["devops.md"]
+    Route -->|"type: spike (cualquier disciplina)"| TLSpike["tech-lead.md<br/>hallazgos + ADR / SPEC<br/>PR solo de docs"]
+    TLSpike --> QA
 
     Developer --> QA(["/conclave-qa PREFIX-NNN"])
     Designer --> QA

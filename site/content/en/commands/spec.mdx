@@ -1,0 +1,120 @@
+---
+title: /conclave-spec
+description: Technical specification for an epic — the Tech Lead composes the design from its ADRs, the Product Manager checks scope, and the result is SPEC-NNN in draft. /conclave-spec approve marks it approved so /conclave-planning refines the epic's stories from it.
+---
+
+# /conclave-spec
+
+The SPEC sits between an epic and its stories:
+
+```
+Epic (what · why)  →  Spike(s) (unknowns)  →  ADR(s) (decisions)  →  SPEC (how)  →  Stories (/conclave-planning)
+```
+
+- **ADR** — one decision, its alternatives and evidence. Small, permanent. See [`/conclave-adr`](/en/commands/adr).
+- **SPEC** — the design for one epic, composed from its ADRs: components, contracts, data, tests, rollout, and the story breakdown planning refines. Lives at `conclave/product/specs/SPEC-NNN-<slug>.md`.
+
+```
+/conclave-spec EP-003              # author (or revise) the SPEC for EP-003
+/conclave-spec approve SPEC-002    # mark it approved — planning can now refine EP-003 from it
+```
+
+Nothing is committed. Added in v2.1.0.
+
+> Before v2.0.0, `/conclave-spec` was a deprecated alias of `/conclave-init`, removed in 2.0.0. The name now belongs to this unrelated command.
+
+## When is a SPEC needed?
+
+When the Tech Lead risk pass (inception) or [`/conclave-epic`](/en/commands/epic) set `needs_spec: true` on the epic — typically an epic that changes the data model, a public contract, or more than one component. [`/conclave-planning`](/en/commands/planning) enforces it per `delivery.spec_gate`:
+
+| `spec_gate` | Slot epic has `needs_spec: true` and no approved SPEC |
+|---|---|
+| `warn` (default) | Asks: write the SPEC now (inline), plan without it (risk recorded), or spike first |
+| `require` (default in `full-scrum`) | Refuses to refine the epic until the SPEC is approved |
+
+Any epic may have a SPEC, flagged or not.
+
+## Authoring — `/conclave-spec EP-NNN`
+
+### Existing spec
+
+The epic's `spec:` field decides:
+
+- **Empty** → new spec with the next `SPEC-NNN`.
+- **Points to a `draft`** → revised in place (same ID); you say what should change.
+- **Points to an `approved` spec** → offers to write a **new version** (`supersedes: <old>`; the old one becomes `superseded` on write). Stories already in progress keep their link to the old version.
+
+Refuses `retired` and `done` epics.
+
+### Inputs
+
+The epic (goal, scope, success criterion, candidate stories, open questions, `adrs`, `spikes`), the Product Goal, `architecture.md`, every ADR (full text for the epic's, index for the rest), the findings of the epic's done spikes, the discovery package's `02-data-model.md` and `03-bloc.md` when present, and the existing spec. They are snapshotted to `conclave/context/`.
+
+### Wave 1 — Tech Lead authors the spec
+
+The TL fills every section of `tech-spec.template.md`:
+
+| § | Section |
+|---|---|
+| 1 | Context and goal |
+| 2 | Scope (in / out) |
+| 3 | Decisions — every ADR the design relies on |
+| 4 | Design — components, responsibilities, one Mermaid diagram |
+| 5 | Interfaces and contracts — breaking changes marked |
+| 6 | Data changes — entities, migrations, backfills |
+| 7 | Domain rules covered — BLOC invariants, use cases, edge cases |
+| 8 | Non-functional requirements — measurable budgets only |
+| 9 | Test strategy |
+| 10 | Rollout and migration |
+| 11 | **Story breakdown** — INVEST-sized rows (XS–L) planning refines |
+| 12 | Risks and open questions — each with `Resolve by: spike \| ADR \| PM decision \| accept risk` |
+| 13 | Approval |
+
+A decision the design needs that no ADR records is written as a new **proposed ADR** (at most 3 — more means the epic needs a spike first). When an unknown makes any design a guess, the TL returns `SPEC_BLOCKED: <question>` lines instead, and you choose: **create spikes for them** (runs [`/conclave-spike`](/en/commands/spike) once per question), **write the spec anyway** (each question goes to §12 with `Resolve by: spike`), or cancel.
+
+### Wave 2 — Product Manager scope check
+
+The PM checks the design against the epic it owns — not the design itself. It reads §2 Scope and §11 Story breakdown and returns `SCOPE_OK` or findings: scope the epic did not ask for, a part of the success criterion no row delivers, a feature row with no user value, an order that delays the most valuable slice without a technical reason. Findings trigger one TL revision; anything left goes to §12 as a `PM decision` row.
+
+### Checkpoint
+
+```
+SPEC-002  Realtime task updates  (EP-003)
+  Decisions: ADR-004 (accepted), ADR-007 (new, proposed)
+  Stories:   7 candidates — 2 enabler, 5 feature — ≈ 18 units ≈ 2 sprints at current velocity
+  Open:      2 questions (1 spike, 1 PM decision)
+  PM check:  OK
+```
+
+**Write it** / **Change something** (up to 2 rounds) / **Cancel**.
+
+### Write
+
+- `product/specs/SPEC-NNN-<slug>.md` with `status: draft`, `epic`, `adrs`, `spikes`, `authors`.
+- New ADRs under `product/adr/` (`status: proposed`) with rows in `architecture.md` §4.
+- Epic frontmatter: `spec: SPEC-NNN`, `adrs` extended, `needs_spec: true`; a note under `## Candidate stories` that §11 now drives planning.
+- When §11's total size differs from the epic `size` by a full sprint or more, it suggests [`/conclave-roadmap replan`](/en/commands/roadmap).
+
+## Approving — `/conclave-spec approve SPEC-NNN`
+
+Mechanical, no subagent. Only a `draft` can be approved. It warns (does not refuse) for every §12 row marked `spike` whose spike is not `done`, and for every ADR still `proposed` — *"planning will carry the risk"* — then sets `status: approved`, `approved_at`, `approved_by` and fills §13. Approving a spec does **not** accept its ADRs; they keep their own lifecycle.
+
+## How planning uses an approved SPEC
+
+The PM refines the epic's stories from §11 instead of the epic's candidate stories: one story per row, same order and dependencies, each carrying `spec: SPEC-NNN` and the `adrs:` it implements; §7 domain rules and §9 test strategy shape the Gherkin. The Developer implements against the SPEC and those ADRs.
+
+## SPEC lifecycle
+
+```
+draft ──/conclave-spec approve──→ approved ──/conclave-spec EP-NNN (new version)──→ superseded
+```
+
+See [state machines](/en/state-machine#specs-and-adrs).
+
+## Guardrails
+
+- Never commits, pushes, or opens a PR.
+- Writes only under `conclave/product/` — `specs/`, `adr/`, `architecture.md` §4, the epic's frontmatter and candidate-stories note — plus `conclave/context/`.
+- Never writes story files — planning refines stories from §11.
+- Never writes `status: approved` from a subagent; only `approve` (a human running it) approves.
+- `SPEC-NNN` and ADR numbers are computed by the orchestrator, monotonic, never reused.

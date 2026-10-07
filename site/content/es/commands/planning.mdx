@@ -1,6 +1,6 @@
 ---
 title: /conclave-planning
-description: Sprint Planning para el próximo slot del roadmap — refina just in time las épicas del slot en historias, dimensiona el compromiso contra la velocidad real, asigna por disciplina y bloquea el sprint como activo.
+description: Sprint Planning para el próximo slot del roadmap — verifica que las épicas del slot estén listas (SPEC aprobada, spikes), las refina just in time las épicas del slot en historias, dimensiona el compromiso contra la velocidad real, asigna por disciplina y bloquea el sprint como activo.
 ---
 
 # /conclave-planning
@@ -23,7 +23,8 @@ Corrélo al inicio de cada sprint — después de `/conclave-init` la primera ve
 
 | Ola | Rol | Trabajo |
 |---|---|---|
-| 1 | Product Manager (+ Tech Lead en slots enabler) | **Refinar**: convertir las épicas del slot en historias con criterios de aceptación; proponer el Sprint Goal |
+| 0 | — (orquestador) | **Readiness gate** (v2.1.0+): SPEC aprobada para épicas `needs_spec`, spike hecho o agendado para épicas `uncertainty: high` |
+| 1 | Product Manager (+ Tech Lead para entradas enabler y spike) | **Refinar**: convertir las épicas del slot en historias con criterios de aceptación (desde la §11 de la SPEC si existe); convertir las entradas `spike:EP-NNN` en historias spike; proponer el Sprint Goal |
 | 2 | Tech Lead | **Factibilidad**: validar contra arquitectura/ADRs, asignar `discipline`, marcar subestimaciones y dependencias entre historias |
 | 3 | Scrum Master | **Planificar**: capacidad desde la velocidad, asignaciones, action items de la retro, registro del planning |
 
@@ -38,6 +39,18 @@ No hay una ceremonia de grooming separada: el refinamiento pasa inline, acá, pa
 - El **slot** es la fila más baja de `product/roadmap.md` con estado `planned`. Si no queda ninguna → agregá épicas con `/conclave-epic new` o editá el roadmap.
 - El ID del sprint es el siguiente `SPRINT-NNN` monotónico. Si todavía no hay sprints, es `SPRINT-000` cuando `sprint.sprint_zero: true`, si no `SPRINT-001`.
 - Un workspace sin `product/roadmap.md` (pre-v2) se rechaza: corré `/conclave-init --upgrade`.
+- La celda `Epics` del slot también puede tener **entradas de spike** `spike:EP-NNN` (v2.1.0+) — cada una nombra una épica cuyas preguntas abiertas responde este sprint; la épica en sí puede estar en un slot posterior.
+
+### Readiness gate — SPECs y spikes (v2.1.0+)
+
+Antes de refinar, se revisa cada épica del slot. Las épicas escritas antes de v2.1.0 no tienen `uncertainty` / `needs_spec` y se saltean el gate.
+
+- **SPEC** — `needs_spec: true` y sin SPEC `approved`:
+  - `delivery.spec_gate: require` → se niega: corré primero [`/conclave-spec EP-NNN`](/es/commands/spec) y `/conclave-spec approve SPEC-NNN` (o poné `needs_spec: false`).
+  - `delivery.spec_gate: warn` (default) → pregunta: **Escribir la SPEC ahora** (corre `/conclave-spec` inline y después ofrece aprobarla) · **Planificar sin ella** (refina desde las historias candidatas; el riesgo queda en `planning.md`) · **Spike primero** (la épica pasa al próximo planning y se agrega una entrada `spike:EP-NNN` si quedan preguntas abiertas).
+- **Incertidumbre** — `uncertainty: high`, sin spike `done` y sin entrada de spike en este slot → pregunta: **Spike en este sprint, historias feature después** · **Spike e historias juntos** (el PM refina solo historias que no dependen de la pregunta abierta) · **Aceptar el riesgo**.
+
+Cada decisión se escribe en `planning.md` como compromiso o riesgo.
 
 ### Inputs
 
@@ -47,6 +60,8 @@ Visión (Product Goal), roadmap, las épicas del slot, arquitectura y ADRs, DoR,
 - **Candidatas del backlog** — historias `backlog` cuya `epic` está en el slot.
 - **Acciones de la retro** — action items abiertos del `retro.md` anterior (cuando `ceremonies.close.retro: true`).
 - **Historial de velocidad** — `velocity` de los últimos 3 sprints `closed`.
+- **SPECs** — para cada épica del slot con `spec`, sus decisiones (§3), reglas de dominio (§7), estrategia de testing (§9) y desglose de historias (§11).
+- **Hallazgos de spikes** — de los spikes `done` de cada épica del slot (re-estimaciones, nuevas historias candidatas).
 - **Reglas de dominio** — cuando `product_doc_path` apunta a un paquete de [`/conclave-discovery`](/es/commands/discovery), su `03-bloc.md` (invariantes, casos de uso, edge cases).
 
 ### Preguntas
@@ -57,13 +72,19 @@ Siempre: fecha de inicio del sprint (default hoy), fecha de fin (default inicio 
 
 El Product Manager propone un **Sprint Goal** trazable al objetivo del slot y escribe un par historia + aceptación por cada historia nueva: `type: feature`, `epic: EP-NNN`, prioridad, estimación, dependencias, 2–4 escenarios Gherkin. Nada de `XL` — primero divide. Las candidatas del backlog que ya existen se reutilizan, no se duplican.
 
+**Desde una SPEC** (v2.1.0+). Cuando la épica tiene SPEC, su §11 (desglose de historias) **reemplaza** a las historias candidatas como fuente: una historia por fila, mismo orden y dependencias, cada una con `spec: SPEC-NNN` y los `adrs:` que implementa su fila. El PM no rediseña — una fila con la que no está de acuerdo se marca como `Spec concern` y se refina tal como está.
+
 **BLOC → Gherkin.** Cuando está el `03-bloc.md` del paquete de discovery, el PM también lo recibe: cada invariante, caso de uso o edge case que toca una historia tiene que aparecer como escenario Gherkin en esa historia. Es la única parte del paquete de producto que se lee en cada planning, no solo en la inception.
 
 Cuando el slot contiene una épica `type: enabler`, el Tech Lead escribe historias `type: enabler` ("In order to / We need") cuyos criterios de aceptación puede verificar un script. Para el Sprint 0 el set mínimo es: scaffold para el stack confirmado, framework de tests + un test que pasa, lint, un workflow de CI que corre ambos en los PRs, y la rama de integración `develop`.
 
+**Historias spike** (v2.1.0+). Para cada entrada `spike:EP-NNN`, el Tech Lead convierte las preguntas abiertas de la épica (y las filas de la §12 de la SPEC con `Resolve by: spike`) en historias `type: spike` — una pregunta cada una, timebox ≤ `delivery.spike_max_timebox`, salidas declaradas, 2–3 escenarios que verifican el entregable. Las preguntas que ya tienen spike se saltean. Las historias spike también van a la lista `spikes:` de la épica. Ver [`/conclave-spike`](/es/commands/spike).
+
 ### Ola 2 — factibilidad
 
-El Tech Lead valida cada historia del borrador contra la arquitectura y los ADRs, nombra dependencias entre historias, marca subestimaciones y **asigna una `discipline`** (`frontend | backend | qa | design | devops | mobile | multi`).
+El Tech Lead valida cada historia del borrador contra la arquitectura, los ADRs y la SPEC de la épica, nombra dependencias entre historias (una historia feature que depende de un spike del mismo sprint lo lista), marca subestimaciones y **asigna una `discipline`** (`frontend | backend | qa | design | devops | mobile | multi`).
+
+Una historia que no se puede estimar por una incógnita recibe `SPIKE_NEEDED: <historia> — <pregunta>`, y elegís por cada hallazgo: **agregar un spike y mandar la historia al backlog**, **agregar un spike y mantener la historia** (depende del spike), o **dejar la historia como está** (riesgo registrado).
 
 ### Ola 3 — registro del planning
 
@@ -72,7 +93,7 @@ El Scrum Master asigna cada historia a un miembro del roster cuya disciplina coi
 ### Validación
 
 - **DoR** — una historia que falla puede volver a `backlog` o arreglarse en el momento (vuelve a correr el PM solo para esa historia). En `full-scrum` el sprint no se puede bloquear mientras quede seleccionada una historia que falla.
-- **Capacidad** — unidades `XS=1, S=2, M=3, L=5, XL=8`. La capacidad es la **velocidad promedio de los últimos 3 sprints cerrados**. Sin ningún sprint cerrado todavía, cae a `num_devs × length_weeks × 5` (menos PTO) y se etiqueta *"fixed formula — no velocity yet"*. Un Sprint 0 cerrado cuenta como historial solo si entregó al menos una unidad.
+- **Capacidad** — unidades `XS=1, S=2, M=3, L=5, XL=8`; un spike cuenta su `timebox`. La capacidad es la **velocidad promedio de los últimos 3 sprints cerrados**. Sin ningún sprint cerrado todavía, cae a `num_devs × length_weeks × 5` (menos PTO) y se etiqueta *"fixed formula — no velocity yet"*. Un Sprint 0 cerrado cuenta como historial solo si entregó al menos una unidad.
   - Más de `1.2 × capacidad` → sacar la historia de menor prioridad o mantenerla y registrar el riesgo.
   - Menos de `0.6 × capacidad` con más candidatas en el slot → ofrece sumar la siguiente.
 - **Huecos de cobertura** — si nadie del roster cubre la disciplina de una historia → pregunta si asignarla al Tech Lead como fallback.
@@ -90,8 +111,10 @@ El Scrum Master asigna cada historia a un miembro del roster cuya disciplina coi
 
   US-001 → Bea (frontend) [M]  EP-001
   US-002 → Fen (devops)   [S]  EP-000 enabler
+  US-003 → Ada (backend)  [S]  EP-004 spike: <pregunta>
 
   Capacity: 14 / 15 units — velocity avg of SPRINT-000..000
+  SPECs:    EP-002 ← SPEC-001 (approved) · EP-003 planned without SPEC (risk)
   Retro actions carried in: 1
 ```
 
@@ -100,7 +123,8 @@ El Scrum Master asigna cada historia a un miembro del roster cuya disciplina coi
 - Solo escribe dentro de `conclave/`. Nunca commitea.
 - `sprint_planning` y `qa_verification` son estructurales — una config que ponga cualquiera de los dos en `required: false` se rechaza.
 - Solo puede haber un sprint `active`: nunca planifica mientras haya uno activo.
-- Nunca genera historias para épicas fuera del slot.
+- Nunca genera historias para épicas fuera del slot. Las entradas de spike son la única excepción — `spike:EP-NNN` refina solo las preguntas abiertas de la épica, nunca sus historias feature.
+- Nunca escribe ni aprueba una SPEC o un ADR salvo por el camino inline de `/conclave-spec` del readiness gate, que mantiene el checkpoint de ese comando.
 - Preserva las ediciones manuales en historias, `spec.md` y `planning.md` al retomar un borrador.
 
 ## Después de correrlo

@@ -76,6 +76,22 @@ Después de la migración (o en cualquier corrida en un repo que nunca tuvo ADRs
 
 Cada corrida de `/conclave-adr` appendea una nueva row para el ADR que autoró.
 
+## Vincular el ADR a una épica (v2.1.0+)
+
+Después de escribir, el comando pregunta *"¿A qué épica sirve esta decisión?"* — cualquier épica no retirada, o `none` (default). Para la épica elegida:
+
+- El ID del ADR se agrega a los `adrs:` de la épica.
+- Si la SPEC de la épica está `approved`, avisa que la §3 de la SPEC todavía no lista este ADR — revisala con [`/conclave-spec EP-NNN`](/es/commands/spec).
+- Si la épica tiene una pregunta abierta que este ADR responde, esa línea queda con el sufijo `— decided by ADR-NNN`.
+
+## ADRs, spikes y SPECs
+
+Un ADR registra **una** decisión. Desde v2.1.0 los ADRs también los escriben [`/conclave-spec`](/es/commands/spec) (decisiones que el diseño necesita y que ningún ADR registra todavía) y los spikes que declaran una salida `adr` ([`/conclave-spike`](/es/commands/spike)) — siempre `status: proposed`, numerados por el orquestador. Una SPEC compone los ADRs de una épica en un diseño; aprobar la SPEC no acepta sus ADRs.
+
+```
+proposed ──el equipo acepta (merge del PR)──→ accepted ──un ADR más nuevo──→ superseded
+```
+
 ## Configuración de modelos
 
 `/conclave-adr` usa la lógica estándar de resolución de modelos:
@@ -94,5 +110,5 @@ Los ADRs se versionan vía campos de frontmatter `supersedes` y `superseded_by`.
 
 - Nunca commitea, pushea, ni abre un PR.
 - Nunca escribe `status: accepted` desde el subagent — solo la migración escribe `accepted`.
-- Nunca modifica ningún archivo de story ni ningún archivo fuera de `conclave/product/{architecture.md, adr/**}` y `conclave/context/`.
+- Nunca modifica ningún archivo de story ni ningún archivo fuera de `conclave/product/{architecture.md, adr/**}`, las líneas `adrs:` / preguntas abiertas de la épica vinculada, y `conclave/context/`.
 - El modo discovery sin candidatos es una salida limpia, no una falla.

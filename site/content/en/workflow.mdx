@@ -13,12 +13,16 @@ Conclave runs the exact same commands whether you're solo or a team — what cha
 flowchart LR
     Disc(["/conclave-discovery<br/>(optional, once)"]) -.-> Init
     Init(["/conclave-init<br/>(once)"]) --> Plan(["/conclave-planning"])
+    Init -.-> Design["Before an epic's slot (optional)<br/>/conclave-spike · /conclave-adr · /conclave-spec<br/>/conclave-roadmap replan"]
+    Design -.-> Plan
     Plan --> Build["Build<br/>/conclave-dev · /conclave-qa · /conclave-pr-review<br/>(or /conclave-dev --loop, /conclave-sprint)"]
     Build --> Close(["/conclave-close"])
     Close --> Plan
 ```
 
 `/conclave-discovery` is optional: on a greenfield repo with no product document it writes the `docs/product/` package (discovery, tech stack, data model, BLOC, MVP) that inception reads. Run it yourself, or let `/conclave-init` offer it and run it inline.
+
+Between inception and an epic's slot, the team can de-risk and design it — see [From epic to stories](#from-epic-to-stories) below.
 
 There are no standup, grooming, review or retro commands: the board and story statuses are the daily view, refinement happens inside planning, and review + retro happen inside close.
 
@@ -38,13 +42,30 @@ flowchart TD
     Disc --> Idea
 
     Idea --> Wave1["Wave 1 (parallel)<br/>PM: vision + epics<br/>TL: architecture + ADRs + enabler epic"]
-    Wave1 --> Wave2["Wave 2<br/>SM: roadmap slots + forecast"]
+    Wave1 --> Risk["Wave 1.5<br/>TL risk pass: uncertainty,<br/>needs_spec, open questions"]
+    Risk --> Wave2["Wave 2<br/>SM: release plan — horizon,<br/>slots, spike entries, forecast"]
     Wave2 --> Check{"Checkpoint<br/>looks right?"}
     Check -->|change something| Wave1
     Check -->|write it| Artifacts["vision.md · epics/ · architecture.md<br/>adr/ · roadmap.md · empty backlog.md"]
 ```
 
 Solo and team run the same inception — the branch only changes what `/conclave-init` asked and how `roster.md` looks.
+
+Inception also decides **how many sprints** the release has: `auto` (as many as the `must`/`should` epics need) or a fixed number, with anything that does not fit listed under *Beyond the horizon*. Re-decide it anytime with [`/conclave-roadmap replan`](/en/commands/roadmap).
+
+## From epic to stories
+
+```mermaid
+flowchart LR
+    Epic["Epic<br/>what · why<br/>uncertainty · needs_spec"] -->|"uncertainty: high"| Spike["Spike(s)<br/>/conclave-spike<br/>findings"]
+    Spike --> ADR["ADR(s)<br/>/conclave-adr<br/>one decision each"]
+    Epic -->|well understood| ADR
+    ADR -->|"needs_spec: true"| Spec["SPEC<br/>/conclave-spec<br/>draft → approved"]
+    ADR -->|no spec needed| Stories
+    Spec --> Stories["Stories<br/>/conclave-planning<br/>(from SPEC §11)"]
+```
+
+Each step is optional for a well-understood epic. A spike entry `spike:EP-NNN` in the roadmap becomes a spike story at planning; a spike runs through `/conclave-dev` → `/conclave-qa` like any story, but is executed by the Tech Lead and ships a docs-only PR.
 
 ## Sprint Planning — one slot at a time
 
@@ -53,7 +74,9 @@ flowchart TD
     Plan(["/conclave-planning"]) --> Gate{"A sprint<br/>still active?"}
     Gate -->|yes| Refuse["Refuse:<br/>run /conclave-close first"]
     Gate -->|no| Slot["Next planned roadmap slot<br/>(SPRINT-000 when sprint_zero)"]
-    Slot --> W1["Wave 1: PM refines the slot's epics<br/>into stories + Sprint Goal<br/>(TL writes enabler stories)"]
+    Slot --> Ready{"Readiness gate<br/>SPEC approved?<br/>spike done?"}
+    Ready -->|"spec_gate: require, no SPEC"| RefuseSpec["Refuse:<br/>/conclave-spec first"]
+    Ready -->|"ok, or warn + decision"| W1["Wave 1: PM refines the slot's epics<br/>into stories + Sprint Goal<br/>(TL writes enabler and spike stories)"]
     W1 --> W2["Wave 2: TL feasibility<br/>+ discipline per story"]
     W2 --> W3["Wave 3: SM assigns by discipline<br/>capacity from velocity, retro actions"]
     W3 --> Match{"Roster member<br/>matches the<br/>discipline?"}
@@ -73,6 +96,8 @@ flowchart TD
     Route -->|frontend / backend / mobile / multi| Developer["developer.md"]
     Route -->|design| Designer["designer.md"]
     Route -->|devops| DevOps["devops.md"]
+    Route -->|"type: spike (any discipline)"| TLSpike["tech-lead.md<br/>findings + ADR / SPEC<br/>docs-only PR"]
+    TLSpike --> QA
 
     Developer --> QA(["/conclave-qa PREFIX-NNN"])
     Designer --> QA

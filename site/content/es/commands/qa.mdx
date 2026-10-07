@@ -59,6 +59,17 @@ Cuando se pasa más de un ID de historia, aplica el mismo patrón de validación
 
 QA nunca ejecuta los tests generados él mismo — lo hace el propio CI del repo target, y nunca resuelve, lee, ni escribe un valor de secreto en ningún momento.
 
+### Historias spike (v2.1.0+)
+
+Una historia `type: spike` entrega conocimiento, no comportamiento, así que UAT y la espera de CI (pasos 5–6) se saltean. QA lee el reporte de hallazgos (`findings_path`), cada ADR que produjo el spike y su SPEC, y verifica cada escenario Gherkin contra ellos:
+
+- Los hallazgos existen, repiten la pregunta, y el `outcome` es honesto — una recomendación apoyada solo en evidencia Tier D cuenta como `not-answered`.
+- Existe cada salida de `spike_outputs`: un ADR con `status: proposed` y sección Decision, una SPEC con `status: draft`, re-estimaciones listadas en "Impact on the backlog".
+- El diff del PR tiene solo markdown bajo `conclave/` — cualquier código de aplicación o de prototipo es un veredicto `blocked`.
+- `outcome: not-answered` **no** es una falla en sí: pasa si el reporte dice qué se probó, por qué no convergió y qué hacer después.
+
+Los veredictos son `passed` / `blocked`; nunca `pending_uat`.
+
 ## Qué produce
 
 - Una sección `## Verification — <fecha>` **agregada** a `acceptance/AC-US-NNN.md` — nunca sobreescribe corridas de verificación previas, ahora incluyendo una subsección de ejecución de UAT (corrida de CI + resultado, o el estado del checklist de mobile).

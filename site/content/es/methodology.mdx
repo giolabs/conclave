@@ -17,7 +17,10 @@ Conclave asume **Scrum** estándar con adaptaciones prácticas que hacen los equ
 | Product Goal | `conclave/product/vision.md` | Un resultado medible con el que se compromete el MVP, escrito en la inception. |
 | Épica | `conclave/product/epics/EP-NNN-<slug>.md` | Un bloque grande de valor con criterio de éxito. No es un término de la Scrum Guide, pero es la capa entre el Product Goal y las historias. |
 | Product Backlog | `conclave/product/backlog.md` + historias candidatas de las épicas | Lista ordenada de historias refinadas; las candidatas aproximadas viven en su épica hasta que el planning las refina. |
-| Roadmap | `conclave/product/roadmap.md` | Épicas secuenciadas en slots de sprint, con burnup y forecast. Se re-planifica en cada cierre. |
+| Roadmap / plan de release | `conclave/product/roadmap.md` | Cuántos sprints (`horizon`: auto o un N fijo), épicas y entradas de spike secuenciadas en slots de sprint, épicas fuera del horizonte, burnup y forecast. Se re-pronostica en cada cierre; se re-secuencia con `/conclave-roadmap replan`. |
+| Spike | Historia con `type: spike` | Investigación con timebox (XS–M) que responde una pregunta. Produce un reporte de hallazgos y, si se declaró, un ADR propuesto o una SPEC draft. La corre el Tech Lead. (v2.1.0+) |
+| Decisión de arquitectura | `conclave/product/adr/ADR-NNN-<slug>.md` | Una decisión con alternativas y evidencia. `proposed → accepted \| superseded`. |
+| Especificación técnica | `conclave/product/specs/SPEC-NNN-<slug>.md` | El diseño de una épica compuesto a partir de sus ADRs: contratos, datos, tests, rollout, desglose de historias. `draft → approved \| superseded`. (v2.1.0+) |
 | Sprint Backlog | Tabla de historias seleccionadas en `conclave/sprints/SPRINT-NNN/spec.md` | Snapshot al momento de planning. |
 | Increment | Historias `done` en el sprint (verificadas por QA, aprobadas por el TL si está activo) | Conclave nunca mergea; si un humano mergeó cada PR se reporta en el cierre. |
 | Sprint Planning | `/conclave-planning` | Planifica un slot del roadmap, refinando sus épicas just in time. Gate estructural. |
@@ -29,6 +32,33 @@ Conclave asume **Scrum** estándar con adaptaciones prácticas que hacen los equ
 | Definition of Done | `conclave/product/definition-of-done.md` | Checklist personalizada por el equipo que una historia debe cumplir para llegar a `done`. |
 | Historia de usuario | Un archivo bajo `sprints/SPRINT-NNN/stories/` | Formato INVEST. |
 | Criterios de aceptación | Un archivo bajo `sprints/SPRINT-NNN/acceptance/` | Gherkin Given/When/Then. |
+
+## Conocimiento antes que código (v2.1.0+)
+
+Una épica dice **qué** y **por qué**. Antes de refinar sus historias, el equipo puede necesitar aprender algo, decidir algo o diseñar algo. Conclave hace explícito ese camino:
+
+```
+Épica (qué · por qué)  →  Spike(s) (incógnitas, con timebox)  →  ADR(s) (una decisión cada uno)  →  SPEC (cómo: el diseño de la épica)  →  Historias (/conclave-planning)
+```
+
+| Paso | Artefacto | Comando |
+|---|---|---|
+| Épica | `product/epics/EP-NNN-*.md` con la evaluación de riesgo del Tech Lead: `uncertainty`, `needs_spec`, preguntas abiertas | `/conclave-init`, [`/conclave-epic`](/es/commands/epic) |
+| Spike | Una historia `type: spike` con una pregunta y un timebox; entrega un reporte de hallazgos, no código | [`/conclave-spike`](/es/commands/spike), o una entrada `spike:EP-NNN` del roadmap refinada en el planning |
+| ADR | Una decisión, sus alternativas y evidencia | [`/conclave-adr`](/es/commands/adr), o producido por un spike / una SPEC |
+| SPEC | El diseño de la épica compuesto desde sus ADRs, que termina en un desglose de historias | [`/conclave-spec`](/es/commands/spec) |
+| Historias | Refinadas just in time desde la §11 de la SPEC (o las historias candidatas de la épica) | [`/conclave-planning`](/es/commands/planning) |
+
+Cada paso es opcional para una épica bien entendida y se exige solo donde la épica lo indica:
+
+- `uncertainty: high` → el roadmap agenda `spike:EP-NNN` un slot antes, y el planning ofrece el spike antes de las historias feature.
+- `needs_spec: true` → el planning exige (o avisa, según `delivery.spec_gate`) una SPEC aprobada, y refina las historias desde su desglose.
+
+Un spike es una historia real — planificada, dimensionada por su timebox, contada en la velocity, verificada por QA sobre su entregable — pero entrega conocimiento, no código.
+
+## Planificación del release — cuántos sprints
+
+El roadmap es el plan de release. Su **horizonte** (`sprint.planned_sprints`) es `auto` — tantos sprints como necesiten las épicas `must` y `should` — o un número fijo elegido en `/conclave-init` o con [`/conclave-roadmap replan --sprints N`](/es/commands/roadmap). Con un número fijo, las épicas que no entran se listan en *Beyond the horizon* en orden de prioridad, nunca se descartan en silencio, y el forecast avisa si hay una épica `must` entre ellas. La capacidad por slot sale de la velocity real una vez que cerró un sprint.
 
 Los desarrolladores solos tienen su propio camino de setup: `/conclave-init` pregunta de entrada si el proyecto es solo o de equipo. El modo solo fuerza el perfil `lean` y renderiza un roster de una sola persona cubriendo todas las disciplinas; el modo equipo pregunta quién cubre cada una de las seis disciplinas (nombre + handle de GitHub, o `TBD`) más quién — si alguien — ocupa los roles de proceso PM/SM.
 
@@ -50,6 +80,7 @@ conclave/
 │   ├── backlog.md
 │   ├── architecture.md
 │   ├── adr/ADR-NNN-<slug>.md         # ADRs oficiales
+│   ├── specs/SPEC-NNN-<slug>.md      # especificación técnica por épica (v2.1.0+)
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
 ├── context/                          # snapshots congelados de los inputs
@@ -62,8 +93,9 @@ conclave/
         ├── retro.md                  # /conclave-close, si la retro está activa
         ├── stories/
         │   └── US-NNN-<slug>.md
-        └── acceptance/
-            └── AC-US-NNN.md
+        ├── acceptance/
+        │   └── AC-US-NNN.md
+        └── spikes/                   # <PREFIX>-NNN-findings.md, uno por spike (v2.1.0+)
 ```
 
 ## Invariantes que respeta cada comando de Conclave
@@ -73,7 +105,9 @@ conclave/
 - **Agregar, no pisar.** Cada corrida de `/conclave-planning` crea el siguiente `SPRINT-NNN/` y actualiza `product/backlog.md` de forma aditiva; nunca sobreescribe trabajo previo. `/conclave-init --upgrade` migra frontmatter en el lugar pero nunca borra ni renombra un sprint, historia o reporte.
 - **Snapshot del contexto.** Cada comando que genera artefactos escribe un snapshot fresco bajo `conclave/context/` para que el artefacto sea auditable contra los inputs que lo produjeron.
 - **Referenciar, no duplicar.** Las historias referencian su archivo de aceptación; el spec del sprint referencia `product/definition-of-done.md` en vez de copiarlo.
-- **La numeración es fija.** Los IDs `SPRINT-NNN`, `EP-NNN` y `US-NNN` incrementan monótonamente y nunca se reusan.
+- **La numeración es fija.** Los IDs `SPRINT-NNN`, `EP-NNN`, `US-NNN`, `ADR-NNN` y `SPEC-NNN` incrementan monótonamente y nunca se reusan.
+- **Los agentes proponen, los humanos aprueban.** Los ADRs siempre se escriben `proposed` y las SPECs `draft`; solo un humano acepta un ADR o aprueba una SPEC (`/conclave-spec approve`).
+- **Los spikes entregan docs, no código.** El PR de un spike tiene solo markdown bajo `conclave/`; los prototipos quedan en una rama lab o un worktree.
 - **Un solo sprint activo.** `/conclave-planning` se niega mientras haya un sprint `active`; solo `/conclave-close` lo pone en `closed`.
 - **El schema del roster degrada con gracia.** Un `roster.md` escrito antes de que el modelo de disciplinas existiera (sin columna `Discipline`) no se rechaza — los comandos tratan a cada miembro como multi-disciplina y muestran un aviso de compatibilidad una sola vez.
 

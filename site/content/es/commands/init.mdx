@@ -19,7 +19,7 @@ Crea el workspace `conclave/`, registra la configuración que leen todos los dem
 | `product/vision.md` | Product Manager | Problema, personas, **Product Goal**, métricas de éxito, alcance del MVP |
 | `product/epics/EP-NNN-<slug>.md` | Product Manager | Los grandes bloques de valor, cada uno con un criterio de éxito |
 | `product/architecture.md` + `product/adr/` | Tech Lead | Base arquitectónica y los enablers que necesita el walking skeleton |
-| `product/roadmap.md` | Scrum Master | Épicas secuenciadas en slots de sprint hasta el MVP / fecha de lanzamiento |
+| `product/roadmap.md` | Scrum Master | Plan de release: cuántos sprints, épicas (y entradas de spike antes de las épicas riesgosas) secuenciadas en slots hasta el MVP / fecha de lanzamiento |
 
 ¿Todavía no hay documento de producto? El Paso 3 ofrece [`/conclave-discovery`](/es/commands/discovery) y lo corre inline — o corrélo vos antes.
 
@@ -118,7 +118,10 @@ Se quedan los candidatos con puntaje ≥ 4, los 3 mejores, cada uno con sus señ
 
 El Paso 1 también decide si el repo es **greenfield** (todavía sin código de aplicación): eso define el default de `sprint.sprint_zero` y le indica al Tech Lead que la arquitectura es una propuesta para un repo vacío.
 
-**4.2 — Preferencias de inception.** Una ronda corta y opcional pregunta solo lo que la fuente no responde: usuarios principales, una pista del Product Goal, restricciones duras — las tres se saltean con un paquete de discovery — y si **arrancar con un Sprint 0 walking skeleton** (default sí en greenfield o cuando el `04-mvp.md` del paquete lista enablers de Sprint 0).
+**4.2 — Preferencias de inception.** Una ronda corta y opcional pregunta solo lo que la fuente no responde: usuarios principales, una pista del Product Goal, restricciones duras — las tres se saltean con un paquete de discovery — y si **arrancar con un Sprint 0 walking skeleton** (default sí en greenfield o cuando el `04-mvp.md` del paquete lista enablers de Sprint 0). Desde v2.1.0 también pregunta:
+
+- **¿Cuántos sprints?** — **Auto — tantos como necesiten las épicas must/should** (default) o un número, contando el Sprint 0. Con una `launch_date`, se muestran como pista los sprints que entran antes de esa fecha. Un número fija el horizonte del release (`sprint.planned_sprints`): las épicas que no entran van a *Beyond the horizon* y el forecast nombra cualquier épica `must` que quede afuera. Se cambia después con [`/conclave-roadmap replan`](/es/commands/roadmap).
+- **SPEC gate** — cuando una épica necesita una especificación técnica, ¿el planning debe **avisar** (`warn`) o **exigir** (`require`) una SPEC aprobada? Se guarda como `delivery.spec_gate` (`require` es el default para `full-scrum`).
 
 ### Paso 5 — Crear el esqueleto del workspace
 
@@ -130,12 +133,14 @@ Escribe `config.md`, `team/roster.md`, `team/ceremonies.md`, DoR/DoD, `conclave/
 flowchart LR
     Idea["Paquete de producto, documento<br/>o párrafo + respuestas de inception"] --> PM["Product Manager<br/>visión + 3–8 épicas"]
     Idea --> TL["Tech Lead<br/>arquitectura + ADRs<br/>+ épica enabler (Sprint 0)"]
-    PM --> SM["Scrum Master<br/>slots del roadmap + forecast"]
-    TL --> SM
+    PM --> Risk["Pasada de riesgo del Tech Lead<br/>uncertainty · needs_spec<br/>preguntas abiertas por épica"]
+    TL --> Risk
+    Risk --> SM["Scrum Master<br/>plan de release: slots, entradas de spike,<br/>horizonte + forecast"]
 ```
 
 - **Ola 1 (en paralelo)** — el Product Manager escribe la visión y 3–8 épicas de feature ordenadas por valor (desde un paquete de discovery, las épicas candidatas de `04-mvp.md` *son* las épicas); el Tech Lead escribe la base arquitectónica, los ADRs iniciales y, si el Sprint 0 está activo, una épica enabler "Walking skeleton" (scaffold, framework de tests con un test que pasa, lint, CI, rama de integración `develop`). En greenfield, la evidencia de cada ADR sale de documentación versionada, y el ADR lo aclara. Desde un paquete de discovery, `01-tech-stack.md` es el punto de partida: cada elección se vuelve un ADR (sus alternativas descartadas pasan a ser las alternativas consideradas), y `02-data-model.md` / `03-bloc.md` alimentan el overview de la arquitectura.
-- **Ola 2** — el Scrum Master secuencia las épicas en slots de sprint usando el tamaño del equipo, la duración del sprint y la fecha de lanzamiento, e indica en qué slot cae el MVP.
+- **Ola 1.5 — pasada de riesgo** (v2.1.0+) — el PM escribió las épicas sin ver la arquitectura; el TL escribió la arquitectura sin ver las épicas. Una llamada más al Tech Lead las une: para cada épica define `uncertainty` (`low | medium | high`), `needs_spec` (true cuando la épica cambia el modelo de datos, un contrato público, o más de un componente), los ADRs de los que depende, y 0–3 **preguntas abiertas** formuladas como decisiones (al menos una si es `high`). Esto queda en el frontmatter de la épica y en su sección `## Open questions (spike candidates)`. El alcance y la prioridad del PM no se tocan acá.
+- **Ola 2** — el Scrum Master secuencia las épicas en slots de sprint usando el tamaño del equipo, la duración del sprint, la fecha de lanzamiento y el horizonte del Paso 4.2, e indica en qué slot cae el MVP. Cada épica `uncertainty: high` recibe una **entrada de spike** `spike:EP-NNN` en el slot anterior a su primer slot; las épicas que no entran en un horizonte fijo van a *Beyond the horizon*.
 
 ### Paso 8 — Checkpoint
 
@@ -144,16 +149,19 @@ Ves un resumen compacto antes de que se escriba nada:
 ```
 Product Goal:  <una oración>
 Personas:      <nombres>
-Epics:         EP-001 <título> [M, must] · EP-002 <título> [S, should] · …
-Roadmap:       S0 walking skeleton · S1 EP-001 · S2 EP-001, EP-002 · … MVP at SPRINT-00N (<fecha>)
+Epics:         EP-001 <título> [M, must] · EP-002 <título> [S, should, uncertainty: high, needs SPEC] · …
+Sprints:       <N> planned (<auto | fixed>) · Sprint 0: <yes/no> · beyond the horizon: <épicas o none>
+Roadmap:       S0 walking skeleton · S1 EP-001, spike:EP-002 · S2 EP-001, EP-002 · … MVP at SPRINT-00N (<fecha>)
+Spikes:        <n> scheduled — EP-002: "<primera pregunta abierta>"
+ADRs:          ADR-001 <título> · ADR-002 <título> · …
 Launch risk:   <on track | at risk — motivo>
 ```
 
-Lo aceptás, o describís un cambio en texto libre: solo se vuelve a correr el agente afectado (el roadmap siempre se recalcula si cambian las épicas). Después de tres rondas, el comando escribe lo que hay y te pide que edites los archivos a mano.
+Lo aceptás, o describís un cambio en texto libre: solo se vuelve a correr el agente afectado (la pasada de riesgo y el roadmap siempre se recalculan si cambian las épicas; un cambio en la cantidad de sprints vuelve a correr al SM). Después de tres rondas, el comando escribe lo que hay y te pide que edites los archivos a mano.
 
 ### Paso 9 — Escribir los artefactos de inception
 
-Visión, épicas (numeradas desde `EP-001`, la enabler primero), arquitectura y ADRs independientes, roadmap y un `product/backlog.md` **vacío** — las historias llegan en el planning.
+Visión, épicas (numeradas desde `EP-001`, la enabler primero, con los campos de riesgo — la enabler es `uncertainty: low`, `needs_spec: false`), arquitectura y ADRs independientes, roadmap y un `product/backlog.md` **vacío** — las historias llegan en el planning.
 
 ## Qué crea
 
@@ -172,6 +180,7 @@ conclave/
 │   ├── epics/EP-NNN-<slug>.md
 │   ├── architecture.md
 │   ├── adr/ADR-NNN-<slug>.md
+│   ├── specs/                        # SPEC-NNN-<slug>.md — vacío hasta /conclave-spec (v2.1.0+)
 │   ├── backlog.md                    # tabla vacía — la completa /conclave-planning
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
@@ -191,11 +200,13 @@ Migra un workspace v1.x en el lugar. **Agregar, no pisar**: los sprints, histori
 1. **Inventario** — imprime sprints por estado, cantidad de historias y cantidad de ADRs inline.
 2. **Config** — elimina `ceremonies.daily_standup`, `backlog_grooming`, `sprint_review`; mapea `sprint_retrospective.required` → `ceremonies.close.retro`; agrega `sprint.length_weeks` (desde `team/ceremonies.md`, default 2) y `sprint.sprint_zero: false`; setea `conclave_version: "2.0.0"`. Ves el diff y confirmás antes de que se escriba.
 3. **Estado de sprints** — los `done` / `archived` de v1 pasan a `closed`; se agregan `slot`, `epics`, `committed_units`, `velocity` (suma de estimaciones de historias `done`), `sprint_goal_met`, `closed_at` donde falten.
-4. **Inception desde lo que existe** — el Product Manager agrupa cada historia no retirada en exactamente una épica y escribe `vision.md`; el paso del Tech Lead se saltea (tu `architecture.md` queda como está); el Scrum Master arma un roadmap donde los sprints cerrados son slots `closed`, el sprint activo es el slot `active`, y el burnup se siembra con las velocidades pasadas.
+4. **Inception desde lo que existe** — el Product Manager agrupa cada historia no retirada en exactamente una épica y escribe `vision.md`; el paso del Tech Lead se saltea (tu `architecture.md` queda como está) pero la pasada de riesgo corre sobre las épicas derivadas, así cada una recibe `uncertainty`, `needs_spec` y preguntas abiertas; el Scrum Master arma un roadmap donde los sprints cerrados son slots `closed`, el sprint activo es el slot `active`, y el burnup se siembra con las velocidades pasadas.
 5. **Frontmatter de historias** — agrega `type: feature` y `epic: EP-NNN` donde falten. Nada más cambia.
 6. **Backlog** — agrega la columna `Epic` y reemplaza la vieja sección `## Vision` por un link a `vision.md`.
 
 Si `architecture.md` todavía tiene secciones inline `### ADR-NNN:`, corré [`/conclave-adr`](/es/commands/adr) una vez para migrarlas. Mirá [Actualizar desde v1](/es/upgrade) para el checklist completo.
+
+Un workspace que ya está en v2.0.0 **no** necesita `--upgrade` para v2.1.0: las épicas sin `uncertainty` / `needs_spec` se leen como `low` / `false`, un roadmap sin `horizon` se lee como `auto`, y un `config.md` sin `sprint.planned_sprints` / `delivery:` usa los defaults. Corré [`/conclave-roadmap replan`](/es/commands/roadmap) una vez para agregar la sección del plan de release y las entradas de spike.
 
 ## Guardrails
 
@@ -210,6 +221,10 @@ Si `architecture.md` todavía tiene secciones inline `### ADR-NNN:`, corré [`/c
 ```bash
 git add conclave/ .github/
 git commit -m "conclave: inception for <project_name>"
+
+# Opcional, antes de que llegue el slot de la épica:
+/conclave-spec EP-NNN                  # especificación técnica de cada épica marcada needs_spec
+/conclave-roadmap replan --sprints N   # cambiar cuántos sprints tiene el release
 
 /conclave-planning      # planifica el primer slot (Sprint 0 si está activo)
 ```

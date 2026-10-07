@@ -19,7 +19,7 @@ It creates the `conclave/` workspace, records the configuration every other comm
 | `product/vision.md` | Product Manager | Problem, personas, **Product Goal**, success metrics, MVP scope |
 | `product/epics/EP-NNN-<slug>.md` | Product Manager | The big chunks of value, each with a success criterion |
 | `product/architecture.md` + `product/adr/` | Tech Lead | Architectural foundation and the enablers the walking skeleton needs |
-| `product/roadmap.md` | Scrum Master | Epics sequenced into sprint slots up to the MVP / launch date |
+| `product/roadmap.md` | Scrum Master | Release plan: how many sprints, epics (and spike entries ahead of risky epics) sequenced into slots up to the MVP / launch date |
 
 No product document yet? Step 3 offers [`/conclave-discovery`](/en/commands/discovery) and runs it inline — or run it yourself first.
 
@@ -118,7 +118,10 @@ Candidates scoring ≥ 4 are kept, top 3 by score, each with its missing signals
 
 Step 1 also decides whether the repo is **greenfield** (no application code yet): that sets the default for `sprint.sprint_zero` and tells the Tech Lead the architecture is a proposal for an empty repo.
 
-**4.2 — Inception preferences.** A short, optional round asks only what the source does not already answer: primary users, a Product Goal hint, hard constraints — all three skipped for a discovery package — and whether to **start with a walking-skeleton Sprint 0** (default yes on greenfield or when the package's `04-mvp.md` lists Sprint 0 enablers).
+**4.2 — Inception preferences.** A short, optional round asks only what the source does not already answer: primary users, a Product Goal hint, hard constraints — all three skipped for a discovery package — and whether to **start with a walking-skeleton Sprint 0** (default yes on greenfield or when the package's `04-mvp.md` lists Sprint 0 enablers). Since v2.1.0 it also asks:
+
+- **How many sprints?** — **Auto — as many as the must/should epics need** (default) or a number, Sprint 0 included. With a `launch_date`, the sprints that fit before it are shown as a hint. A number fixes the release horizon (`sprint.planned_sprints`): epics that do not fit go to *Beyond the horizon* and the forecast names any `must` epic left out. Change it later with [`/conclave-roadmap replan`](/en/commands/roadmap).
+- **SPEC gate** — when an epic needs a technical spec, should planning **warn** or **require** an approved SPEC? Stored as `delivery.spec_gate` (`require` is the default for `full-scrum`).
 
 ### Step 5 — Create the workspace skeleton
 
@@ -130,12 +133,14 @@ Writes `config.md`, `team/roster.md`, `team/ceremonies.md`, DoR/DoD, `conclave/R
 flowchart LR
     Idea["Product package, document<br/>or paragraph + inception answers"] --> PM["Product Manager<br/>vision + 3–8 epics"]
     Idea --> TL["Tech Lead<br/>architecture + ADRs<br/>+ enabler epic (Sprint 0)"]
-    PM --> SM["Scrum Master<br/>roadmap slots + forecast"]
-    TL --> SM
+    PM --> Risk["Tech Lead risk pass<br/>uncertainty · needs_spec<br/>open questions per epic"]
+    TL --> Risk
+    Risk --> SM["Scrum Master<br/>release plan: slots, spike entries,<br/>horizon + forecast"]
 ```
 
 - **Wave 1 (parallel)** — the Product Manager writes the vision and 3–8 feature epics ordered by value (from a discovery package, the `04-mvp.md` candidate epics *are* the epics); the Tech Lead writes the architectural foundation, the initial ADRs and, when Sprint 0 is on, a "Walking skeleton" enabler epic (scaffold, test framework with one passing test, lint, CI, `develop` integration branch). On greenfield, every ADR's evidence comes from versioned docs, and the ADR says so. From a discovery package, `01-tech-stack.md` is the starting point: each choice becomes an ADR (its rejected alternatives become the alternatives considered), and `02-data-model.md` / `03-bloc.md` feed the architecture overview.
-- **Wave 2** — the Scrum Master sequences the epics into sprint slots using team size, sprint length and launch date, and states where the MVP lands.
+- **Wave 1.5 — risk pass** (v2.1.0+) — the PM wrote the epics without seeing the architecture; the TL wrote the architecture without seeing the epics. One more Tech Lead call joins them: for each epic it sets `uncertainty` (`low | medium | high`), `needs_spec` (true when the epic changes the data model, a public contract, or more than one component), the ADRs the epic depends on, and 0–3 **open questions** phrased as decisions (at least one when `high`). These land in the epic's frontmatter and its `## Open questions (spike candidates)` section. The PM's scope and priority are never changed here.
+- **Wave 2** — the Scrum Master sequences the epics into sprint slots using team size, sprint length, launch date and the horizon from Step 4.2, and states where the MVP lands. Every `uncertainty: high` epic gets a **spike entry** `spike:EP-NNN` in the slot before its first slot; epics that do not fit a fixed horizon go to *Beyond the horizon*.
 
 ### Step 8 — Checkpoint
 
@@ -144,16 +149,19 @@ You see a compact summary before anything is written:
 ```
 Product Goal:  <one sentence>
 Personas:      <names>
-Epics:         EP-001 <title> [M, must] · EP-002 <title> [S, should] · …
-Roadmap:       S0 walking skeleton · S1 EP-001 · S2 EP-001, EP-002 · … MVP at SPRINT-00N (<date>)
+Epics:         EP-001 <title> [M, must] · EP-002 <title> [S, should, uncertainty: high, needs SPEC] · …
+Sprints:       <N> planned (<auto | fixed>) · Sprint 0: <yes/no> · beyond the horizon: <epics or none>
+Roadmap:       S0 walking skeleton · S1 EP-001, spike:EP-002 · S2 EP-001, EP-002 · … MVP at SPRINT-00N (<date>)
+Spikes:        <n> scheduled — EP-002: "<first open question>"
+ADRs:          ADR-001 <title> · ADR-002 <title> · …
 Launch risk:   <on track | at risk — reason>
 ```
 
-Accept it, or describe a change in free text: only the affected agent re-runs (the roadmap always re-runs when epics change). After three rounds the command writes what exists and tells you to edit the files directly.
+Accept it, or describe a change in free text: only the affected agent re-runs (the risk pass and the roadmap always re-run when epics change; a change to the sprint count re-runs the SM). After three rounds the command writes what exists and tells you to edit the files directly.
 
 ### Step 9 — Write inception artifacts
 
-Vision, epics (numbered from `EP-001`, enabler epic first), architecture and standalone ADRs, roadmap, and an **empty** `product/backlog.md` — stories arrive at planning.
+Vision, epics (numbered from `EP-001`, enabler epic first, with the risk fields — the enabler epic is `uncertainty: low`, `needs_spec: false`), architecture and standalone ADRs, roadmap, and an **empty** `product/backlog.md` — stories arrive at planning.
 
 ## What it creates
 
@@ -172,6 +180,7 @@ conclave/
 │   ├── epics/EP-NNN-<slug>.md
 │   ├── architecture.md
 │   ├── adr/ADR-NNN-<slug>.md
+│   ├── specs/                        # SPEC-NNN-<slug>.md — empty until /conclave-spec (v2.1.0+)
 │   ├── backlog.md                    # empty table — filled by /conclave-planning
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
@@ -191,11 +200,13 @@ Migrates a v1.x workspace in place. **Append, don't clobber**: existing sprints,
 1. **Inventory** — prints sprints by status, story count, inline ADR count.
 2. **Config** — removes `ceremonies.daily_standup`, `backlog_grooming`, `sprint_review`; maps `sprint_retrospective.required` → `ceremonies.close.retro`; adds `sprint.length_weeks` (from `team/ceremonies.md`, default 2) and `sprint.sprint_zero: false`; sets `conclave_version: "2.0.0"`. You see the diff and confirm before it is written.
 3. **Sprint status** — v1 `done` / `archived` become `closed`; `slot`, `epics`, `committed_units`, `velocity` (sum of `done` story estimates), `sprint_goal_met`, `closed_at` are added where missing.
-4. **Inception from what exists** — the Product Manager groups every non-retired story into exactly one epic and writes `vision.md`; the Tech Lead step is skipped (your `architecture.md` stays); the Scrum Master builds a roadmap where closed sprints are `closed` slots, the active sprint is the `active` slot, and the burnup is seeded from past velocities.
+4. **Inception from what exists** — the Product Manager groups every non-retired story into exactly one epic and writes `vision.md`; the Tech Lead step is skipped (your `architecture.md` stays) but the risk pass runs on the derived epics, so each gets `uncertainty`, `needs_spec` and open questions; the Scrum Master builds a roadmap where closed sprints are `closed` slots, the active sprint is the `active` slot, and the burnup is seeded from past velocities.
 5. **Story frontmatter** — adds `type: feature` and `epic: EP-NNN` where missing. Nothing else changes.
 6. **Backlog** — adds the `Epic` column and replaces the old `## Vision` section with a link to `vision.md`.
 
 If `architecture.md` still has inline `### ADR-NNN:` sections, run [`/conclave-adr`](/en/commands/adr) once to migrate them. See [Upgrading from v1](/en/upgrade) for the full checklist.
+
+A workspace already on v2.0.0 does **not** need `--upgrade` for v2.1.0: epics without `uncertainty` / `needs_spec` read as `low` / `false`, a roadmap without `horizon` reads as `auto`, and a `config.md` without `sprint.planned_sprints` / `delivery:` uses the defaults. Run [`/conclave-roadmap replan`](/en/commands/roadmap) once to add the release-plan section and spike entries.
 
 ## Guardrails
 
@@ -210,6 +221,10 @@ If `architecture.md` still has inline `### ADR-NNN:` sections, run [`/conclave-a
 ```bash
 git add conclave/ .github/
 git commit -m "conclave: inception for <project_name>"
+
+# Optional, before the epic's slot comes up:
+/conclave-spec EP-NNN                  # technical spec for each epic flagged needs_spec
+/conclave-roadmap replan --sprints N   # change how many sprints the release has
 
 /conclave-planning      # plans the first slot (Sprint 0 when enabled)
 ```

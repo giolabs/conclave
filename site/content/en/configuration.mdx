@@ -43,6 +43,11 @@ ceremonies:
 sprint:
   length_weeks: 2                # sprint cadence — roadmap dates, default planning end date
   sprint_zero: true              # roadmap starts with SPRINT-000 (walking skeleton)
+  planned_sprints: auto          # auto | N — release horizon (v2.1.0+)
+
+delivery:                        # spikes, ADRs and SPECs (v2.1.0+)
+  spike_max_timebox: M           # XS | S | M — largest timebox a spike may take
+  spec_gate: warn                # warn | require — planning vs. needs_spec epics without an approved SPEC
 ```
 
 ### Field reference
@@ -68,6 +73,9 @@ sprint:
 | `ceremonies.close.retro` | `true \| false` | v2.0.0+. Whether `/conclave-close` runs the retrospective after the review. The review itself always runs. `false` in `lean`, `true` in `full-scrum`. |
 | `sprint.length_weeks` | integer, default `2` | v2.0.0+. Drives roadmap dates and the default sprint end date in `/conclave-planning`. |
 | `sprint.sprint_zero` | `true \| false` | v2.0.0+. `true` makes the roadmap start with `SPRINT-000`, a walking skeleton of `type: enabler` stories. Default `true` on a repo with no code, `false` otherwise (and after `--upgrade`). |
+| `sprint.planned_sprints` | `auto` or an integer ≥ 1 | v2.1.0+. The release horizon. `auto` = the roadmap holds as many sprints as the `must`/`should` epics need; a number = exactly that many slots (Sprint 0 and closed sprints included), and epics that do not fit go to *Beyond the horizon*. Set by `/conclave-init`; change it with [`/conclave-roadmap replan --sprints N`](/en/commands/roadmap). Absent → `auto`. |
+| `delivery.spike_max_timebox` | `XS \| S \| M`, default `M` | v2.1.0+. Largest timebox a spike story may take. `/conclave-spike` and planning refuse anything larger — split the question instead. |
+| `delivery.spec_gate` | `warn \| require`, default `warn` | v2.1.0+. What `/conclave-planning` does when a slot epic has `needs_spec: true` and no approved SPEC: `warn` asks (write it now, plan without it and record the risk, or spike first); `require` refuses until [`/conclave-spec approve`](/en/commands/spec) has run. `/conclave-init` defaults it to `require` for `full-scrum`. Absent → `warn`. |
 
 > **Removed in v2.0.0:** `ceremonies.daily_standup`, `ceremonies.backlog_grooming`, `ceremonies.sprint_review`, `ceremonies.sprint_retrospective`. Commands warn once and ignore them. `/conclave-init --upgrade` removes them and maps `sprint_retrospective.required` to `ceremonies.close.retro`.
 
@@ -236,8 +244,10 @@ title: "Add JWT middleware"
 priority: "must"                # must | should | could | wont
 estimate: "M"                   # XS | S | M | L | XL
 status: backlog                 # backlog | ready | in-progress | review | verified | done | retired
-type: "feature"                 # feature | enabler (v2.0.0+)
+type: "feature"                 # feature | enabler (v2.0.0+) | spike (v2.1.0+)
 epic: "EP-002"                  # EP-NNN it was refined from; "" for ad-hoc stories (v2.0.0+)
+spec: ""                        # SPEC-NNN this story implements (v2.1.0+, set by planning)
+adrs: []                        # ADR-NNN ids it implements or must respect (v2.1.0+)
 dependencies: []
 assignee: ""
 discipline: ""                  # frontend | backend | qa | design | devops | mobile | multi
@@ -246,6 +256,17 @@ created_at: "2026-01-01T00:00:00Z"
 ```
 
 `discipline` starts empty and is set by the Tech Lead during `/conclave-planning` — see the [state machines](/en/state-machine) page for exactly when each field becomes required. `type: enabler` stories are written as "In order to / We need" instead of "As a / I want / So that".
+
+**Spike stories** (`type: spike`, v2.1.0+) are written as "To decide / We will investigate / Within" and carry four extra fields:
+
+```yaml
+question: "Which of A or B …?"   # the one decision the spike must answer
+timebox: "S"                     # XS | S | M — hard cap, equals estimate
+spike_outputs: [findings, adr]   # findings (always) + any of: adr | spec | estimate
+findings_path: ""                # spikes/<PREFIX>-NNN-findings.md once /conclave-dev has run it
+```
+
+See [`/conclave-spike`](/en/commands/spike).
 
 ## Epic frontmatter (v2.0.0+)
 
@@ -258,10 +279,45 @@ status: proposed               # proposed | active | done | retired
 size: "M"                      # S (≈1 sprint) | M (≈2 sprints) | L (≈3+ — split before it enters the roadmap)
 priority: "must"               # must | should | could
 type: "feature"                # feature | enabler
+uncertainty: "high"            # low | medium | high — Tech Lead risk pass (v2.1.0+)
+needs_spec: true               # planning requires/warns about an approved SPEC (v2.1.0+)
+spec: ""                       # SPEC-NNN, set by /conclave-spec (v2.1.0+)
+adrs: ["ADR-002"]              # ADRs the epic depends on (v2.1.0+)
+spikes: []                     # spike story ids that de-risk it (v2.1.0+)
 dependencies: []               # other EP-NNN ids
 roadmap_slots: []              # SPRINT-NNN ids, set by the roadmap step
 stories: []                    # story ids, appended by /conclave-planning
 created_at: "2026-01-01"
+```
+
+The v2.1.0 fields are optional — absent means `low`, `false`, none. An epic with `uncertainty: high` has at least one line under `## Open questions (spike candidates)`, each phrased as a decision; the roadmap schedules a `spike:EP-NNN` entry ahead of it.
+
+## Roadmap frontmatter (v2.1.0+)
+
+```yaml
+horizon: "auto"                # auto | N — mirrors sprint.planned_sprints
+planned_sprints: 6             # slots in the table (Sprint 0 included)
+launch_date: "2026-12-15"
+mvp_slot: "SPRINT-004"
+```
+
+The body adds a **Release plan** row (sprints planned, Sprint 0, MVP at, launch date, horizon, spikes scheduled) and a **Beyond the horizon** section. A slot's `Epics` cell may hold `spike:EP-NNN` entries. See [`/conclave-roadmap`](/en/commands/roadmap).
+
+## SPEC frontmatter (v2.1.0+)
+
+`conclave/product/specs/SPEC-NNN-<slug>.md`, written by [`/conclave-spec`](/en/commands/spec):
+
+```yaml
+id: "SPEC-002"
+epic: "EP-003"
+status: draft                  # draft | approved | superseded
+adrs: ["ADR-004", "ADR-007"]
+spikes: ["US-014"]
+authors: ["Ada"]
+approved_at: ""
+approved_by: ""
+supersedes: null
+superseded_by: null
 ```
 
 ## Sprint `meta.md` frontmatter (v2.0.0+)

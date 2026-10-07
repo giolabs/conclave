@@ -9,6 +9,44 @@ All notable changes to the Conclave plugin are documented here. Format follows [
 
 ---
 
+## Unreleased — v2.1.0
+
+Additive release — no migration needed. Conclave now makes the path from an epic to its stories explicit: **Epic (what · why) → Spike(s) (timeboxed unknowns) → ADR(s) (one decision each) → SPEC (the epic's technical design) → Stories**. Every step is optional for a well-understood epic and enforced only where the epic says so.
+
+### Added
+
+**`/conclave-spike`** — creates a `type: spike` story: one question phrased as a decision, a timebox (`XS | S | M`, capped by `delivery.spike_max_timebox`), declared outputs (`findings` always; `adr`, `spec`, `estimate` on request) and Gherkin that checks the deliverable. `/conclave-dev` routes every spike to the Tech Lead, who writes `sprints/SPRINT-NNN/spikes/<ID>-findings.md` plus any proposed ADR or draft SPEC and opens a **docs-only PR**; QA verifies the deliverable; `/conclave-close` writes the findings back into the epic. A spike counts its timebox in committed units and velocity.
+
+**`/conclave-spec EP-NNN`** — the Tech Lead composes the epic's technical specification (`product/specs/SPEC-NNN-<slug>.md`: decisions, design, contracts, data, domain rules, tests, rollout, story breakdown, open questions) from its ADRs, writing any missing decision as a proposed ADR; the Product Manager checks it against the epic's scope. `/conclave-spec approve SPEC-NNN` marks it approved. This is a new command — the old `/conclave-spec` alias removed in 2.0.0 is unrelated.
+
+**`/conclave-roadmap show | replan [--sprints N|auto]`** — release planning: how many sprints, and what goes in each. The Scrum Master re-sequences every future slot against a fixed horizon or as many sprints as the `must`/`should` epics need; epics that do not fit go to *Beyond the horizon*.
+
+**Tech Lead risk pass** — `/conclave-init` (new wave 1.5) and `/conclave-epic` set each epic's `uncertainty` (`low | medium | high`), `needs_spec`, the ADRs it depends on, and an **Open questions (spike candidates)** section.
+
+**Release plan in the roadmap** — `horizon` (`auto` or N), `planned_sprints`, a Release plan row, *Beyond the horizon*, and `spike:EP-NNN` entries scheduled one slot ahead of every high-uncertainty epic.
+
+**Config** — `sprint.planned_sprints` (`auto` or N) and a `delivery:` block with `spike_max_timebox` and `spec_gate: warn | require`.
+
+**Frontmatter** — epics gain `uncertainty`, `needs_spec`, `spec`, `adrs`, `spikes`; stories gain `type: spike` (with `question`, `timebox`, `spike_outputs`, `findings_path`) plus `spec` and `adrs`. New templates `tech-spec.template.md` and `spike-findings.template.md`.
+
+### Changed
+
+**`/conclave-init`** asks how many sprints the release has and whether planning should warn about or require a SPEC, and runs the TL risk pass before the roadmap. The checkpoint shows sprints, spikes and ADRs.
+
+**`/conclave-planning`** runs a readiness gate before refinement (approved SPEC for `needs_spec` epics per `delivery.spec_gate`; spike done or scheduled for `uncertainty: high` epics), turns `spike:EP-NNN` entries into spike stories, refines from the SPEC's §11 story breakdown when there is one, and lets the TL flag `SPIKE_NEEDED` for stories that cannot be estimated.
+
+**`/conclave-qa`** and **`/conclave-pr-review`** verify and review a spike's findings, ADRs and SPEC instead of running UAT or reviewing code; lab tests are skipped for spikes.
+
+**`/conclave-adr`** asks which epic the decision serves and links it.
+
+**Definition of Ready / Done** templates cover spikes and SPEC-backed stories.
+
+### Upgrade
+
+Nothing to run. Missing fields read as defaults (`uncertainty: low`, `needs_spec: false`, `horizon: auto`, `spec_gate: warn`). Run `/conclave-roadmap replan` once to add the release plan and spike entries to an existing roadmap.
+
+---
+
 ## 1.1.0 — 2026-07-29
 
 ### Changed (Breaking)

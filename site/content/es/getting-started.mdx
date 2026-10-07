@@ -34,6 +34,8 @@ Después del paso 2 el sprint está `active`, cada historia tiene un asignado y 
 
 `/conclave-init` no necesita un documento de producto terminado. Busca uno en el repo, puntúa lo que encuentra según cinco señales de cobertura (problema, usuarios, objetivo/métricas, features/alcance, límite del MVP) y, si no hay nada usable, ofrece [`/conclave-discovery`](/es/commands/discovery) — una pasada guiada que escribe discovery, tech stack, modelo de datos, reglas de dominio (BLOC) y MVP en `docs/product/`. Un párrafo con la idea también sirve, para una inception más flaca. El Product Manager escribe la visión (con el **Product Goal**) y 3–8 épicas, el Tech Lead escribe la arquitectura y los ADRs, y el Scrum Master secuencia las épicas en slots del roadmap. Confirmás un resumen de una pantalla antes de que se escriba nada.
 
+La inception también pregunta **cuántos sprints** debería tener el release (`auto` o un número fijo), y el Tech Lead marca la `uncertainty` de cada épica y si necesita SPEC (`needs_spec`). A las épicas riesgosas se les agenda un spike con timebox un slot antes.
+
 Después `/conclave-planning` refina solo las épicas del próximo slot en historias con criterios de aceptación Gherkin, dimensiona el compromiso contra la velocidad, asigna por disciplina y bloquea el sprint.
 
 ## El ciclo de sprint
@@ -54,6 +56,12 @@ Después `/conclave-planning` refina solo las épicas del próximo slot en histo
 
 # Al final del sprint: review, retro opcional, velocidad, re-planificación del roadmap, reportes
 /conclave-close
+
+# En cualquier momento, antes de que llegue el slot de una épica (v2.1.0+):
+/conclave-spike "¿Cuál de A o B …?" --epic EP-003   # historia de investigación con timebox
+/conclave-adr "…"                                   # una decisión de arquitectura
+/conclave-spec EP-003                               # el diseño técnico de la épica
+/conclave-roadmap replan --sprints 6                # cambiar cuántos sprints tiene el release
 
 # Próximo slot
 /conclave-planning
@@ -81,6 +89,7 @@ conclave/
 │   ├── backlog.md                    # historias a medida que se refinan
 │   ├── architecture.md
 │   ├── adr/ADR-NNN-<slug>.md
+│   ├── specs/SPEC-NNN-<slug>.md      # especificaciones técnicas (v2.1.0+)
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
 ├── context/                          # snapshots congelados de los inputs usados

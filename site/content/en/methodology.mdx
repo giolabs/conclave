@@ -17,7 +17,10 @@ Conclave assumes standard **Scrum** with practical accommodations real engineeri
 | Product Goal | `conclave/product/vision.md` | One measurable outcome the MVP commits to, written at inception. |
 | Epic | `conclave/product/epics/EP-NNN-<slug>.md` | A big chunk of value with a success criterion. Not a Scrum Guide term, but the layer between the Product Goal and stories. |
 | Product Backlog | `conclave/product/backlog.md` + epics' candidate stories | Ordered list of refined stories; rough candidates live in their epic until planning refines them. |
-| Roadmap | `conclave/product/roadmap.md` | Epics sequenced into sprint slots, with burnup and forecast. Re-planned at every close. |
+| Roadmap / release plan | `conclave/product/roadmap.md` | How many sprints (`horizon`: auto or a fixed N), epics and spike entries sequenced into sprint slots, epics beyond the horizon, burnup and forecast. Re-forecast at every close; re-sequenced by `/conclave-roadmap replan`. |
+| Spike | Story with `type: spike` | Timeboxed (XS–M) research answering one question. Produces a findings report and, when declared, a proposed ADR or draft SPEC. Run by the Tech Lead. (v2.1.0+) |
+| Architecture decision | `conclave/product/adr/ADR-NNN-<slug>.md` | One decision with alternatives and evidence. `proposed → accepted \| superseded`. |
+| Technical specification | `conclave/product/specs/SPEC-NNN-<slug>.md` | The design of one epic composed from its ADRs: contracts, data, tests, rollout, story breakdown. `draft → approved \| superseded`. (v2.1.0+) |
 | Sprint Backlog | `conclave/sprints/SPRINT-NNN/spec.md` selected stories table | Snapshot at planning time. |
 | Increment | Stories `done` in the sprint (QA-verified, TL-approved when on) | Conclave never merges; whether a human merged each PR is reported at close. |
 | Sprint Planning | `/conclave-planning` | Plans one roadmap slot, refining its epics just in time. Structural gate. |
@@ -29,6 +32,33 @@ Conclave assumes standard **Scrum** with practical accommodations real engineeri
 | Definition of Done | `conclave/product/definition-of-done.md` | Team-customized checklist a story must meet to reach `done`. |
 | User story | One file under `sprints/SPRINT-NNN/stories/` | INVEST format. |
 | Acceptance criteria | One file under `sprints/SPRINT-NNN/acceptance/` | Gherkin Given/When/Then. |
+
+## Knowledge before code (v2.1.0+)
+
+An epic says **what** and **why**. Before its stories are refined, the team may need to learn something, decide something, or design something. Conclave makes that path explicit:
+
+```
+Epic (what · why)  →  Spike(s) (unknowns, timeboxed)  →  ADR(s) (one decision each)  →  SPEC (how: the epic's design)  →  Stories (/conclave-planning)
+```
+
+| Step | Artifact | Command |
+|---|---|---|
+| Epic | `product/epics/EP-NNN-*.md` with the Tech Lead's risk assessment: `uncertainty`, `needs_spec`, open questions | `/conclave-init`, [`/conclave-epic`](/en/commands/epic) |
+| Spike | A `type: spike` story with one question and a timebox; ships a findings report, not code | [`/conclave-spike`](/en/commands/spike), or a `spike:EP-NNN` roadmap entry refined at planning |
+| ADR | One decision, its alternatives and evidence | [`/conclave-adr`](/en/commands/adr), or produced by a spike / a SPEC |
+| SPEC | The epic's design composed from its ADRs, ending in a story breakdown | [`/conclave-spec`](/en/commands/spec) |
+| Stories | Refined just in time from the SPEC's §11 (or the epic's candidate stories) | [`/conclave-planning`](/en/commands/planning) |
+
+Every step is optional for a well-understood epic and enforced only where the epic says so:
+
+- `uncertainty: high` → the roadmap schedules `spike:EP-NNN` one slot ahead, and planning offers the spike before the feature stories.
+- `needs_spec: true` → planning requires (or warns about, per `delivery.spec_gate`) an approved SPEC, and refines the stories from its breakdown.
+
+A spike is a real story — planned, sized by its timebox, counted in velocity, verified by QA on its deliverable — but it ships knowledge, not code.
+
+## Release planning — how many sprints
+
+The roadmap is the release plan. Its **horizon** (`sprint.planned_sprints`) is either `auto` — as many sprints as the `must` and `should` epics need — or a fixed number chosen at `/conclave-init` or with [`/conclave-roadmap replan --sprints N`](/en/commands/roadmap). With a fixed number, epics that do not fit are listed under *Beyond the horizon* in priority order, never silently dropped, and the forecast says if a `must` epic is among them. Capacity per slot comes from real velocity once a sprint has closed.
 
 Solo developers get their own setup path: `/conclave-init` asks up front whether the project is solo or a team. Solo mode forces the `lean` profile and renders a single-person roster covering every discipline; team mode asks who covers each of the six disciplines (name + GitHub handle, or `TBD`) plus who — if anyone — holds the PM/SM process roles.
 
@@ -50,6 +80,7 @@ conclave/
 │   ├── backlog.md
 │   ├── architecture.md
 │   ├── adr/ADR-NNN-<slug>.md         # official ADRs
+│   ├── specs/SPEC-NNN-<slug>.md      # technical spec per epic (v2.1.0+)
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
 ├── context/                          # frozen snapshots of inputs
@@ -62,8 +93,9 @@ conclave/
         ├── retro.md                  # /conclave-close, when retro is on
         ├── stories/
         │   └── US-NNN-<slug>.md
-        └── acceptance/
-            └── AC-US-NNN.md
+        ├── acceptance/
+        │   └── AC-US-NNN.md
+        └── spikes/                   # <PREFIX>-NNN-findings.md, one per spike run (v2.1.0+)
 ```
 
 ## Invariants every Conclave command respects
@@ -73,7 +105,9 @@ conclave/
 - **Append, do not clobber.** Each `/conclave-planning` run creates the next `SPRINT-NNN/` and updates `product/backlog.md` additively; it never overwrites previous work. `/conclave-init --upgrade` migrates frontmatter in place but never deletes or renames a sprint, story, or report.
 - **Snapshot context.** Every artifact-generating command writes a fresh snapshot under `conclave/context/` so the artifact is auditable against the inputs that produced it.
 - **Reference, do not duplicate.** Stories reference their acceptance file; sprint spec references `product/definition-of-done.md` rather than copying it.
-- **Numbering is sticky.** `SPRINT-NNN`, `EP-NNN` and `US-NNN` IDs increment monotonically and are never reused.
+- **Numbering is sticky.** `SPRINT-NNN`, `EP-NNN`, `US-NNN`, `ADR-NNN` and `SPEC-NNN` IDs increment monotonically and are never reused.
+- **Agents propose, humans approve.** ADRs are always written `proposed` and SPECs `draft`; only a human accepts an ADR or approves a SPEC (`/conclave-spec approve`).
+- **Spikes ship docs, not code.** A spike's PR holds only markdown under `conclave/`; prototypes stay on a lab branch or worktree.
 - **One active sprint.** `/conclave-planning` refuses while a sprint is `active`; only `/conclave-close` sets it `closed`.
 - **Roster schema degrades gracefully.** A `roster.md` written before the discipline model shipped (no `Discipline` column) is not rejected — commands treat every member as `multi`-discipline and print a one-time compatibility hint.
 

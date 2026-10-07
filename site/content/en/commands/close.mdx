@@ -39,7 +39,7 @@ The gate is unconditional. Open non-critical bugs only produce a warning and are
 
 ### Step 3 — Sprint facts
 
-Computed without an agent: committed units, **velocity** (units of `done` stories, `XS=1 S=2 M=3 L=5 XL=8`), the not-done list, per-epic progress, PR merge state per done story (`unknown` when `gh` is unavailable), and retro signals — stories sent back by QA or TL, blocked or aborted autonomous runs, bugs opened, carry-over count.
+Computed without an agent: committed units, **velocity** (units of `done` stories, `XS=1 S=2 M=3 L=5 XL=8`; a spike counts its `timebox` — it is real work the team committed to), the not-done list, per-epic progress, PR merge state per done story (`unknown` when `gh` is unavailable), and retro signals — stories sent back by QA or TL, blocked or aborted autonomous runs, bugs opened, carry-over count.
 
 ### Step 4 — Unfinished stories
 
@@ -56,6 +56,7 @@ The PM inspects the Increment against the Sprint Goal and writes `review.md`:
 - Epic progress, with a verdict per epic — `done` only when every non-retired story is done **and** the epic's success criterion holds.
 - Product Goal progress.
 - Adaptations: new candidate stories, reprioritised epics, epics to split or retire — **proposals only**.
+- Spikes done this sprint (v2.1.0+): one line each — question, outcome, recommendation, and what it changes. A `not-answered` spike gets an explicit next step.
 
 ### Step 6 — Retro (Scrum Master), when enabled
 
@@ -66,6 +67,7 @@ Asks three optional free-text questions — *keep, change, try* — and, for eac
 - `review.md` and (when enabled) `retro.md`; previous retro action statuses updated.
 - Story frontmatter per your Step 4 decisions.
 - Epics the review marked done → `status: done`. Splits and retirements are **not** applied; they appear in the report as `/conclave-epic split|retire` suggestions.
+- **Spike outcomes into the epic** (v2.1.0+) — for each `type: spike` story that is `done`, its findings are applied to its epic: `uncertainty` ← the report's "Uncertainty after the spike"; `adrs` gains the produced ADRs; `spec` ← the produced SPEC when empty; the matching open question is suffixed `— answered by <ID>` (or `— not answered, see <ID>`); new candidate stories are appended to `## Candidate stories`. Estimate changes to existing stories are listed in the report, not applied. A `not-answered` spike whose epic is still `uncertainty: high` → suggests another [`/conclave-spike`](/en/commands/spike) or a PM decision.
 - `meta.md` → `status: closed`, `velocity`, `sprint_goal_met`, `closed_at`.
 - Backlog rows updated. Candidate stories from the review go into the epic's `## Candidate stories`, not into story files — refinement happens at planning.
 - Roadmap: the slot → `closed`; a burnup row appended; the **forecast** recomputed from the average velocity of the last 3 closed sprints. If the MVP slot or launch date moves, future slot dates are updated and a re-plan log row records why. Epics are never reordered or dropped automatically.
