@@ -33,7 +33,7 @@ Copy the touched epic file (if any), `product/roadmap.md`, and `product/backlog.
 1. `NEW_ID` = highest `EP-NNN` in `product/epics/` + 1 (zero-padded).
 2. `AskUserQuestion`: **Title** (free text) · **What outcome should it deliver?** (free text) · **Type** `feature | enabler` · **Priority** `must | should | could` (default `should`).
 3. Product Manager subagent (`MODEL_FOR_PM`, `product-manager.md` prefix) — task *"Sub-action: epic new"* per the charter section "How you operate inside `/conclave-epic`". Inputs: seed answers, `vision.md`, existing epics (titles + goals, to avoid overlap). Output: one `## Epic` block (body of `epic.template.md`).
-4. **Tech Lead risk pass** (v2.1.0+) — one `Agent` call (`MODEL_FOR_TL`, `tech-lead.md` prefix), same task as `/conclave-init` Step 6.5 for this one epic, with `architecture.md` and the ADR index. Merge the `## Risk` block (`uncertainty`, `needs_spec`, `adrs`, open questions) into the epic.
+4. **Tech Lead risk pass** (v2.0.0+) — one `Agent` call (`MODEL_FOR_TL`, `tech-lead.md` prefix), same task as `/conclave-init` Step 6.5 for this one epic, with `architecture.md` and the ADR index. Merge the `## Risk` block (`uncertainty`, `needs_spec`, `adrs`, open questions) into the epic.
 5. Write `product/epics/EP-NEW_ID-<slug>.md` with `status: proposed`.
 6. Roadmap: Scrum Master subagent (`MODEL_FOR_SM`, `scrum-master.md` prefix), **roadmap mode, insert variant** — place the new epic into future `planned` slots by priority and dependencies (with a `spike:EP-NNN` entry ahead of it when `uncertainty: high`); never touch `active` or `closed` slots. Show the proposed slot change and confirm via `AskUserQuestion` before writing `roadmap.md` (add a re-plan log row) and the epic's `roadmap_slots`.
 

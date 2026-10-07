@@ -29,7 +29,7 @@ Funcionalmente el **Product Owner** en términos de Scrum, cuando alguien ocupa 
   - `/conclave-init` → `vision.md` (problema, personas, Product Goal, métricas de éxito, alcance del MVP) y 3–8 épicas ordenadas por valor.
   - `/conclave-planning` (Ola 1) → un Sprint Goal más historias INVEST con prioridad MoSCoW, estimación en talles de remera y 2–4 escenarios Gherkin cada una, refinadas solo desde las épicas del slot — desde la §11 (desglose de historias) de la SPEC cuando la épica tiene una (marcando como `Spec concern` una fila con la que no está de acuerdo, sin rediseñarla nunca).
   - `/conclave-close` → `review.md`: veredicto del Sprint Goal, progreso de épicas y del Product Goal, una línea por spike terminado (pregunta, resultado, qué cambia), adaptaciones propuestas.
-  - `/conclave-spec` (revisión de alcance, v2.1.0+) → `SCOPE_OK` o hallazgos de alcance: alcance que la épica no pidió, una parte del criterio de éxito que ninguna fila entrega, una fila feature sin valor para el usuario. Contrasta el diseño con la épica; no revisa el diseño en sí.
+  - `/conclave-spec` (revisión de alcance, v2.0.0+) → `SCOPE_OK` o hallazgos de alcance: alcance que la épica no pidió, una parte del criterio de éxito que ninguna fila entrega, una fila feature sin valor para el usuario. Contrasta el diseño con la épica; no revisa el diseño en sí.
   - `/conclave-epic` / `/conclave-story` → épicas e historias nuevas, editadas o divididas.
 - **Checklist de calidad**: cada historia testeable, cada criterio verificable, backlog ordenado por valor, criterios de aceptación escritos antes de la estimación.
 
@@ -41,7 +41,7 @@ Dueño de las decisiones arquitectónicas, los riesgos técnicos, la asignación
 - **Output**:
   - `/conclave-discovery` → `01-tech-stack.md`, `02-data-model.md` y `03-bloc.md` (reglas de dominio) en `docs/product/`.
   - `/conclave-init` → Architectural Foundation (overview, ADRs en `product/adr/`, riesgos, preocupaciones transversales, diagrama mermaid) y, si el Sprint 0 está activo, la épica enabler "Walking skeleton".
-  - **Pasada de riesgo** (`/conclave-init`, `/conclave-epic`, v2.1.0+) → por épica: `uncertainty` (`low | medium | high`), `needs_spec`, los ADRs de los que depende, y 0–3 preguntas abiertas formuladas como decisiones. Nunca cambia el alcance ni la prioridad del PM.
+  - **Pasada de riesgo** (`/conclave-init`, `/conclave-epic`, v2.0.0+) → por épica: `uncertainty` (`low | medium | high`), `needs_spec`, los ADRs de los que depende, y 0–3 preguntas abiertas formuladas como decisiones. Nunca cambia el alcance ni la prioridad del PM.
   - `/conclave-spike` → una historia `type: spike`: una pregunta, un timebox ≤ `delivery.spike_max_timebox`, salidas declaradas, Gherkin que verifica el entregable — o `SPIKE_NOT_NEEDED` cuando un ADR o la arquitectura ya la responden.
   - `/conclave-dev` (ejecución de spikes) → corre toda historia `type: spike` sea cual sea su disciplina: reporte de hallazgos con tiers de evidencia, el ADR propuesto / SPEC draft declarados, PR solo de docs. Los prototipos quedan en una rama lab.
   - `/conclave-spec` → `SPEC-NNN` (`draft`): el diseño de la épica compuesto desde sus ADRs, que termina en un desglose de historias INVEST; las decisiones faltantes se vuelven ADRs propuestos (como máximo 3), las incógnitas van a §12 o vuelven como `SPEC_BLOCKED`.
@@ -56,7 +56,7 @@ Facilita ceremonias, asigna historias, saca a la luz bloqueos, protege el proces
 - **Input**: épicas + tamaño del equipo + duración del sprint + fecha de lanzamiento (init); historias del borrador + roster + DoR + findings de las Olas 1/2 + historial de velocidad + acciones abiertas de la retro (planning); señales del sprint + respuestas del equipo (close).
 - **Output**:
   - `/conclave-init` → `roadmap.md`: el plan de release — horizonte (`auto` o un número fijo de sprints), épicas secuenciadas en slots, una entrada `spike:EP-NNN` un slot antes de cada épica `uncertainty: high`, *Beyond the horizon* para lo que no entra, slot del MVP, forecast. Una épica con `needs_spec: true` se deja fuera del slot 1 salvo que haya Sprint 0, para dar tiempo a su SPEC.
-  - `/conclave-roadmap replan` (v2.1.0+) → las mismas reglas aplicadas solo a slots `planned` futuros, con capacidad desde la velocity real; los slots `closed` y `active` nunca se tocan.
+  - `/conclave-roadmap replan` (v2.0.0+) → las mismas reglas aplicadas solo a slots `planned` futuros, con capacidad desde la velocity real; los slots `closed` y `active` nunca se tocan.
   - `/conclave-planning` (Ola 3) → registro del planning con asignaciones y capacidad desde la velocidad. Corre al final porque la asignación necesita la disciplina de cada historia primero.
   - `/conclave-close` (cuando `ceremonies.close.retro: true`) → `retro.md` con mantener / cambiar / probar y como máximo 3 action items.
   - `/conclave-epic` → el roadmap reacomodado para una épica nueva, editada o dividida (con una entrada de spike si es `uncertainty: high`; en *Beyond the horizon* si un horizonte fijo no tiene lugar).

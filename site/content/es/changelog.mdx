@@ -9,9 +9,9 @@ Todos los cambios notables del plugin Conclave están documentados aquí. El for
 
 ---
 
-## Unreleased — v2.1.0
+## 2.0.0 — 2026-10-07
 
-Release aditiva — no hace falta migrar. Conclave ahora hace explícito el camino de una épica a sus historias: **Épica (qué · por qué) → Spike(s) (incógnitas con timebox) → ADR(s) (una decisión cada uno) → SPEC (el diseño técnico de la épica) → Historias**. Cada paso es opcional para una épica bien entendida y se exige solo donde la épica lo indica.
+**Release con cambios incompatibles — ciclo "Scrum Lite"**: inception (visión, Product Goal, épicas, roadmap) → Sprint Planning por slot del roadmap → build → `/conclave-close`. Los workspaces v1.x corren `/conclave-init --upgrade` una vez — mirá [Actualizar desde v1](/es/upgrade). La lista completa de cambios está en el `CHANGELOG.md` del repositorio; esta entrada cubre el flujo de planificación. Conclave hace explícito el camino de una épica a sus historias: **Épica (qué · por qué) → Spike(s) (incógnitas con timebox) → ADR(s) (una decisión cada uno) → SPEC (el diseño técnico de la épica) → Historias**. Cada paso es opcional para una épica bien entendida y se exige solo donde la épica lo indica.
 
 ### Agregado
 
@@ -43,7 +43,7 @@ Los templates de **Definition of Ready / Done** cubren spikes e historias respal
 
 ### Actualización
 
-No hay que correr nada. Los campos faltantes se leen con sus defaults (`uncertainty: low`, `needs_spec: false`, `horizon: auto`, `spec_gate: warn`). Corré `/conclave-roadmap replan` una vez para agregar el plan de release y las entradas de spike a un roadmap existente.
+`/conclave-init --upgrade` una vez por workspace v1.x: agrega `sprint.planned_sprints: auto` y el bloque `delivery:`, corre la pasada de riesgo del Tech Lead sobre las épicas derivadas y arma el roadmap con su plan de release y entradas de spike. Una épica sin los campos de riesgo se lee como `uncertainty: low`, `needs_spec: false`.
 
 ---
 

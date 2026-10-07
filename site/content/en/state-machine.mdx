@@ -36,7 +36,7 @@ proposed ──/conclave-planning──→ active ──/conclave-close──→
 
 `/conclave-close` never applies a split or retirement itself — it proposes them, and you run [`/conclave-epic`](/en/commands/epic).
 
-Since v2.1.0 an epic also carries the Tech Lead's risk assessment — `uncertainty` (`low | medium | high`), `needs_spec`, open questions — and links to its `spec`, `adrs` and `spikes`. These are not states; they gate [`/conclave-planning`](/en/commands/planning)'s readiness check. A `proposed` epic may already have had a spike run for it.
+Since v2.0.0 an epic also carries the Tech Lead's risk assessment — `uncertainty` (`low | medium | high`), `needs_spec`, open questions — and links to its `spec`, `adrs` and `spikes`. These are not states; they gate [`/conclave-planning`](/en/commands/planning)'s readiness check. A `proposed` epic may already have had a spike run for it.
 
 ## SPECs and ADRs
 
@@ -144,7 +144,7 @@ review ──/conclave-qa──→ passed  → verified/done as above
 - **`blocked` via UAT** — a CI run on the generated Playwright/Newman tests fails, or no run is found / the wait times out (`ceremonies.qa_verification.ci_wait_timeout_minutes`, default 20). Both are treated exactly like a failing Gherkin scenario — never silently `passed`.
 - **Not configured yet** — a missing or all-`TBD` `testing-environments.md` degrades gracefully: `/conclave-qa` skips UAT entirely and verifies acceptance criteria exactly as it did before this file existed.
 
-### Spikes reuse this exact state machine (v2.1.0+)
+### Spikes reuse this exact state machine (v2.0.0+)
 
 A `type: spike` story follows the same path — no new status:
 

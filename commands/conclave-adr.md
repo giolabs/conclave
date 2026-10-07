@@ -124,7 +124,7 @@ Continue to Step 9.
    If any field is missing or if `status != "proposed"`, refuse to write and surface: `TL subagent output has malformed frontmatter (status='<value>', expected 'proposed'). Aborting.`
    If the body has no Decision section, refuse: `ADR is missing the Decision section. Aborting.`
 3. **Append a row** to `architecture.md` section 4 (the referenced-ADR table): `| [ADR-NEXT_ID](adr/ADR-NEXT_ID-<slug>.md) | <title> | proposed | <today ISO date> |`. If Step 5 wrote a placeholder row for the new ADR, replace that row instead of appending.
-4. **Link to an epic** (v2.1.0+) — `AskUserQuestion`: *"Which epic does this decision serve?"* — the non-retired epics, plus `none` (default; the TL may suggest one in the ADR's Context). For a chosen epic: append the ID to its `adrs:`; if the epic's SPEC is `approved`, warn *"SPEC-NNN §3 does not list this ADR yet — revise it with `/conclave-spec EP-NNN`."*; if the epic has an open question this ADR answers, suffix that line with `— decided by ADR-NNN`.
+4. **Link to an epic** (v2.0.0+) — `AskUserQuestion`: *"Which epic does this decision serve?"* — the non-retired epics, plus `none` (default; the TL may suggest one in the ADR's Context). For a chosen epic: append the ID to its `adrs:`; if the epic's SPEC is `approved`, warn *"SPEC-NNN §3 does not list this ADR yet — revise it with `/conclave-spec EP-NNN`."*; if the epic has an open question this ADR answers, suffix that line with `— decided by ADR-NNN`.
 5. Do NOT commit. Do NOT push. Do NOT open a PR.
 
 ## Step 10 — Report

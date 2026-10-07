@@ -29,7 +29,7 @@ Functionally the **Product Owner** in Scrum terms, when someone holds this optio
   - `/conclave-init` → `vision.md` (problem, personas, Product Goal, success metrics, MVP scope) and 3–8 epics ordered by value.
   - `/conclave-planning` (Wave 1) → a Sprint Goal plus INVEST stories with MoSCoW priority, T-shirt estimate, and 2–4 Gherkin scenarios each, refined only from the slot's epics — from the SPEC's §11 story breakdown when the epic has one (flagging a row it disagrees with as a `Spec concern`, never redesigning it).
   - `/conclave-close` → `review.md`: Sprint Goal verdict, epic and Product Goal progress, one line per spike done (question, outcome, what it changes), proposed adaptations.
-  - `/conclave-spec` (scope check, v2.1.0+) → `SCOPE_OK` or scope findings: scope the epic did not ask for, a part of the success criterion no row delivers, a feature row with no user value. It checks the design against the epic; it does not review the design itself.
+  - `/conclave-spec` (scope check, v2.0.0+) → `SCOPE_OK` or scope findings: scope the epic did not ask for, a part of the success criterion no row delivers, a feature row with no user value. It checks the design against the epic; it does not review the design itself.
   - `/conclave-epic` / `/conclave-story` → new, edited, or split epics and stories.
 - **Quality checklist**: every story testable, every criterion verifiable, backlog ordered by value, acceptance criteria written before estimation.
 
@@ -41,7 +41,7 @@ Owns architectural decisions, technical risks, per-story discipline assignment, 
 - **Output**:
   - `/conclave-discovery` → `01-tech-stack.md`, `02-data-model.md` and `03-bloc.md` (domain rules) in `docs/product/`.
   - `/conclave-init` → Architectural Foundation (overview, ADRs under `product/adr/`, risks, cross-cutting concerns, mermaid diagram) and, when Sprint 0 is on, the "Walking skeleton" enabler epic.
-  - **Risk pass** (`/conclave-init`, `/conclave-epic`, v2.1.0+) → per epic: `uncertainty` (`low | medium | high`), `needs_spec`, the ADRs it depends on, and 0–3 open questions phrased as decisions. Never changes the PM's scope or priority.
+  - **Risk pass** (`/conclave-init`, `/conclave-epic`, v2.0.0+) → per epic: `uncertainty` (`low | medium | high`), `needs_spec`, the ADRs it depends on, and 0–3 open questions phrased as decisions. Never changes the PM's scope or priority.
   - `/conclave-spike` → a `type: spike` story: one question, a timebox ≤ `delivery.spike_max_timebox`, declared outputs, Gherkin that checks the deliverable — or `SPIKE_NOT_NEEDED` when an ADR or the architecture already answers it.
   - `/conclave-dev` (spike execution) → runs every `type: spike` story whatever its discipline: findings report with evidence tiers, the declared proposed ADR / draft SPEC, docs-only PR. Prototypes stay on a lab branch.
   - `/conclave-spec` → `SPEC-NNN` (`draft`): the epic's design composed from its ADRs, ending in an INVEST story breakdown; missing decisions become proposed ADRs (at most 3), unknowns go to §12 or come back as `SPEC_BLOCKED`.
@@ -56,7 +56,7 @@ Facilitates ceremonies, assigns stories, surfaces blockers, protects the team's 
 - **Input**: epics + team size + sprint length + launch date (init); draft stories + roster + DoR + Wave 1/2 findings + velocity history + open retro actions (planning); sprint signals + team answers (close).
 - **Output**:
   - `/conclave-init` → `roadmap.md`: the release plan — horizon (`auto` or a fixed number of sprints), epics sequenced into slots, a `spike:EP-NNN` entry one slot ahead of every `uncertainty: high` epic, *Beyond the horizon* for what does not fit, MVP slot, forecast. An epic with `needs_spec: true` is kept out of slot 1 unless Sprint 0 is on, to leave time for its SPEC.
-  - `/conclave-roadmap replan` (v2.1.0+) → the same rules applied to future `planned` slots only, with capacity from real velocity; `closed` and `active` slots are never touched.
+  - `/conclave-roadmap replan` (v2.0.0+) → the same rules applied to future `planned` slots only, with capacity from real velocity; `closed` and `active` slots are never touched.
   - `/conclave-planning` (Wave 3) → planning record with assignments and capacity from velocity. Runs last because assignment needs each story's discipline first.
   - `/conclave-close` (when `ceremonies.close.retro: true`) → `retro.md` with keep / change / try and at most 3 action items.
   - `/conclave-epic` → the roadmap re-slotted for a new, edited, or split epic (with a spike entry when it is `uncertainty: high`; into *Beyond the horizon* when a fixed horizon has no room).

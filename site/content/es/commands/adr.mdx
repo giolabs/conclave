@@ -76,7 +76,7 @@ Después de la migración (o en cualquier corrida en un repo que nunca tuvo ADRs
 
 Cada corrida de `/conclave-adr` appendea una nueva row para el ADR que autoró.
 
-## Vincular el ADR a una épica (v2.1.0+)
+## Vincular el ADR a una épica (v2.0.0+)
 
 Después de escribir, el comando pregunta *"¿A qué épica sirve esta decisión?"* — cualquier épica no retirada, o `none` (default). Para la épica elegida:
 
@@ -86,7 +86,7 @@ Después de escribir, el comando pregunta *"¿A qué épica sirve esta decisión
 
 ## ADRs, spikes y SPECs
 
-Un ADR registra **una** decisión. Desde v2.1.0 los ADRs también los escriben [`/conclave-spec`](/es/commands/spec) (decisiones que el diseño necesita y que ningún ADR registra todavía) y los spikes que declaran una salida `adr` ([`/conclave-spike`](/es/commands/spike)) — siempre `status: proposed`, numerados por el orquestador. Una SPEC compone los ADRs de una épica en un diseño; aprobar la SPEC no acepta sus ADRs.
+Un ADR registra **una** decisión. Desde v2.0.0 los ADRs también los escriben [`/conclave-spec`](/es/commands/spec) (decisiones que el diseño necesita y que ningún ADR registra todavía) y los spikes que declaran una salida `adr` ([`/conclave-spike`](/es/commands/spike)) — siempre `status: proposed`, numerados por el orquestador. Una SPEC compone los ADRs de una épica en un diseño; aprobar la SPEC no acepta sus ADRs.
 
 ```
 proposed ──el equipo acepta (merge del PR)──→ accepted ──un ADR más nuevo──→ superseded

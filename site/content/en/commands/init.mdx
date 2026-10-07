@@ -118,7 +118,7 @@ Candidates scoring ≥ 4 are kept, top 3 by score, each with its missing signals
 
 Step 1 also decides whether the repo is **greenfield** (no application code yet): that sets the default for `sprint.sprint_zero` and tells the Tech Lead the architecture is a proposal for an empty repo.
 
-**4.2 — Inception preferences.** A short, optional round asks only what the source does not already answer: primary users, a Product Goal hint, hard constraints — all three skipped for a discovery package — and whether to **start with a walking-skeleton Sprint 0** (default yes on greenfield or when the package's `04-mvp.md` lists Sprint 0 enablers). Since v2.1.0 it also asks:
+**4.2 — Inception preferences.** A short, optional round asks only what the source does not already answer: primary users, a Product Goal hint, hard constraints — all three skipped for a discovery package — and whether to **start with a walking-skeleton Sprint 0** (default yes on greenfield or when the package's `04-mvp.md` lists Sprint 0 enablers). Since v2.0.0 it also asks:
 
 - **How many sprints?** — **Auto — as many as the must/should epics need** (default) or a number, Sprint 0 included. With a `launch_date`, the sprints that fit before it are shown as a hint. A number fixes the release horizon (`sprint.planned_sprints`): epics that do not fit go to *Beyond the horizon* and the forecast names any `must` epic left out. Change it later with [`/conclave-roadmap replan`](/en/commands/roadmap).
 - **SPEC gate** — when an epic needs a technical spec, should planning **warn** or **require** an approved SPEC? Stored as `delivery.spec_gate` (`require` is the default for `full-scrum`).
@@ -139,7 +139,7 @@ flowchart LR
 ```
 
 - **Wave 1 (parallel)** — the Product Manager writes the vision and 3–8 feature epics ordered by value (from a discovery package, the `04-mvp.md` candidate epics *are* the epics); the Tech Lead writes the architectural foundation, the initial ADRs and, when Sprint 0 is on, a "Walking skeleton" enabler epic (scaffold, test framework with one passing test, lint, CI, `develop` integration branch). On greenfield, every ADR's evidence comes from versioned docs, and the ADR says so. From a discovery package, `01-tech-stack.md` is the starting point: each choice becomes an ADR (its rejected alternatives become the alternatives considered), and `02-data-model.md` / `03-bloc.md` feed the architecture overview.
-- **Wave 1.5 — risk pass** (v2.1.0+) — the PM wrote the epics without seeing the architecture; the TL wrote the architecture without seeing the epics. One more Tech Lead call joins them: for each epic it sets `uncertainty` (`low | medium | high`), `needs_spec` (true when the epic changes the data model, a public contract, or more than one component), the ADRs the epic depends on, and 0–3 **open questions** phrased as decisions (at least one when `high`). These land in the epic's frontmatter and its `## Open questions (spike candidates)` section. The PM's scope and priority are never changed here.
+- **Wave 1.5 — risk pass** (v2.0.0+) — the PM wrote the epics without seeing the architecture; the TL wrote the architecture without seeing the epics. One more Tech Lead call joins them: for each epic it sets `uncertainty` (`low | medium | high`), `needs_spec` (true when the epic changes the data model, a public contract, or more than one component), the ADRs the epic depends on, and 0–3 **open questions** phrased as decisions (at least one when `high`). These land in the epic's frontmatter and its `## Open questions (spike candidates)` section. The PM's scope and priority are never changed here.
 - **Wave 2** — the Scrum Master sequences the epics into sprint slots using team size, sprint length, launch date and the horizon from Step 4.2, and states where the MVP lands. Every `uncertainty: high` epic gets a **spike entry** `spike:EP-NNN` in the slot before its first slot; epics that do not fit a fixed horizon go to *Beyond the horizon*.
 
 ### Step 8 — Checkpoint
@@ -180,7 +180,7 @@ conclave/
 │   ├── epics/EP-NNN-<slug>.md
 │   ├── architecture.md
 │   ├── adr/ADR-NNN-<slug>.md
-│   ├── specs/                        # SPEC-NNN-<slug>.md — empty until /conclave-spec (v2.1.0+)
+│   ├── specs/                        # SPEC-NNN-<slug>.md — empty until /conclave-spec (v2.0.0+)
 │   ├── backlog.md                    # empty table — filled by /conclave-planning
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
@@ -205,8 +205,6 @@ Migrates a v1.x workspace in place. **Append, don't clobber**: existing sprints,
 6. **Backlog** — adds the `Epic` column and replaces the old `## Vision` section with a link to `vision.md`.
 
 If `architecture.md` still has inline `### ADR-NNN:` sections, run [`/conclave-adr`](/en/commands/adr) once to migrate them. See [Upgrading from v1](/en/upgrade) for the full checklist.
-
-A workspace already on v2.0.0 does **not** need `--upgrade` for v2.1.0: epics without `uncertainty` / `needs_spec` read as `low` / `false`, a roadmap without `horizon` reads as `auto`, and a `config.md` without `sprint.planned_sprints` / `delivery:` uses the defaults. Run [`/conclave-roadmap replan`](/en/commands/roadmap) once to add the release-plan section and spike entries.
 
 ## Guardrails
 

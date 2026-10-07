@@ -86,7 +86,7 @@ Hand the generated file contents back to the orchestrator; you do not write file
 
 ---
 
-## Verifying a spike (`type: spike`, v2.1.0+)
+## Verifying a spike (`type: spike`, v2.0.0+)
 
 A spike ships knowledge, not behaviour. There is no UAT and no CI result to read back. Check, scenario by scenario, against the findings report and the declared outputs:
 

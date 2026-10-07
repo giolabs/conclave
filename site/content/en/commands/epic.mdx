@@ -29,7 +29,7 @@ Requires a v2 workspace (`conclave_version >= 2.0.0` and `product/epics/`) and a
 
 ## `new`
 
-Asks for a title, the outcome it should deliver, type (`feature | enabler`) and priority (`must | should | could`, default `should`). The PM writes the epic against `vision.md`, checking existing epics to avoid overlap. A **Tech Lead risk pass** (v2.1.0+, same as inception) then sets `uncertainty`, `needs_spec`, the ADRs it depends on and its open questions. The Scrum Master then places it into future `planned` slots by priority and dependencies — with a `spike:EP-NNN` entry ahead of it when `uncertainty: high`, and in *Beyond the horizon* when a fixed horizon has no room — never touching `active` or `closed` slots. You confirm the slot change before `roadmap.md` (with a re-plan log row) and the epic's `roadmap_slots` are written.
+Asks for a title, the outcome it should deliver, type (`feature | enabler`) and priority (`must | should | could`, default `should`). The PM writes the epic against `vision.md`, checking existing epics to avoid overlap. A **Tech Lead risk pass** (v2.0.0+, same as inception) then sets `uncertainty`, `needs_spec`, the ADRs it depends on and its open questions. The Scrum Master then places it into future `planned` slots by priority and dependencies — with a `spike:EP-NNN` entry ahead of it when `uncertainty: high`, and in *Beyond the horizon* when a fixed horizon has no room — never touching `active` or `closed` slots. You confirm the slot change before `roadmap.md` (with a re-plan log row) and the epic's `roadmap_slots` are written.
 
 ## `edit EP-NNN`
 

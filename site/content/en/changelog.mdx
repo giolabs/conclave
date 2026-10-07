@@ -9,9 +9,9 @@ All notable changes to the Conclave plugin are documented here. Format follows [
 
 ---
 
-## Unreleased — v2.1.0
+## 2.0.0 — 2026-10-07
 
-Additive release — no migration needed. Conclave now makes the path from an epic to its stories explicit: **Epic (what · why) → Spike(s) (timeboxed unknowns) → ADR(s) (one decision each) → SPEC (the epic's technical design) → Stories**. Every step is optional for a well-understood epic and enforced only where the epic says so.
+**Breaking release — "Scrum Lite" lifecycle**: inception (vision, Product Goal, epics, roadmap) → Sprint Planning per roadmap slot → build → `/conclave-close`. Existing v1.x workspaces run `/conclave-init --upgrade` once — see [Upgrading from v1](/en/upgrade). The full list of changes is in the repository's `CHANGELOG.md`; this entry covers the planning flow. Conclave makes the path from an epic to its stories explicit: **Epic (what · why) → Spike(s) (timeboxed unknowns) → ADR(s) (one decision each) → SPEC (the epic's technical design) → Stories**. Every step is optional for a well-understood epic and enforced only where the epic says so.
 
 ### Added
 
@@ -43,7 +43,7 @@ Additive release — no migration needed. Conclave now makes the path from an ep
 
 ### Upgrade
 
-Nothing to run. Missing fields read as defaults (`uncertainty: low`, `needs_spec: false`, `horizon: auto`, `spec_gate: warn`). Run `/conclave-roadmap replan` once to add the release plan and spike entries to an existing roadmap.
+`/conclave-init --upgrade` once per v1.x workspace: it adds `sprint.planned_sprints: auto` and the `delivery:` block, runs the Tech Lead risk pass on the derived epics, and builds the roadmap with its release plan and spike entries. An epic missing the risk fields reads as `uncertainty: low`, `needs_spec: false`.
 
 ---
 

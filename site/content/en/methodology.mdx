@@ -18,9 +18,9 @@ Conclave assumes standard **Scrum** with practical accommodations real engineeri
 | Epic | `conclave/product/epics/EP-NNN-<slug>.md` | A big chunk of value with a success criterion. Not a Scrum Guide term, but the layer between the Product Goal and stories. |
 | Product Backlog | `conclave/product/backlog.md` + epics' candidate stories | Ordered list of refined stories; rough candidates live in their epic until planning refines them. |
 | Roadmap / release plan | `conclave/product/roadmap.md` | How many sprints (`horizon`: auto or a fixed N), epics and spike entries sequenced into sprint slots, epics beyond the horizon, burnup and forecast. Re-forecast at every close; re-sequenced by `/conclave-roadmap replan`. |
-| Spike | Story with `type: spike` | Timeboxed (XS–M) research answering one question. Produces a findings report and, when declared, a proposed ADR or draft SPEC. Run by the Tech Lead. (v2.1.0+) |
+| Spike | Story with `type: spike` | Timeboxed (XS–M) research answering one question. Produces a findings report and, when declared, a proposed ADR or draft SPEC. Run by the Tech Lead. (v2.0.0+) |
 | Architecture decision | `conclave/product/adr/ADR-NNN-<slug>.md` | One decision with alternatives and evidence. `proposed → accepted \| superseded`. |
-| Technical specification | `conclave/product/specs/SPEC-NNN-<slug>.md` | The design of one epic composed from its ADRs: contracts, data, tests, rollout, story breakdown. `draft → approved \| superseded`. (v2.1.0+) |
+| Technical specification | `conclave/product/specs/SPEC-NNN-<slug>.md` | The design of one epic composed from its ADRs: contracts, data, tests, rollout, story breakdown. `draft → approved \| superseded`. (v2.0.0+) |
 | Sprint Backlog | `conclave/sprints/SPRINT-NNN/spec.md` selected stories table | Snapshot at planning time. |
 | Increment | Stories `done` in the sprint (QA-verified, TL-approved when on) | Conclave never merges; whether a human merged each PR is reported at close. |
 | Sprint Planning | `/conclave-planning` | Plans one roadmap slot, refining its epics just in time. Structural gate. |
@@ -33,7 +33,7 @@ Conclave assumes standard **Scrum** with practical accommodations real engineeri
 | User story | One file under `sprints/SPRINT-NNN/stories/` | INVEST format. |
 | Acceptance criteria | One file under `sprints/SPRINT-NNN/acceptance/` | Gherkin Given/When/Then. |
 
-## Knowledge before code (v2.1.0+)
+## Knowledge before code (v2.0.0+)
 
 An epic says **what** and **why**. Before its stories are refined, the team may need to learn something, decide something, or design something. Conclave makes that path explicit:
 
@@ -80,7 +80,7 @@ conclave/
 │   ├── backlog.md
 │   ├── architecture.md
 │   ├── adr/ADR-NNN-<slug>.md         # official ADRs
-│   ├── specs/SPEC-NNN-<slug>.md      # technical spec per epic (v2.1.0+)
+│   ├── specs/SPEC-NNN-<slug>.md      # technical spec per epic (v2.0.0+)
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
 ├── context/                          # frozen snapshots of inputs
@@ -95,7 +95,7 @@ conclave/
         │   └── US-NNN-<slug>.md
         ├── acceptance/
         │   └── AC-US-NNN.md
-        └── spikes/                   # <PREFIX>-NNN-findings.md, one per spike run (v2.1.0+)
+        └── spikes/                   # <PREFIX>-NNN-findings.md, one per spike run (v2.0.0+)
 ```
 
 ## Invariants every Conclave command respects

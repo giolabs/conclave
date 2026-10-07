@@ -47,9 +47,9 @@ ceremonies:
 sprint:
   length_weeks: 2
   sprint_zero: true              # repo sin código → el roadmap arranca con SPRINT-000
-  planned_sprints: auto          # auto | N — horizonte del release (v2.1.0+)
+  planned_sprints: auto          # auto | N — horizonte del release (v2.0.0+)
 
-delivery:                        # spikes, ADRs y SPECs (v2.1.0+)
+delivery:                        # spikes, ADRs y SPECs (v2.0.0+)
   spike_max_timebox: M           # XS | S | M — timebox máximo de un spike
   spec_gate: warn                # warn | require — qué hace el planning con épicas needs_spec sin SPEC aprobada
 ```
@@ -90,11 +90,11 @@ ceremonies:
 sprint:
   length_weeks: 2
   sprint_zero: false             # repo con código existente
-  planned_sprints: 6             # horizonte fijo: 6 sprints (v2.1.0+)
+  planned_sprints: 6             # horizonte fijo: 6 sprints (v2.0.0+)
 
 delivery:
   spike_max_timebox: M
-  spec_gate: require             # full-scrum: el planning exige una SPEC aprobada (v2.1.0+)
+  spec_gate: require             # full-scrum: el planning exige una SPEC aprobada (v2.0.0+)
 ```
 
 ### Referencia de campos
@@ -120,9 +120,9 @@ delivery:
 | `ceremonies.close.retro` | `true \| false` | v2.0.0+. Si `/conclave-close` corre la retrospectiva después de la review. La review corre siempre. `false` en `lean`, `true` en `full-scrum`. |
 | `sprint.length_weeks` | entero, default `2` | v2.0.0+. Define las fechas del roadmap y la fecha de fin por default en `/conclave-planning`. |
 | `sprint.sprint_zero` | `true \| false` | v2.0.0+. `true` hace que el roadmap arranque con `SPRINT-000`, un walking skeleton de historias `type: enabler`. Default `true` en un repo sin código, `false` si no (y después de `--upgrade`). |
-| `sprint.planned_sprints` | `auto` o un entero ≥ 1 | v2.1.0+. El horizonte del release. `auto` = el roadmap tiene tantos sprints como necesiten las épicas `must`/`should`; un número = exactamente esa cantidad de slots (contando Sprint 0 y sprints cerrados), y las épicas que no entran van a *Beyond the horizon*. Lo define `/conclave-init`; se cambia con [`/conclave-roadmap replan --sprints N`](/es/commands/roadmap). Ausente → `auto`. |
-| `delivery.spike_max_timebox` | `XS \| S \| M`, default `M` | v2.1.0+. Timebox máximo que puede tomar una historia spike. `/conclave-spike` y el planning rechazan cualquier cosa mayor — dividí la pregunta. |
-| `delivery.spec_gate` | `warn \| require`, default `warn` | v2.1.0+. Qué hace `/conclave-planning` cuando una épica del slot tiene `needs_spec: true` y no hay SPEC aprobada: `warn` pregunta (escribirla ahora, planificar sin ella registrando el riesgo, o spike primero); `require` se niega hasta que corra [`/conclave-spec approve`](/es/commands/spec). `/conclave-init` lo pone en `require` por default para `full-scrum`. Ausente → `warn`. |
+| `sprint.planned_sprints` | `auto` o un entero ≥ 1 | v2.0.0+. El horizonte del release. `auto` = el roadmap tiene tantos sprints como necesiten las épicas `must`/`should`; un número = exactamente esa cantidad de slots (contando Sprint 0 y sprints cerrados), y las épicas que no entran van a *Beyond the horizon*. Lo define `/conclave-init`; se cambia con [`/conclave-roadmap replan --sprints N`](/es/commands/roadmap). Ausente → `auto`. |
+| `delivery.spike_max_timebox` | `XS \| S \| M`, default `M` | v2.0.0+. Timebox máximo que puede tomar una historia spike. `/conclave-spike` y el planning rechazan cualquier cosa mayor — dividí la pregunta. |
+| `delivery.spec_gate` | `warn \| require`, default `warn` | v2.0.0+. Qué hace `/conclave-planning` cuando una épica del slot tiene `needs_spec: true` y no hay SPEC aprobada: `warn` pregunta (escribirla ahora, planificar sin ella registrando el riesgo, o spike primero); `require` se niega hasta que corra [`/conclave-spec approve`](/es/commands/spec). `/conclave-init` lo pone en `require` por default para `full-scrum`. Ausente → `warn`. |
 
 > **Eliminado en v2.0.0:** `ceremonies.daily_standup`, `ceremonies.backlog_grooming`, `ceremonies.sprint_review`, `ceremonies.sprint_retrospective`. Los comandos avisan una vez y los ignoran. `/conclave-init --upgrade` los elimina y mapea `sprint_retrospective.required` a `ceremonies.close.retro`.
 
@@ -306,10 +306,10 @@ title: "Agregar middleware JWT"
 priority: "must"                # must | should | could | wont
 estimate: "M"                   # XS | S | M | L | XL
 status: backlog                 # backlog | ready | in-progress | review | verified | done | retired
-type: "feature"                 # feature | enabler (v2.0.0+) | spike (v2.1.0+)
+type: "feature"                 # feature | enabler (v2.0.0+) | spike (v2.0.0+)
 epic: "EP-002"                  # EP-NNN desde la que se refinó; "" para historias ad-hoc (v2.0.0+)
-spec: ""                        # SPEC-NNN que implementa (v2.1.0+, lo setea el planning)
-adrs: []                        # ids ADR-NNN que implementa o debe respetar (v2.1.0+)
+spec: ""                        # SPEC-NNN que implementa (v2.0.0+, lo setea el planning)
+adrs: []                        # ids ADR-NNN que implementa o debe respetar (v2.0.0+)
 dependencies: []
 assignee: ""
 discipline: ""                  # frontend | backend | qa | design | devops | mobile | multi
@@ -319,7 +319,7 @@ created_at: "2026-01-01T00:00:00Z"
 
 `discipline` arranca vacío y lo define el Tech Lead durante `/conclave-planning` — mirá [máquinas de estado](/es/state-machine) para saber exactamente cuándo cada campo se vuelve requerido. Las historias `type: enabler` se escriben como "In order to / We need" en vez de "As a / I want / So that".
 
-Las **historias spike** (`type: spike`, v2.1.0+) se escriben como "To decide / We will investigate / Within" y llevan cuatro campos más:
+Las **historias spike** (`type: spike`, v2.0.0+) se escriben como "To decide / We will investigate / Within" y llevan cuatro campos más:
 
 ```yaml
 question: "¿Cuál de A o B …?"    # la única decisión que el spike tiene que responder
@@ -341,20 +341,20 @@ status: proposed               # proposed | active | done | retired
 size: "M"                      # S (≈1 sprint) | M (≈2 sprints) | L (≈3+ — dividir antes de entrar al roadmap)
 priority: "must"               # must | should | could
 type: "feature"                # feature | enabler
-uncertainty: "high"            # low | medium | high — pasada de riesgo del Tech Lead (v2.1.0+)
-needs_spec: true               # el planning exige/avisa por una SPEC aprobada (v2.1.0+)
-spec: ""                       # SPEC-NNN, lo setea /conclave-spec (v2.1.0+)
-adrs: ["ADR-002"]              # ADRs de los que depende la épica (v2.1.0+)
-spikes: []                     # ids de historias spike que le bajan el riesgo (v2.1.0+)
+uncertainty: "high"            # low | medium | high — pasada de riesgo del Tech Lead (v2.0.0+)
+needs_spec: true               # el planning exige/avisa por una SPEC aprobada (v2.0.0+)
+spec: ""                       # SPEC-NNN, lo setea /conclave-spec (v2.0.0+)
+adrs: ["ADR-002"]              # ADRs de los que depende la épica (v2.0.0+)
+spikes: []                     # ids de historias spike que le bajan el riesgo (v2.0.0+)
 dependencies: []               # otros ids EP-NNN
 roadmap_slots: []              # ids SPRINT-NNN, los setea el paso de roadmap
 stories: []                    # ids de historias, los agrega /conclave-planning
 created_at: "2026-01-01"
 ```
 
-Los campos de v2.1.0 son opcionales — ausentes equivalen a `low`, `false`, ninguno. Una épica con `uncertainty: high` tiene al menos una línea bajo `## Open questions (spike candidates)`, cada una formulada como decisión; el roadmap agenda una entrada `spike:EP-NNN` antes de ella.
+Los campos de v2.0.0 son opcionales — ausentes equivalen a `low`, `false`, ninguno. Una épica con `uncertainty: high` tiene al menos una línea bajo `## Open questions (spike candidates)`, cada una formulada como decisión; el roadmap agenda una entrada `spike:EP-NNN` antes de ella.
 
-## Frontmatter del roadmap (v2.1.0+)
+## Frontmatter del roadmap (v2.0.0+)
 
 ```yaml
 horizon: "auto"                # auto | N — refleja sprint.planned_sprints
@@ -365,7 +365,7 @@ mvp_slot: "SPRINT-004"
 
 El cuerpo suma una fila de **Release plan** (sprints planificados, Sprint 0, MVP en, fecha de lanzamiento, horizonte, spikes agendados) y una sección **Beyond the horizon**. La celda `Epics` de un slot puede tener entradas `spike:EP-NNN`. Ver [`/conclave-roadmap`](/es/commands/roadmap).
 
-## Frontmatter de la SPEC (v2.1.0+)
+## Frontmatter de la SPEC (v2.0.0+)
 
 `conclave/product/specs/SPEC-NNN-<slug>.md`, escrita por [`/conclave-spec`](/es/commands/spec):
 

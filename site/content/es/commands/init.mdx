@@ -118,7 +118,7 @@ Se quedan los candidatos con puntaje ≥ 4, los 3 mejores, cada uno con sus señ
 
 El Paso 1 también decide si el repo es **greenfield** (todavía sin código de aplicación): eso define el default de `sprint.sprint_zero` y le indica al Tech Lead que la arquitectura es una propuesta para un repo vacío.
 
-**4.2 — Preferencias de inception.** Una ronda corta y opcional pregunta solo lo que la fuente no responde: usuarios principales, una pista del Product Goal, restricciones duras — las tres se saltean con un paquete de discovery — y si **arrancar con un Sprint 0 walking skeleton** (default sí en greenfield o cuando el `04-mvp.md` del paquete lista enablers de Sprint 0). Desde v2.1.0 también pregunta:
+**4.2 — Preferencias de inception.** Una ronda corta y opcional pregunta solo lo que la fuente no responde: usuarios principales, una pista del Product Goal, restricciones duras — las tres se saltean con un paquete de discovery — y si **arrancar con un Sprint 0 walking skeleton** (default sí en greenfield o cuando el `04-mvp.md` del paquete lista enablers de Sprint 0). Desde v2.0.0 también pregunta:
 
 - **¿Cuántos sprints?** — **Auto — tantos como necesiten las épicas must/should** (default) o un número, contando el Sprint 0. Con una `launch_date`, se muestran como pista los sprints que entran antes de esa fecha. Un número fija el horizonte del release (`sprint.planned_sprints`): las épicas que no entran van a *Beyond the horizon* y el forecast nombra cualquier épica `must` que quede afuera. Se cambia después con [`/conclave-roadmap replan`](/es/commands/roadmap).
 - **SPEC gate** — cuando una épica necesita una especificación técnica, ¿el planning debe **avisar** (`warn`) o **exigir** (`require`) una SPEC aprobada? Se guarda como `delivery.spec_gate` (`require` es el default para `full-scrum`).
@@ -139,7 +139,7 @@ flowchart LR
 ```
 
 - **Ola 1 (en paralelo)** — el Product Manager escribe la visión y 3–8 épicas de feature ordenadas por valor (desde un paquete de discovery, las épicas candidatas de `04-mvp.md` *son* las épicas); el Tech Lead escribe la base arquitectónica, los ADRs iniciales y, si el Sprint 0 está activo, una épica enabler "Walking skeleton" (scaffold, framework de tests con un test que pasa, lint, CI, rama de integración `develop`). En greenfield, la evidencia de cada ADR sale de documentación versionada, y el ADR lo aclara. Desde un paquete de discovery, `01-tech-stack.md` es el punto de partida: cada elección se vuelve un ADR (sus alternativas descartadas pasan a ser las alternativas consideradas), y `02-data-model.md` / `03-bloc.md` alimentan el overview de la arquitectura.
-- **Ola 1.5 — pasada de riesgo** (v2.1.0+) — el PM escribió las épicas sin ver la arquitectura; el TL escribió la arquitectura sin ver las épicas. Una llamada más al Tech Lead las une: para cada épica define `uncertainty` (`low | medium | high`), `needs_spec` (true cuando la épica cambia el modelo de datos, un contrato público, o más de un componente), los ADRs de los que depende, y 0–3 **preguntas abiertas** formuladas como decisiones (al menos una si es `high`). Esto queda en el frontmatter de la épica y en su sección `## Open questions (spike candidates)`. El alcance y la prioridad del PM no se tocan acá.
+- **Ola 1.5 — pasada de riesgo** (v2.0.0+) — el PM escribió las épicas sin ver la arquitectura; el TL escribió la arquitectura sin ver las épicas. Una llamada más al Tech Lead las une: para cada épica define `uncertainty` (`low | medium | high`), `needs_spec` (true cuando la épica cambia el modelo de datos, un contrato público, o más de un componente), los ADRs de los que depende, y 0–3 **preguntas abiertas** formuladas como decisiones (al menos una si es `high`). Esto queda en el frontmatter de la épica y en su sección `## Open questions (spike candidates)`. El alcance y la prioridad del PM no se tocan acá.
 - **Ola 2** — el Scrum Master secuencia las épicas en slots de sprint usando el tamaño del equipo, la duración del sprint, la fecha de lanzamiento y el horizonte del Paso 4.2, e indica en qué slot cae el MVP. Cada épica `uncertainty: high` recibe una **entrada de spike** `spike:EP-NNN` en el slot anterior a su primer slot; las épicas que no entran en un horizonte fijo van a *Beyond the horizon*.
 
 ### Paso 8 — Checkpoint
@@ -180,7 +180,7 @@ conclave/
 │   ├── epics/EP-NNN-<slug>.md
 │   ├── architecture.md
 │   ├── adr/ADR-NNN-<slug>.md
-│   ├── specs/                        # SPEC-NNN-<slug>.md — vacío hasta /conclave-spec (v2.1.0+)
+│   ├── specs/                        # SPEC-NNN-<slug>.md — vacío hasta /conclave-spec (v2.0.0+)
 │   ├── backlog.md                    # tabla vacía — la completa /conclave-planning
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
@@ -205,8 +205,6 @@ Migra un workspace v1.x en el lugar. **Agregar, no pisar**: los sprints, histori
 6. **Backlog** — agrega la columna `Epic` y reemplaza la vieja sección `## Vision` por un link a `vision.md`.
 
 Si `architecture.md` todavía tiene secciones inline `### ADR-NNN:`, corré [`/conclave-adr`](/es/commands/adr) una vez para migrarlas. Mirá [Actualizar desde v1](/es/upgrade) para el checklist completo.
-
-Un workspace que ya está en v2.0.0 **no** necesita `--upgrade` para v2.1.0: las épicas sin `uncertainty` / `needs_spec` se leen como `low` / `false`, un roadmap sin `horizon` se lee como `auto`, y un `config.md` sin `sprint.planned_sprints` / `delivery:` usa los defaults. Corré [`/conclave-roadmap replan`](/es/commands/roadmap) una vez para agregar la sección del plan de release y las entradas de spike.
 
 ## Guardrails
 

@@ -328,7 +328,7 @@ Issue **two `Agent` tool calls in a single message**:
 
 Wait for both. If either errors, surface and stop.
 
-## Step 6.5 — Inception, wave 1.5: Tech Lead risk pass (v2.1.0+)
+## Step 6.5 — Inception, wave 1.5: Tech Lead risk pass (v2.0.0+)
 
 The PM wrote the epics without seeing the architecture; the TL wrote the architecture without seeing the epics. One more `Agent` call joins them before the roadmap:
 
@@ -391,7 +391,8 @@ Migrates in place. **Append, don't clobber**: existing sprints, stories, accepta
 **U.2 — Config.**
 - Map `ceremonies.sprint_retrospective.required` → `ceremonies.close.retro` (same boolean; absent → profile default).
 - Remove all four v1 keys: `ceremonies.daily_standup`, `ceremonies.backlog_grooming`, `ceremonies.sprint_review`, `ceremonies.sprint_retrospective`.
-- Add the `sprint:` block: `length_weeks` from `team/ceremonies.md` (default 2), `sprint_zero: false`.
+- Add the `sprint:` block: `length_weeks` from `team/ceremonies.md` (default 2), `sprint_zero: false`, `planned_sprints: auto`.
+- Add the `delivery:` block: `spike_max_timebox: M`, `spec_gate: warn`.
 - Set `conclave_version: "2.0.0"`. Rewrite the `product_doc_path` comment to the v2 wording.
 - Show the diff and confirm via `AskUserQuestion` before writing.
 
@@ -402,9 +403,7 @@ Migrates in place. **Append, don't clobber**: existing sprints, stories, accepta
 - PM task: **inception mode, upgrade variant** — group existing stories into epics (every non-retired story lands in exactly one epic) and write `vision.md`. Return a story → epic map.
 - TL: skip; keep `architecture.md`. If inline `### ADR-NNN:` sections exist, tell the user to run `/conclave-adr` once to migrate them.
 - Risk pass (Step 6.5): run it on the derived epics with the existing `architecture.md` and ADRs, so every epic gets `uncertainty`, `needs_spec` and open questions.
-- SM: roadmap where already-closed sprints are `closed` slots, the active sprint (if any) is the `active` slot, and remaining epics fill future slots. Seed the burnup table from closed sprints' velocities.
-
-A workspace already on v2.0.0 does not need `--upgrade` for v2.1.0: epics without `uncertainty` / `needs_spec` read as `low` / `false`, a roadmap without `horizon` reads as `auto`, and `config.md` without `sprint.planned_sprints` / `delivery:` uses the defaults. Run `/conclave-roadmap replan` once to add the release-plan section and spike entries.
+- SM: roadmap (with `horizon: auto`, the release plan and `spike:EP-NNN` entries for `uncertainty: high` epics) where already-closed sprints are `closed` slots, the active sprint (if any) is the `active` slot, and remaining epics fill future slots. Seed the burnup table from closed sprints' velocities.
 
 **U.5 — Story frontmatter.** For every story file add `type: feature` and `epic: <EP-NNN from the map>` when missing. No other field changes.
 

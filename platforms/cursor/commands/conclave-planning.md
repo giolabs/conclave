@@ -66,11 +66,11 @@ If any removed v1 ceremony key (`daily_standup`, `backlog_grooming`, `sprint_rev
 2. Read `product/roadmap.md`. `SLOT` = the lowest row with status `planned`. None left → *"Every roadmap slot is planned. Add epics with `/conclave-epic new` and re-plan the roadmap, or edit `product/roadmap.md`."* Stop.
 3. `SPRINT_ID`: if the slot row already names a sprint ID that does not exist on disk, use it. Otherwise the next monotonic ID — highest existing `SPRINT-NNN` + 1; if none exist, `SPRINT-000` when `sprint.sprint_zero: true`, else `SPRINT-001`. IDs are never reused.
 4. `SLOT_EPICS` = the plain `EP-NNN` IDs in the slot row (not the `spike:` entries). Read each `product/epics/EP-NNN-*.md`; skip `retired` ones with a warning.
-5. `SLOT_SPIKES` = the `spike:EP-NNN` entries in the slot row (v2.1.0+). Each names an epic whose open questions this sprint answers; the epic itself may sit in a later slot.
+5. `SLOT_SPIKES` = the `spike:EP-NNN` entries in the slot row (v2.0.0+). Each names an epic whose open questions this sprint answers; the epic itself may sit in a later slot.
 
-## Step 2.5 — Readiness gate: SPECs and spikes (v2.1.0+)
+## Step 2.5 — Readiness gate: SPECs and spikes (v2.0.0+)
 
-Epics written before v2.1.0 have no `uncertainty` / `needs_spec` fields — treat them as `low` / `false` and skip this step for them. Read `delivery.spec_gate` → `SPEC_GATE` (default `warn`).
+An epic without `uncertainty` / `needs_spec` fields (written by hand, or by a pre-release v2 build) is treated as `low` / `false` and skips this step. Read `delivery.spec_gate` → `SPEC_GATE` (default `warn`).
 
 For each epic in `SLOT_EPICS`:
 
@@ -89,7 +89,7 @@ Record every gate decision; Step 10 writes them into `planning.md` under commitm
 
 - `product/vision.md` (Product Goal), `product/roadmap.md`, `SLOT_EPICS` files
 - `product/architecture.md`, `product/adr/` index, `product/definition-of-ready.md`
-- **SPECs** (v2.1.0+): for each epic in `SLOT_EPICS` whose `spec` is set, `product/specs/SPEC-NNN-*.md` — §3 decisions, §7 domain rules, §9 test strategy and §11 story breakdown drive refinement
+- **SPECs** (v2.0.0+): for each epic in `SLOT_EPICS` whose `spec` is set, `product/specs/SPEC-NNN-*.md` — §3 decisions, §7 domain rules, §9 test strategy and §11 story breakdown drive refinement
 - **Spike findings**: for each epic in `SLOT_EPICS`, the findings of its `done` spikes (re-estimates and new candidate stories)
 - **Domain rules**: when `product_doc_path` points to a `/conclave-discovery` package (folder whose `README.md` has `conclave_product_package: true`), its `03-bloc.md` — invariants, use cases and edge cases the PM must turn into Gherkin scenarios
 - `product/backlog.md` and the story files it links
@@ -127,7 +127,7 @@ Issue the calls below **in a single message**.
 - **Model**: `MODEL_FOR_TL` (omit if null).
 - Prompt prefix: full content of `agents/tech-lead.md`.
 - Task: turn each enabler epic into `type: enabler` stories ("In order to / We need") with acceptance criteria that a script can check (e.g. *Given a fresh clone, When `npm test` runs, Then it exits 0 with at least one passing test*). For Sprint 0 the minimum set is: scaffold for the confirmed stack, test framework + one passing test, lint, CI workflow running both on PRs, integration branch `develop` created from the default branch.
-- **Spike entries** (v2.1.0+): for each `spike:EP-NNN` in `SLOT_SPIKES`, turn the epic's `## Open questions (spike candidates)` (and any SPEC §12 row with `Resolve by: spike`) into `type: spike` stories per the charter section "How you operate inside `/conclave-spike` and spike refinement": one question each, timebox ≤ `delivery.spike_max_timebox`, `spike_outputs`, `epic: EP-NNN`, 2–3 Gherkin scenarios that check the deliverable. Skip questions that already have a spike story (check the epic's `spikes:`).
+- **Spike entries** (v2.0.0+): for each `spike:EP-NNN` in `SLOT_SPIKES`, turn the epic's `## Open questions (spike candidates)` (and any SPEC §12 row with `Resolve by: spike`) into `type: spike` stories per the charter section "How you operate inside `/conclave-spike` and spike refinement": one question each, timebox ≤ `delivery.spike_max_timebox`, `spike_outputs`, `epic: EP-NNN`, 2–3 Gherkin scenarios that check the deliverable. Skip questions that already have a spike story (check the epic's `spikes:`).
 - Inputs: enabler epic files, epic files named by `SLOT_SPIKES` (with their SPEC §12 when present), `architecture.md`, the ADR index, confirmed stack, `config.md` `repo:` and `delivery:` blocks.
 
 Wait for all calls. Any error → surface and stop.

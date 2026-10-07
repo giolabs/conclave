@@ -76,7 +76,7 @@ Issue a single `Task` tool call with:
 
 - **Model**: `MODEL_FOR_TL` (omit if null).
 - Prompt prefix: full content of `agents/tech-lead.md`.
-- Task: review the PR per the charter's "How you operate inside `/conclave-pr-review`" section. **`type: spike` (v2.1.0+)**: review the deliverable instead of code — the findings answer the question with the evidence they claim, each produced ADR passes the `/conclave-adr` evidence gates, a produced SPEC follows `tech-spec.template.md`, and the diff holds only markdown under `conclave/`. Also embed the findings file, produced ADRs and SPEC.
+- Task: review the PR per the charter's "How you operate inside `/conclave-pr-review`" section. **`type: spike` (v2.0.0+)**: review the deliverable instead of code — the findings answer the question with the evidence they claim, each produced ADR passes the `/conclave-adr` evidence gates, a produced SPEC follows `tech-spec.template.md`, and the diff holds only markdown under `conclave/`. Also embed the findings file, produced ADRs and SPEC.
 - Inputs embedded:
   - Story file content
   - Acceptance file content (including QA's latest verification block)

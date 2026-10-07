@@ -23,7 +23,7 @@ Run it at the start of every sprint — after `/conclave-init` the first time, a
 
 | Wave | Role | Job |
 |---|---|---|
-| 0 | — (orchestrator) | **Readiness gate** (v2.1.0+): SPEC approved for `needs_spec` epics, spike done or scheduled for `uncertainty: high` epics |
+| 0 | — (orchestrator) | **Readiness gate** (v2.0.0+): SPEC approved for `needs_spec` epics, spike done or scheduled for `uncertainty: high` epics |
 | 1 | Product Manager (+ Tech Lead for enabler and spike entries) | **Refine**: turn the slot's epic(s) into stories with acceptance criteria (from the SPEC's §11 when present); turn `spike:EP-NNN` entries into spike stories; propose the Sprint Goal |
 | 2 | Tech Lead | **Feasibility**: check against architecture/ADRs, assign `discipline`, flag under-estimates and cross-story dependencies |
 | 3 | Scrum Master | **Plan**: capacity from velocity, assignments, retro action items, planning record |
@@ -39,11 +39,11 @@ There is no separate grooming ceremony: refinement happens inline, here, for the
 - The **slot** is the lowest row in `product/roadmap.md` with status `planned`. None left → add epics with `/conclave-epic new` or edit the roadmap.
 - The sprint ID is the next monotonic `SPRINT-NNN`. With no sprint yet, it is `SPRINT-000` when `sprint.sprint_zero: true`, otherwise `SPRINT-001`.
 - A workspace without `product/roadmap.md` (pre-v2) is refused: run `/conclave-init --upgrade`.
-- The slot's `Epics` cell may also hold **spike entries** `spike:EP-NNN` (v2.1.0+) — each names an epic whose open questions this sprint answers; the epic itself may sit in a later slot.
+- The slot's `Epics` cell may also hold **spike entries** `spike:EP-NNN` (v2.0.0+) — each names an epic whose open questions this sprint answers; the epic itself may sit in a later slot.
 
-### Readiness gate — SPECs and spikes (v2.1.0+)
+### Readiness gate — SPECs and spikes (v2.0.0+)
 
-Before refining, each epic of the slot is checked. Epics written before v2.1.0 have no `uncertainty` / `needs_spec` and skip the gate.
+Before refining, each epic of the slot is checked. An epic without `uncertainty` / `needs_spec` (written by hand) is treated as `low` / `false` and skips the gate.
 
 - **SPEC** — `needs_spec: true` and no `approved` SPEC:
   - `delivery.spec_gate: require` → refuses: run [`/conclave-spec EP-NNN`](/en/commands/spec) and `/conclave-spec approve SPEC-NNN` first (or set `needs_spec: false`).
@@ -72,13 +72,13 @@ Always: sprint start date (default today), end date (default start + `sprint.len
 
 The Product Manager proposes a **Sprint Goal** traceable to the slot goal and writes one story + acceptance pair per new story: `type: feature`, `epic: EP-NNN`, priority, estimate, dependencies, 2–4 Gherkin scenarios. No `XL` — it splits first. Existing backlog candidates are reused, not duplicated.
 
-**From a SPEC** (v2.1.0+). When the epic has a SPEC, its §11 Story breakdown **replaces** the candidate stories as the source: one story per row, same order and dependencies, each with `spec: SPEC-NNN` and the `adrs:` its row implements. The PM does not redesign — a row it disagrees with is flagged as a `Spec concern` and refined as written.
+**From a SPEC** (v2.0.0+). When the epic has a SPEC, its §11 Story breakdown **replaces** the candidate stories as the source: one story per row, same order and dependencies, each with `spec: SPEC-NNN` and the `adrs:` its row implements. The PM does not redesign — a row it disagrees with is flagged as a `Spec concern` and refined as written.
 
 **BLOC → Gherkin.** When the discovery package's `03-bloc.md` is present, the PM gets it too: every invariant, use case or edge case a story touches must appear as a Gherkin scenario on that story. This is the one part of the product package read at every planning, not just at inception.
 
 When the slot contains a `type: enabler` epic, the Tech Lead writes `type: enabler` stories ("In order to / We need") whose acceptance criteria a script can check. For Sprint 0 the minimum set is: scaffold for the confirmed stack, test framework + one passing test, lint, a CI workflow running both on PRs, and the `develop` integration branch.
 
-**Spike stories** (v2.1.0+). For each `spike:EP-NNN` entry, the Tech Lead turns the epic's open questions (and SPEC §12 rows marked `Resolve by: spike`) into `type: spike` stories — one question each, timebox ≤ `delivery.spike_max_timebox`, declared outputs, 2–3 scenarios that check the deliverable. Questions that already have a spike are skipped. Spike stories go into the epic's `spikes:` list too. See [`/conclave-spike`](/en/commands/spike).
+**Spike stories** (v2.0.0+). For each `spike:EP-NNN` entry, the Tech Lead turns the epic's open questions (and SPEC §12 rows marked `Resolve by: spike`) into `type: spike` stories — one question each, timebox ≤ `delivery.spike_max_timebox`, declared outputs, 2–3 scenarios that check the deliverable. Questions that already have a spike are skipped. Spike stories go into the epic's `spikes:` list too. See [`/conclave-spike`](/en/commands/spike).
 
 ### Wave 2 — feasibility
 

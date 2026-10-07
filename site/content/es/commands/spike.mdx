@@ -13,7 +13,7 @@ Un **spike** es investigación con fecha límite: compra conocimiento, no featur
 /conclave-spike                                   # pregunta la pregunta
 ```
 
-El comando escribe una historia con `type: spike` — una sola pregunta, un timebox (`XS | S | M`), salidas declaradas y 2–3 escenarios Gherkin que verifican el **entregable**, no el comportamiento en producción. No se commitea nada. Agregado en v2.1.0.
+El comando escribe una historia con `type: spike` — una sola pregunta, un timebox (`XS | S | M`), salidas declaradas y 2–3 escenarios Gherkin que verifican el **entregable**, no el comportamiento en producción. No se commitea nada. Agregado en v2.0.0.
 
 ## De dónde salen los spikes
 
@@ -33,7 +33,7 @@ El comando escribe una historia con `type: spike` — una sola pregunta, un time
 /conclave-close      → la velocity cuenta el timebox; los hallazgos actualizan la épica
 ```
 
-Un spike reusa la [máquina de estados de historias](/es/state-machine#los-spikes-reusan-esta-misma-máquina-de-estados-v210) normal: `backlog → ready → in-progress → review → [verified] → done`. `done` significa que el conocimiento existe, no que se entregó una feature.
+Un spike reusa la [máquina de estados de historias](/es/state-machine#los-spikes-reusan-esta-misma-máquina-de-estados-v200) normal: `backlog → ready → in-progress → review → [verified] → done`. `done` significa que el conocimiento existe, no que se entregó una feature.
 
 ## Qué hace
 

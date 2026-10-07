@@ -23,7 +23,7 @@ Corrélo al inicio de cada sprint — después de `/conclave-init` la primera ve
 
 | Ola | Rol | Trabajo |
 |---|---|---|
-| 0 | — (orquestador) | **Readiness gate** (v2.1.0+): SPEC aprobada para épicas `needs_spec`, spike hecho o agendado para épicas `uncertainty: high` |
+| 0 | — (orquestador) | **Readiness gate** (v2.0.0+): SPEC aprobada para épicas `needs_spec`, spike hecho o agendado para épicas `uncertainty: high` |
 | 1 | Product Manager (+ Tech Lead para entradas enabler y spike) | **Refinar**: convertir las épicas del slot en historias con criterios de aceptación (desde la §11 de la SPEC si existe); convertir las entradas `spike:EP-NNN` en historias spike; proponer el Sprint Goal |
 | 2 | Tech Lead | **Factibilidad**: validar contra arquitectura/ADRs, asignar `discipline`, marcar subestimaciones y dependencias entre historias |
 | 3 | Scrum Master | **Planificar**: capacidad desde la velocidad, asignaciones, action items de la retro, registro del planning |
@@ -39,11 +39,11 @@ No hay una ceremonia de grooming separada: el refinamiento pasa inline, acá, pa
 - El **slot** es la fila más baja de `product/roadmap.md` con estado `planned`. Si no queda ninguna → agregá épicas con `/conclave-epic new` o editá el roadmap.
 - El ID del sprint es el siguiente `SPRINT-NNN` monotónico. Si todavía no hay sprints, es `SPRINT-000` cuando `sprint.sprint_zero: true`, si no `SPRINT-001`.
 - Un workspace sin `product/roadmap.md` (pre-v2) se rechaza: corré `/conclave-init --upgrade`.
-- La celda `Epics` del slot también puede tener **entradas de spike** `spike:EP-NNN` (v2.1.0+) — cada una nombra una épica cuyas preguntas abiertas responde este sprint; la épica en sí puede estar en un slot posterior.
+- La celda `Epics` del slot también puede tener **entradas de spike** `spike:EP-NNN` (v2.0.0+) — cada una nombra una épica cuyas preguntas abiertas responde este sprint; la épica en sí puede estar en un slot posterior.
 
-### Readiness gate — SPECs y spikes (v2.1.0+)
+### Readiness gate — SPECs y spikes (v2.0.0+)
 
-Antes de refinar, se revisa cada épica del slot. Las épicas escritas antes de v2.1.0 no tienen `uncertainty` / `needs_spec` y se saltean el gate.
+Antes de refinar, se revisa cada épica del slot. Una épica sin `uncertainty` / `needs_spec` (escrita a mano) se trata como `low` / `false` y se saltea el gate.
 
 - **SPEC** — `needs_spec: true` y sin SPEC `approved`:
   - `delivery.spec_gate: require` → se niega: corré primero [`/conclave-spec EP-NNN`](/es/commands/spec) y `/conclave-spec approve SPEC-NNN` (o poné `needs_spec: false`).
@@ -72,13 +72,13 @@ Siempre: fecha de inicio del sprint (default hoy), fecha de fin (default inicio 
 
 El Product Manager propone un **Sprint Goal** trazable al objetivo del slot y escribe un par historia + aceptación por cada historia nueva: `type: feature`, `epic: EP-NNN`, prioridad, estimación, dependencias, 2–4 escenarios Gherkin. Nada de `XL` — primero divide. Las candidatas del backlog que ya existen se reutilizan, no se duplican.
 
-**Desde una SPEC** (v2.1.0+). Cuando la épica tiene SPEC, su §11 (desglose de historias) **reemplaza** a las historias candidatas como fuente: una historia por fila, mismo orden y dependencias, cada una con `spec: SPEC-NNN` y los `adrs:` que implementa su fila. El PM no rediseña — una fila con la que no está de acuerdo se marca como `Spec concern` y se refina tal como está.
+**Desde una SPEC** (v2.0.0+). Cuando la épica tiene SPEC, su §11 (desglose de historias) **reemplaza** a las historias candidatas como fuente: una historia por fila, mismo orden y dependencias, cada una con `spec: SPEC-NNN` y los `adrs:` que implementa su fila. El PM no rediseña — una fila con la que no está de acuerdo se marca como `Spec concern` y se refina tal como está.
 
 **BLOC → Gherkin.** Cuando está el `03-bloc.md` del paquete de discovery, el PM también lo recibe: cada invariante, caso de uso o edge case que toca una historia tiene que aparecer como escenario Gherkin en esa historia. Es la única parte del paquete de producto que se lee en cada planning, no solo en la inception.
 
 Cuando el slot contiene una épica `type: enabler`, el Tech Lead escribe historias `type: enabler` ("In order to / We need") cuyos criterios de aceptación puede verificar un script. Para el Sprint 0 el set mínimo es: scaffold para el stack confirmado, framework de tests + un test que pasa, lint, un workflow de CI que corre ambos en los PRs, y la rama de integración `develop`.
 
-**Historias spike** (v2.1.0+). Para cada entrada `spike:EP-NNN`, el Tech Lead convierte las preguntas abiertas de la épica (y las filas de la §12 de la SPEC con `Resolve by: spike`) en historias `type: spike` — una pregunta cada una, timebox ≤ `delivery.spike_max_timebox`, salidas declaradas, 2–3 escenarios que verifican el entregable. Las preguntas que ya tienen spike se saltean. Las historias spike también van a la lista `spikes:` de la épica. Ver [`/conclave-spike`](/es/commands/spike).
+**Historias spike** (v2.0.0+). Para cada entrada `spike:EP-NNN`, el Tech Lead convierte las preguntas abiertas de la épica (y las filas de la §12 de la SPEC con `Resolve by: spike`) en historias `type: spike` — una pregunta cada una, timebox ≤ `delivery.spike_max_timebox`, salidas declaradas, 2–3 escenarios que verifican el entregable. Las preguntas que ya tienen spike se saltean. Las historias spike también van a la lista `spikes:` de la épica. Ver [`/conclave-spike`](/es/commands/spike).
 
 ### Ola 2 — factibilidad
 

@@ -56,7 +56,7 @@ El PM inspecciona el Increment contra el Sprint Goal y escribe `review.md`:
 - Progreso por épica, con un veredicto por épica — `done` solo cuando todas las historias no retiradas están done **y** se cumple el criterio de éxito de la épica.
 - Progreso del Product Goal.
 - Adaptaciones: nuevas historias candidatas, épicas repriorizadas, épicas para dividir o retirar — **solo propuestas**.
-- Spikes terminados en el sprint (v2.1.0+): una línea cada uno — pregunta, resultado, recomendación y qué cambia. Un spike `not-answered` recibe un próximo paso explícito.
+- Spikes terminados en el sprint (v2.0.0+): una línea cada uno — pregunta, resultado, recomendación y qué cambia. Un spike `not-answered` recibe un próximo paso explícito.
 
 ### Paso 6 — Retro (Scrum Master), si está activa
 
@@ -67,7 +67,7 @@ Hace tres preguntas opcionales de texto libre — *qué mantener, qué cambiar, 
 - `review.md` y (si está activa) `retro.md`; se actualiza el estado de los action items de la retro anterior.
 - Frontmatter de historias según tus decisiones del Paso 4.
 - Las épicas que la review marcó como done → `status: done`. Las divisiones y retiros **no** se aplican; aparecen en el reporte como sugerencias `/conclave-epic split|retire`.
-- **Resultados de spikes en la épica** (v2.1.0+) — para cada historia `type: spike` en `done`, sus hallazgos se aplican a su épica: `uncertainty` ← la "Uncertainty after the spike" del reporte; `adrs` suma los ADRs producidos; `spec` ← la SPEC producida si estaba vacío; la pregunta abierta correspondiente queda con el sufijo `— answered by <ID>` (o `— not answered, see <ID>`); las nuevas historias candidatas se agregan a `## Candidate stories`. Los cambios de estimación de historias existentes se listan en el reporte, no se aplican. Un spike `not-answered` cuya épica sigue en `uncertainty: high` → sugiere otro [`/conclave-spike`](/es/commands/spike) o una decisión del PM.
+- **Resultados de spikes en la épica** (v2.0.0+) — para cada historia `type: spike` en `done`, sus hallazgos se aplican a su épica: `uncertainty` ← la "Uncertainty after the spike" del reporte; `adrs` suma los ADRs producidos; `spec` ← la SPEC producida si estaba vacío; la pregunta abierta correspondiente queda con el sufijo `— answered by <ID>` (o `— not answered, see <ID>`); las nuevas historias candidatas se agregan a `## Candidate stories`. Los cambios de estimación de historias existentes se listan en el reporte, no se aplican. Un spike `not-answered` cuya épica sigue en `uncertainty: high` → sugiere otro [`/conclave-spike`](/es/commands/spike) o una decisión del PM.
 - `meta.md` → `status: closed`, `velocity`, `sprint_goal_met`, `closed_at`.
 - Se actualizan las filas del backlog. Las historias candidatas de la review van a la sección `## Candidate stories` de su épica, no a archivos de historia — el refinamiento pasa en el planning.
 - Roadmap: el slot → `closed`; se agrega una fila de burnup; el **forecast** se recalcula con la velocidad promedio de los últimos 3 sprints cerrados. Si se mueve el slot del MVP o la fecha de lanzamiento, se actualizan las fechas de los slots futuros y una fila del log de re-planificación registra por qué. Las épicas nunca se reordenan ni se descartan automáticamente.

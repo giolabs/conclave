@@ -13,7 +13,7 @@ A **spike** is research with a deadline: it buys knowledge, not features. Use it
 /conclave-spike                                   # asks for the question
 ```
 
-The command writes one story with `type: spike` — a single question, a timebox (`XS | S | M`), declared outputs and 2–3 Gherkin scenarios that check the **deliverable**, not production behaviour. Nothing is committed. Added in v2.1.0.
+The command writes one story with `type: spike` — a single question, a timebox (`XS | S | M`), declared outputs and 2–3 Gherkin scenarios that check the **deliverable**, not production behaviour. Nothing is committed. Added in v2.0.0.
 
 ## Where spikes come from
 
@@ -33,7 +33,7 @@ The command writes one story with `type: spike` — a single question, a timebox
 /conclave-close      → velocity counts the timebox; findings update the epic
 ```
 
-A spike reuses the normal [story state machine](/en/state-machine#spikes-reuse-this-exact-state-machine-v210): `backlog → ready → in-progress → review → [verified] → done`. `done` means the knowledge exists, not that a feature shipped.
+A spike reuses the normal [story state machine](/en/state-machine#spikes-reuse-this-exact-state-machine-v200): `backlog → ready → in-progress → review → [verified] → done`. `done` means the knowledge exists, not that a feature shipped.
 
 ## What it does
 

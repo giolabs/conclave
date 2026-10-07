@@ -58,11 +58,5 @@ Cada paso es idempotente; si falla a mitad de camino, volvé a correr el comando
 - Si `architecture.md` todavía tiene secciones inline `### ADR-NNN:`, corré [`/conclave-adr`](/es/commands/adr) una vez para moverlas a `product/adr/`.
 - Si el sprint activo ya terminó, corré [`/conclave-close`](/es/commands/close); si no, seguí trabajando y cerralo cuando termine.
 - Planificá el próximo sprint con [`/conclave-planning`](/es/commands/planning) — ahora se niega mientras haya un sprint `active`.
-- Reemplazá cualquier script o paso de CI que llamara a `/conclave-planning --all` o `/conclave-spec`.
-
-## De v2.0.0 a v2.1.0
-
-v2.1.0 es aditiva — no hace falta migrar. Las épicas sin `uncertainty` / `needs_spec` se leen como `low` / `false`, un roadmap sin `horizon` se lee como `auto`, y un `config.md` sin `sprint.planned_sprints` ni `delivery:` usa los defaults (`auto`, `spike_max_timebox: M`, `spec_gate: warn`).
-
-- Corré [`/conclave-roadmap replan`](/es/commands/roadmap) una vez para agregar la sección del plan de release, el horizonte y las entradas de spike.
-- `/conclave-spec` vuelve con un **significado distinto**: ya no redirige a `/conclave-init`, sino que escribe la especificación técnica de una épica ([`/conclave-spec`](/es/commands/spec)). Un script viejo que lo llame ahora intentaría redactar una SPEC.
+- Reemplazá cualquier script o paso de CI que llamara a `/conclave-planning --all` o `/conclave-spec`. El nombre `/conclave-spec` ahora pertenece a **otro comando** — escribe la especificación técnica de una épica ([`/conclave-spec`](/es/commands/spec)) — así que un script viejo que lo llame empezaría a redactar una SPEC.
+- Opcional: corré [`/conclave-roadmap show`](/es/commands/roadmap) para revisar el plan de release, y [`/conclave-spec`](/es/commands/spec) para las épicas que la pasada de riesgo marcó `needs_spec`.

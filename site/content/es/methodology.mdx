@@ -18,9 +18,9 @@ Conclave asume **Scrum** estándar con adaptaciones prácticas que hacen los equ
 | Épica | `conclave/product/epics/EP-NNN-<slug>.md` | Un bloque grande de valor con criterio de éxito. No es un término de la Scrum Guide, pero es la capa entre el Product Goal y las historias. |
 | Product Backlog | `conclave/product/backlog.md` + historias candidatas de las épicas | Lista ordenada de historias refinadas; las candidatas aproximadas viven en su épica hasta que el planning las refina. |
 | Roadmap / plan de release | `conclave/product/roadmap.md` | Cuántos sprints (`horizon`: auto o un N fijo), épicas y entradas de spike secuenciadas en slots de sprint, épicas fuera del horizonte, burnup y forecast. Se re-pronostica en cada cierre; se re-secuencia con `/conclave-roadmap replan`. |
-| Spike | Historia con `type: spike` | Investigación con timebox (XS–M) que responde una pregunta. Produce un reporte de hallazgos y, si se declaró, un ADR propuesto o una SPEC draft. La corre el Tech Lead. (v2.1.0+) |
+| Spike | Historia con `type: spike` | Investigación con timebox (XS–M) que responde una pregunta. Produce un reporte de hallazgos y, si se declaró, un ADR propuesto o una SPEC draft. La corre el Tech Lead. (v2.0.0+) |
 | Decisión de arquitectura | `conclave/product/adr/ADR-NNN-<slug>.md` | Una decisión con alternativas y evidencia. `proposed → accepted \| superseded`. |
-| Especificación técnica | `conclave/product/specs/SPEC-NNN-<slug>.md` | El diseño de una épica compuesto a partir de sus ADRs: contratos, datos, tests, rollout, desglose de historias. `draft → approved \| superseded`. (v2.1.0+) |
+| Especificación técnica | `conclave/product/specs/SPEC-NNN-<slug>.md` | El diseño de una épica compuesto a partir de sus ADRs: contratos, datos, tests, rollout, desglose de historias. `draft → approved \| superseded`. (v2.0.0+) |
 | Sprint Backlog | Tabla de historias seleccionadas en `conclave/sprints/SPRINT-NNN/spec.md` | Snapshot al momento de planning. |
 | Increment | Historias `done` en el sprint (verificadas por QA, aprobadas por el TL si está activo) | Conclave nunca mergea; si un humano mergeó cada PR se reporta en el cierre. |
 | Sprint Planning | `/conclave-planning` | Planifica un slot del roadmap, refinando sus épicas just in time. Gate estructural. |
@@ -33,7 +33,7 @@ Conclave asume **Scrum** estándar con adaptaciones prácticas que hacen los equ
 | Historia de usuario | Un archivo bajo `sprints/SPRINT-NNN/stories/` | Formato INVEST. |
 | Criterios de aceptación | Un archivo bajo `sprints/SPRINT-NNN/acceptance/` | Gherkin Given/When/Then. |
 
-## Conocimiento antes que código (v2.1.0+)
+## Conocimiento antes que código (v2.0.0+)
 
 Una épica dice **qué** y **por qué**. Antes de refinar sus historias, el equipo puede necesitar aprender algo, decidir algo o diseñar algo. Conclave hace explícito ese camino:
 
@@ -80,7 +80,7 @@ conclave/
 │   ├── backlog.md
 │   ├── architecture.md
 │   ├── adr/ADR-NNN-<slug>.md         # ADRs oficiales
-│   ├── specs/SPEC-NNN-<slug>.md      # especificación técnica por épica (v2.1.0+)
+│   ├── specs/SPEC-NNN-<slug>.md      # especificación técnica por épica (v2.0.0+)
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
 ├── context/                          # snapshots congelados de los inputs
@@ -95,7 +95,7 @@ conclave/
         │   └── US-NNN-<slug>.md
         ├── acceptance/
         │   └── AC-US-NNN.md
-        └── spikes/                   # <PREFIX>-NNN-findings.md, uno por spike (v2.1.0+)
+        └── spikes/                   # <PREFIX>-NNN-findings.md, uno por spike (v2.0.0+)
 ```
 
 ## Invariantes que respeta cada comando de Conclave

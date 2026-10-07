@@ -59,7 +59,7 @@ Cuando se pasa más de un ID de historia, aplica el mismo patrón de validación
 
 QA nunca ejecuta los tests generados él mismo — lo hace el propio CI del repo target, y nunca resuelve, lee, ni escribe un valor de secreto en ningún momento.
 
-### Historias spike (v2.1.0+)
+### Historias spike (v2.0.0+)
 
 Una historia `type: spike` entrega conocimiento, no comportamiento, así que UAT y la espera de CI (pasos 5–6) se saltean. QA lee el reporte de hallazgos (`findings_path`), cada ADR que produjo el spike y su SPEC, y verifica cada escenario Gherkin contra ellos:
 
