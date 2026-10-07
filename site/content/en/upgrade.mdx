@@ -1,0 +1,61 @@
+---
+title: Upgrading from v1
+description: Migrate a Conclave v1.x workspace to the v2 Scrum Lite lifecycle with /conclave-init --upgrade.
+---
+
+# Upgrading from v1
+
+Conclave 2.0.0 is a breaking release. It adds a product layer above stories (vision, epics, roadmap), a closing ceremony (`/conclave-close`), and real velocity — and it drops the commands and config keys that were never more than placeholders. Existing workspaces keep working only after a one-time migration.
+
+## What changed
+
+| Area | v1.x | v2.0.0 |
+|---|---|---|
+| Hierarchy | Backlog → stories | Product Goal → epics (`EP-NNN`) → stories |
+| Setup | `/conclave-init` wizard, product doc required | `/conclave-init` setup **plus inception** (vision, epics, architecture, roadmap); product doc optional |
+| Planning | First run generated the whole backlog; `--all` planned every sprint | Plans **one** roadmap slot, refining stories just in time; `--all` removed |
+| Closing | Inside `/conclave-sprint` | [`/conclave-close`](/en/commands/close) — review, optional retro, velocity, reports |
+| Sprint status | `draft → active → done / archived` | `draft → active → closed` |
+| Story frontmatter | — | adds `type: feature \| enabler` and `epic: EP-NNN` |
+| Capacity | Fixed formula | Average velocity of the last 3 closed sprints |
+| Commands removed | `/conclave-spec` (deprecated alias) | deleted |
+| Config removed | `daily_standup`, `backlog_grooming`, `sprint_review`, `sprint_retrospective` | warned and ignored if still present |
+| Config added | — | `ceremonies.close.retro`, `sprint.length_weeks`, `sprint.sprint_zero` |
+
+The standup, grooming, review and retro commands listed as "planned" in v1 will not ship. Review and retro live inside `/conclave-close`; grooming happens inline in `/conclave-planning`; the board and story statuses are the daily view.
+
+## Run the migration
+
+Update the plugin, then in each target repo:
+
+```bash
+git status                  # start from a clean tree so the diff is reviewable
+/conclave-init --upgrade
+```
+
+The command migrates in place and never deletes or renames a sprint, story, or report file:
+
+1. **Inventory** — sprints by status, story count, inline ADR count.
+2. **Config** — removes the four v1 ceremony keys, maps `sprint_retrospective.required` → `ceremonies.close.retro`, adds the `sprint:` block (`length_weeks` from `team/ceremonies.md`, `sprint_zero: false`), sets `conclave_version: "2.0.0"`. Shows the diff and asks before writing.
+3. **Sprints** — `done` / `archived` → `closed`; adds `slot`, `epics`, `committed_units`, `velocity` (from `done` story estimates), `sprint_goal_met`, `closed_at`.
+4. **Inception** — the Product Manager groups every non-retired story into exactly one epic and writes `vision.md`; your `architecture.md` is kept; the Scrum Master writes `roadmap.md` with past sprints as `closed` slots and seeds the burnup from their velocity.
+5. **Stories** — adds `type: feature` and `epic: EP-NNN`.
+6. **Backlog** — adds the `Epic` column and links `vision.md`.
+
+Each step is idempotent; re-run the command after a partial failure and it resumes.
+
+```
+✓ Upgraded conclave/ to v2.0.0
+  Config:   ceremonies migrated (retro: true), sprint.length_weeks: 2
+  Sprints:  3 closed · 1 active · 0 draft
+  Epics:    5 created from 27 stories
+  Roadmap:  8 slots, MVP at SPRINT-006
+```
+
+## After the migration
+
+- Review the diff and commit it.
+- If `architecture.md` still has inline `### ADR-NNN:` sections, run [`/conclave-adr`](/en/commands/adr) once to move them to `product/adr/`.
+- If the active sprint is finished, run [`/conclave-close`](/en/commands/close); otherwise keep working and close it when it ends.
+- Plan the next sprint with [`/conclave-planning`](/en/commands/planning) — it now refuses while a sprint is still `active`.
+- Replace any script or CI step that called `/conclave-planning --all` or `/conclave-spec`.

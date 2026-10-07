@@ -7,6 +7,7 @@ export default {
   },
   "getting-started": "Primeros pasos",
   installation: "Instalación",
+  upgrade: "Actualizar desde v1",
   platforms: "Plataformas",
   "team-example": "Ejemplo de equipo",
 
@@ -17,7 +18,7 @@ export default {
   methodology: "Metodología",
   roles: "Roles",
   profiles: "Perfiles de equipo",
-  "state-machine": "Máquina de estados",
+  "state-machine": "Máquinas de estado",
 
   "features-separator": {
     type: "separator",

@@ -1,0 +1,106 @@
+---
+title: /conclave-close
+description: Close the active sprint — Sprint Review, optional Retrospective, velocity, roadmap re-plan, and the closing reports. The only command that sets a sprint closed.
+---
+
+# /conclave-close
+
+Close the **active** sprint. This is the last step of every sprint and the **only** command that sets a sprint `closed` — `/conclave-planning` refuses to plan the next sprint until it has run.
+
+```
+/conclave-close
+```
+
+| Part | Always? | Role | Output |
+|---|---|---|---|
+| Review | yes — structural | Product Manager | `sprints/SPRINT-NNN/review.md`, epic + roadmap updates, velocity |
+| Retro | when `ceremonies.close.retro: true` | Scrum Master | `sprints/SPRINT-NNN/retro.md` |
+| Reports | yes | orchestrator | `report/SPRINT-NNN/{report.md, UAT.md, dora-data.yml}` |
+
+Conclave never merges (ADR-006). Review counts a story as part of the Increment when its status is `done` — QA-verified and, when the TL gate is on, approved. Whether a human has merged the PR yet is reported, not enforced.
+
+## What it does
+
+### Step 1 — Find the active sprint
+
+No active sprint → *"No active sprint to close."* The command loads the sprint's meta, spec, planning record, stories, acceptance files and bugs, plus the vision, roadmap, the sprint's epics, and the previous `retro.md`.
+
+### Step 2 — Critical-bug gate
+
+Any `BUG-NNN` with `severity: critical` that is not `done`/`closed` and belongs to this sprint blocks the close, and nothing changes:
+
+```
+⛔ SPRINT-NNN cannot close — 1 open critical bug(s):
+  - BUG-004: <title> (status: review)
+Fix them with /conclave-dev BUG-NNN, verify with /conclave-qa BUG-NNN, then re-run /conclave-close.
+```
+
+The gate is unconditional. Open non-critical bugs only produce a warning and are listed in the review.
+
+### Step 3 — Sprint facts
+
+Computed without an agent: committed units, **velocity** (units of `done` stories, `XS=1 S=2 M=3 L=5 XL=8`), the not-done list, per-epic progress, PR merge state per done story (`unknown` when `gh` is unavailable), and retro signals — stories sent back by QA or TL, blocked or aborted autonomous runs, bugs opened, carry-over count.
+
+### Step 4 — Unfinished stories
+
+For each story that is not `done`, you choose:
+
+- **Next sprint** — keeps status and assignee; the next `/conclave-planning` picks it up as carry-over.
+- **Back to backlog** — `status: backlog`, assignee and sprint cleared.
+
+### Step 5 — Review (Product Manager)
+
+The PM inspects the Increment against the Sprint Goal and writes `review.md`:
+
+- Sprint Goal verdict: `true | false | partial`, with the reason.
+- Epic progress, with a verdict per epic — `done` only when every non-retired story is done **and** the epic's success criterion holds.
+- Product Goal progress.
+- Adaptations: new candidate stories, reprioritised epics, epics to split or retire — **proposals only**.
+
+### Step 6 — Retro (Scrum Master), when enabled
+
+Asks three optional free-text questions — *keep, change, try* — and, for each open action item from the previous retro, *done / not done / drop*. In `team_mode: team`, paste the team's answers (one line per person is fine). Without a user (headless), the SM works from the Step 3 signals only. The output holds **at most 3** action items, each with an owner and a measure; the next `/conclave-planning` imports the open ones.
+
+### Step 7 — Write
+
+- `review.md` and (when enabled) `retro.md`; previous retro action statuses updated.
+- Story frontmatter per your Step 4 decisions.
+- Epics the review marked done → `status: done`. Splits and retirements are **not** applied; they appear in the report as `/conclave-epic split|retire` suggestions.
+- `meta.md` → `status: closed`, `velocity`, `sprint_goal_met`, `closed_at`.
+- Backlog rows updated. Candidate stories from the review go into the epic's `## Candidate stories`, not into story files — refinement happens at planning.
+- Roadmap: the slot → `closed`; a burnup row appended; the **forecast** recomputed from the average velocity of the last 3 closed sprints. If the MVP slot or launch date moves, future slot dates are updated and a re-plan log row records why. Epics are never reordered or dropped automatically.
+- Reports under `conclave/report/SPRINT-NNN/`:
+
+| File | Contents |
+|---|---|
+| `report.md` | Committed / done / carried over, bugs, velocity, completion rate, acceptance summary, decisions and blockers, next-sprint recommendations |
+| `UAT.md` | Per done story: setup from the integration branch, steps from its Gherkin scenarios |
+| `dora-data.yml` | Raw data for [`/conclave-dora`](/en/commands/dora): stories done, velocity, bugs, PRs merged, lead times, MTTR |
+
+## Output
+
+```
+✓ SPRINT-001 closed — Sprint Goal met: partial
+  Velocity:    11 / 14 units (avg last 3: 11)
+  Increment:   4 stories done · PRs merged: 3/4 (unmerged PRs wait for a human)
+  Carry-over:  1 next sprint · 0 back to backlog
+  Epics done:  EP-000
+  Retro:       2 action items
+  Forecast:    MVP at SPRINT-004 (2026-12-04) — moved from SPRINT-003
+  Suggested:   /conclave-epic split EP-002
+```
+
+## Guardrails
+
+- Only the `active` sprint can be closed; a `closed` sprint is never reopened.
+- Never merges, pushes, or changes code — writes only inside `conclave/`.
+- Never creates story files.
+- Never applies epic splits, retirements, or roadmap reordering automatically.
+- Review runs regardless of profile. Retro runs only when `ceremonies.close.retro: true`.
+
+## After it runs
+
+```bash
+git add conclave/ && git commit -m "conclave: close SPRINT-NNN"
+/conclave-planning      # plan the next slot
+```

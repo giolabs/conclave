@@ -1,0 +1,67 @@
+---
+title: /conclave-epic
+description: Gestión de épicas del PM después de la inception — new, edit, split, retire — con el roadmap reacomodado por el Scrum Master.
+---
+
+# /conclave-epic
+
+Mantiene viva la capa de épicas después de `/conclave-init`. Las épicas se crean en la inception; este comando las agrega, revisa, descompone o descarta a medida que el producto aprende — típicamente justo después de que una review de [`/conclave-close`](/es/commands/close) lo propuso.
+
+```
+/conclave-epic new
+/conclave-epic edit EP-NNN
+/conclave-epic split EP-NNN
+/conclave-epic retire EP-NNN
+```
+
+**Acá no se escriben historias.** Una épica lleva `## Candidate stories` aproximadas; `/conclave-planning` las refina cuando llega el slot del roadmap de esa épica. No se commitea nada.
+
+Requiere un workspace v2 (`conclave_version >= 2.0.0` y `product/epics/`) y un working tree limpio.
+
+## Sub-acciones de un vistazo
+
+| Sub-acción | Subagente | Efecto |
+|---|---|---|
+| `new` | Product Manager, después Scrum Master | Escribe `EP-NNN-<slug>.md` con `status: proposed` y la ubica en slots futuros del roadmap. |
+| `edit EP-NNN` | Product Manager (+ SM si cambió tamaño/prioridad) | Revisa la épica; mantiene ID, estado, historias y slots. |
+| `split EP-NNN` | Product Manager, después Scrum Master | La descompone en 2–4 épicas hijas; la madre pasa a `retired`. |
+| `retire EP-NNN` | **Ninguno** | Mecánico: la épica y sus historias no empezadas → `retired`, el roadmap se limpia. |
+
+## `new`
+
+Pregunta título, el resultado que debe entregar, tipo (`feature | enabler`) y prioridad (`must | should | could`, default `should`). El PM escribe la épica contra `vision.md`, revisando las épicas existentes para evitar solapamientos. Después el Scrum Master la ubica en slots `planned` futuros por prioridad y dependencias — sin tocar nunca slots `active` o `closed`. Confirmás el cambio de slots antes de que se escriban `roadmap.md` (con una fila en el log de re-planificación) y los `roadmap_slots` de la épica.
+
+## `edit EP-NNN`
+
+Rechaza épicas `retired` y `done` (*"creá una épica nueva"*). Pregunta qué cambiar; el PM devuelve la épica completa, preservando ID, `status`, `stories:`, `roadmap_slots` y `created_at`. Si cambió `size` o `priority`, el SM la reubica.
+
+## `split EP-NNN`
+
+Rechaza épicas `retired` y `done`. Pregunta cuántas hijas (2, 3 o 4) y el eje de división. Regla dura: cada historia no retirada y no terminada de la madre, y cada historia candidata, cae en exactamente una hija; si no, el PM devuelve `SPLIT_UNSAFE: <motivo>` y no se escribe nada. El orquestador vuelve a verificar cantidad y cobertura de forma mecánica.
+
+Si sale bien: las hijas llevan `split_from: EP-NNN` y `status: proposed` (o `active` si alguna de sus historias está en el sprint activo); las historias movidas actualizan su `epic:`, igual que la columna Epic del backlog; la madre pasa a `retired` con `superseded_by` y conserva sus historias `done`. El SM reubica las hijas.
+
+## `retire EP-NNN`
+
+Sin subagente. Se niega si alguna historia de la épica está `in-progress`, `review` o `verified`, y rechaza épicas `done`. Pregunta por qué (no vacío). Después:
+
+- Épica → `status: retired`, `retirement_reason`, `retired_at`.
+- Sus historias `backlog` / `ready` → `retired` (mismos campos que `/conclave-story retire`).
+- Se quita de todos los slots `planned` del roadmap; un slot que queda vacío se marca `planned (empty)` y se te pide completarlo. Se agrega una fila al log de re-planificación.
+
+## Máquina de estados de la épica
+
+```
+proposed ──/conclave-planning──→ active ──/conclave-close──→ done
+    ↘                               ↘
+      retired  (/conclave-epic retire | split)
+```
+
+Mirá la página de [máquinas de estado](/es/state-machine#épicas) para el detalle.
+
+## Guardrails
+
+- Nunca commitea, pushea ni abre un PR.
+- Solo escribe en `conclave/product/` (épicas, roadmap, backlog) y en los campos de frontmatter de historias `epic`, `status` y de retiro.
+- Nunca escribe archivos de historia.
+- Nunca modifica slots `active` o `closed` del roadmap.

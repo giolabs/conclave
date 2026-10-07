@@ -19,7 +19,7 @@ project_type: "backend"          # backend | frontend | mobile | devops | multi
 project_language: "es"           # ISO 639-1 — todo el markdown generado usa este idioma (v0.16.0+)
 story_prefix: "US"               # prefijo de IDs de historia: US → US-001, TASK → TASK-001 (v1.1.0+)
 launch_date: "2026-10-01"        # fecha objetivo de lanzamiento (ISO 8601) o "TBD" (v1.1.0+)
-product_doc_path: "docs/mvp.md"  # ruta relativa al documento de planificación del producto (v1.1.0+)
+product_doc_path: "docs/mvp.md"  # input opcional de la inception: un documento o una carpeta de /conclave-discovery; "" si la idea se escribió a mano (v2.0.0)
 stack:
   language: "TypeScript"         # lenguaje de programación (distinto a project_language)
   framework: "NestJS"
@@ -28,7 +28,7 @@ stack:
 repo_url: "https://github.com/acme/mi-api"
 claude_md_path: "CLAUDE.md"
 initialized_at: "2026-08-01T00:00:00Z"
-conclave_version: "0.16.0"
+conclave_version: "2.0.0"
 
 team_mode: "solo"                # solo | team
 team_profile: "lean"             # lean | full-scrum | custom
@@ -39,19 +39,17 @@ ceremonies:
   qa_verification:
     required: true               # siempre true — estructural
     ci_wait_timeout_minutes: 20
-  daily_standup:
-    required: false
-  backlog_grooming:
-    required: false
   peer_pr_review:
-    required: false              # sin peer review en lean solo
-  sprint_review:
-    required: false
-  sprint_retrospective:
-    required: false
+    required: false              # sin gate de aprobación del TL en lean solo
+  close:
+    retro: false                 # sin retro dentro de /conclave-close (la review corre siempre)
+
+sprint:
+  length_weeks: 2
+  sprint_zero: true              # repo sin código → el roadmap arranca con SPRINT-000
 ```
 
-**Equipo distribuido, full-scrum** (`team_mode: team` con todas las ceremonias):
+**Equipo distribuido, full-scrum** (`team_mode: team` con gate del TL y retro):
 
 ```yaml
 project_name: "checkout-service"
@@ -68,7 +66,7 @@ stack:
 repo_url: "https://github.com/acme/checkout-service"
 claude_md_path: "CLAUDE.md"
 initialized_at: "2026-08-01T00:00:00Z"
-conclave_version: "0.16.0"
+conclave_version: "2.0.0"
 
 team_mode: "team"
 team_profile: "full-scrum"
@@ -79,16 +77,14 @@ ceremonies:
   qa_verification:
     required: true
     ci_wait_timeout_minutes: 30  # CI más largo — aumentar si hay timeouts
-  daily_standup:
-    required: true
-  backlog_grooming:
-    required: true
   peer_pr_review:
     required: true               # activa /conclave-pr-review en el loop
-  sprint_review:
-    required: true
-  sprint_retrospective:
-    required: true
+  close:
+    retro: true                  # /conclave-close corre la retro después de la review
+
+sprint:
+  length_weeks: 2
+  sprint_zero: false             # repo con código existente
 ```
 
 ### Referencia de campos
@@ -100,21 +96,22 @@ ceremonies:
 | `project_language` | código ISO 639-1 (`es`, `en`, `pt`, …) | v0.16.0+. Todo el texto generado (historias, criterios de aceptación, archivos de bugs, reportes, comentarios) se escribe en este idioma. Default `es` si está ausente. Se define durante `/conclave-init`. Distinto de `stack.language` (el lenguaje de programación). |
 | `story_prefix` | texto libre (default `US`) | v1.1.0+. Prefijo para todos los nombres de archivos de historias y aceptación: `US-001-slug.md` / `AC-US-001.md`, o `TASK-001-slug.md` si se cambia. Se define durante `/conclave-init`; editá a mano para cambiar (los archivos existentes no se renombran). |
 | `launch_date` | fecha ISO o `"TBD"` | v1.1.0+. Fecha objetivo de lanzamiento, se propaga a los artefactos generados. Se define durante `/conclave-init`. |
-| `product_doc_path` | ruta relativa | v1.1.0+. Ruta al documento de planificación del producto (ej. `docs/mvp.md`). `/conclave-planning` lee este archivo en la Fase A para generar el backlog, la arquitectura, las historias y los criterios de aceptación. Se define durante `/conclave-init`; actualizá para apuntar a un documento diferente en cualquier momento. |
+| `product_doc_path` | ruta relativa (archivo o carpeta) o `""` | Opcional desde v2.0.0. La documentación de producto que se usa como input durante la inception (`/conclave-init`): un documento suelto, o una carpeta de paquete de [`/conclave-discovery`](/es/commands/discovery) como `docs/product/` (se reconoce por `conclave_product_package: true` en su `README.md`). Vacío cuando la idea se escribió a mano (se guarda en `conclave/context/idea.md`). `/conclave-discovery` lo apunta a su carpeta de salida cuando está vacío. Después, la fuente de verdad es `product/vision.md` + `epics/` + `roadmap.md` — salvo que, con un paquete, `/conclave-planning` lee `03-bloc.md` en cada planning para derivar escenarios Gherkin. |
 | `stack.*` | texto libre | Detectado y confirmado durante `/conclave-init`. `stack.language` es el lenguaje de programación, no el idioma natural usado para la documentación. |
 | `repo_url` | URL | Usado para construir links (editar en GitHub, plantillas de PR). |
 | `claude_md_path` | ruta | Dónde busca Conclave el contexto del proyecto al generar artefactos fundacionales. |
-| `conclave_version` | string tipo semver | Versión del schema. Los comandos la chequean para decidir si degradar con gracia contra artefactos más viejos. |
+| `conclave_version` | string tipo semver | Versión del schema. `/conclave-planning`, `/conclave-epic` y `/conclave-init` rechazan un workspace `< 2.0.0` y apuntan a `/conclave-init --upgrade`. |
 | `team_mode` | `solo \| team` | Definido una vez por `/conclave-init`. Controla la forma del roster — ver abajo. No pensado para editar a mano; crecer de solo a equipo es un edit manual de `roster.md` más cambiar este campo. |
 | `team_profile` | `lean \| full-scrum \| custom` | Controla qué ceremonias se hacen cumplir. Ver [perfiles de equipo](/es/profiles). |
 | `ceremonies.sprint_planning.required` | siempre `true` | Estructural. Rechazar un edit a `false` lo hace cumplir `/conclave-planning`. |
 | `ceremonies.qa_verification.required` | siempre `true` | Estructural. Lo hace cumplir `/conclave-qa`. |
 | `ceremonies.qa_verification.ci_wait_timeout_minutes` | entero, default `20` | Cuánto tiempo espera una corrida de `/conclave-qa` a que el CI del repo target termine con los tests UAT que generó, antes de tratar "todavía sin conclusión" como bloqueado. |
-| `ceremonies.daily_standup.required` | `true \| false` | Off por default en `lean`, on en `full-scrum`. |
-| `ceremonies.backlog_grooming.required` | `true \| false` | Cuando está off, el refinamiento pasa dentro de `/conclave-planning` en vez de una ceremonia separada. |
-| `ceremonies.peer_pr_review.required` | `true \| false` | Controla si `/conclave-pr-review` corre — el paso de aprobación de PR del Tech Lead. |
-| `ceremonies.sprint_review.required` | `true \| false` | Ceremonia de cierre de sprint. Comando planeado, aún no lanzado. |
-| `ceremonies.sprint_retrospective.required` | `true \| false` | Ceremonia de cierre de sprint. Comando planeado, aún no lanzado. |
+| `ceremonies.peer_pr_review.required` | `true \| false` | Controla si `/conclave-pr-review` corre — el paso de aprobación de PR del Tech Lead. `false` en `lean`, `true` en `full-scrum`. |
+| `ceremonies.close.retro` | `true \| false` | v2.0.0+. Si `/conclave-close` corre la retrospectiva después de la review. La review corre siempre. `false` en `lean`, `true` en `full-scrum`. |
+| `sprint.length_weeks` | entero, default `2` | v2.0.0+. Define las fechas del roadmap y la fecha de fin por default en `/conclave-planning`. |
+| `sprint.sprint_zero` | `true \| false` | v2.0.0+. `true` hace que el roadmap arranque con `SPRINT-000`, un walking skeleton de historias `type: enabler`. Default `true` en un repo sin código, `false` si no (y después de `--upgrade`). |
+
+> **Eliminado en v2.0.0:** `ceremonies.daily_standup`, `ceremonies.backlog_grooming`, `ceremonies.sprint_review`, `ceremonies.sprint_retrospective`. Los comandos avisan una vez y los ignoran. `/conclave-init --upgrade` los elimina y mapea `sprint_retrospective.required` a `ceremonies.close.retro`.
 
 ### Bloque de configuración de modelos (opcional, v0.7.0+)
 
@@ -295,7 +292,9 @@ id: "US-042"
 title: "Agregar middleware JWT"
 priority: "must"                # must | should | could | wont
 estimate: "M"                   # XS | S | M | L | XL
-status: backlog                 # backlog | ready | in-progress | review | verified | done
+status: backlog                 # backlog | ready | in-progress | review | verified | done | retired
+type: "feature"                 # feature | enabler (v2.0.0+)
+epic: "EP-002"                  # EP-NNN desde la que se refinó; "" para historias ad-hoc (v2.0.0+)
 dependencies: []
 assignee: ""
 discipline: ""                  # frontend | backend | qa | design | devops | mobile | multi
@@ -303,7 +302,39 @@ sprint: "SPRINT-003"
 created_at: "2026-01-01T00:00:00Z"
 ```
 
-`discipline` arranca vacío y lo define el Tech Lead durante `/conclave-planning` — mirá la [máquina de estados de la historia](/es/state-machine) para saber exactamente cuándo cada campo se vuelve requerido.
+`discipline` arranca vacío y lo define el Tech Lead durante `/conclave-planning` — mirá [máquinas de estado](/es/state-machine) para saber exactamente cuándo cada campo se vuelve requerido. Las historias `type: enabler` se escriben como "In order to / We need" en vez de "As a / I want / So that".
+
+## Frontmatter de la épica (v2.0.0+)
+
+Cada archivo de épica (`conclave/product/epics/EP-NNN-<slug>.md`) lleva:
+
+```yaml
+id: "EP-002"
+title: "Compartir tareas"
+status: proposed               # proposed | active | done | retired
+size: "M"                      # S (≈1 sprint) | M (≈2 sprints) | L (≈3+ — dividir antes de entrar al roadmap)
+priority: "must"               # must | should | could
+type: "feature"                # feature | enabler
+dependencies: []               # otros ids EP-NNN
+roadmap_slots: []              # ids SPRINT-NNN, los setea el paso de roadmap
+stories: []                    # ids de historias, los agrega /conclave-planning
+created_at: "2026-01-01"
+```
+
+## Frontmatter de `meta.md` del sprint (v2.0.0+)
+
+```yaml
+id: "SPRINT-001"
+status: active                 # draft | active | closed
+slot: 1                        # slot del roadmap (0 = Sprint 0)
+epics: ["EP-001", "EP-002"]
+committed_units: 14            # lo setea /conclave-planning (XS=1 S=2 M=3 L=5 XL=8)
+velocity: null                 # unidades done — lo setea /conclave-close
+sprint_goal_met: null          # true | false | partial — lo setea /conclave-close
+closed_at: ""                  # lo setea /conclave-close
+target_start: "2026-10-12"
+target_end: "2026-10-23"
+```
 
 ## `conclave/team/testing-environments.md`
 

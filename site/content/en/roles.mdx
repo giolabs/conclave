@@ -11,38 +11,49 @@ Six are **disciplines**, always present in the roster whether or not they map to
 
 | Role | Kind | Charter | Invoked by |
 |---|---|---|---|
-| Tech Lead | Discipline | `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility + discipline assignment, Wave 1), `/conclave-pr-review` (code review) |
+| Tech Lead | Discipline | `agents/tech-lead.md` | `/conclave-discovery` (tech stack, data model, BLOC), `/conclave-init` (architecture, ADRs, enabler epic), `/conclave-planning` (enabler stories in Wave 1; feasibility + discipline assignment in Wave 2), `/conclave-pr-review` (code review), `/conclave-adr` |
 | Frontend / Backend / Mobile | Discipline | `agents/developer.md` | `/conclave-dev` (stories with `discipline: frontend \| backend \| mobile \| multi`) |
 | QA | Discipline | `agents/qa.md` | `/conclave-qa` |
 | Designer | Discipline | `agents/designer.md` | `/conclave-dev` (stories with `discipline: design`) |
 | DevOps | Discipline | `agents/devops.md` | `/conclave-dev` (stories with `discipline: devops`) |
-| Product Manager | Process role (optional) | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review, Wave 1) |
-| Scrum Master | Process role (optional) | `agents/scrum-master.md` | `/conclave-planning` (facilitator + assignment, Wave 2 — runs after Product Manager and Tech Lead) |
+| Product Manager | Process role (optional) | `agents/product-manager.md` | `/conclave-discovery` (discovery, MVP), `/conclave-init` (vision + epics), `/conclave-planning` (refinement, Wave 1), `/conclave-close` (review), `/conclave-epic`, `/conclave-story` |
+| Scrum Master | Process role (optional) | `agents/scrum-master.md` | `/conclave-init` (roadmap), `/conclave-planning` (capacity + assignment, Wave 3), `/conclave-close` (retro), `/conclave-epic` (roadmap re-slotting) |
 
 ## Product Manager
 
-Functionally the **Product Owner** in Scrum terms, when someone holds this optional process role. Owns the Product Backlog, prioritizes, defines acceptance criteria.
+Functionally the **Product Owner** in Scrum terms, when someone holds this optional process role. Owns the Product Goal, the epics, and the Product Backlog; prioritizes; defines acceptance criteria.
 
-- **Input**: idea + context + clarifications + (optionally) Tech Lead's architectural draft.
-- **Output**: ordered Product Backlog as INVEST stories with MoSCoW priority, T-shirt estimate, Gherkin acceptance criteria.
+- **Input**: idea or product doc + inception answers (init); the slot's epics, carry-over, velocity (planning); sprint facts and done stories (close).
+- **Output**:
+  - `/conclave-discovery` → `00-discovery.md` (problem, ICP, personas, competitors, UVP, features) and `04-mvp.md` (Product Goal, metrics, candidate epics, Sprint 0, sequencing) in `docs/product/`.
+  - `/conclave-init` → `vision.md` (problem, personas, Product Goal, success metrics, MVP scope) and 3–8 epics ordered by value.
+  - `/conclave-planning` (Wave 1) → a Sprint Goal plus INVEST stories with MoSCoW priority, T-shirt estimate, and 2–4 Gherkin scenarios each, refined only from the slot's epics.
+  - `/conclave-close` → `review.md`: Sprint Goal verdict, epic and Product Goal progress, proposed adaptations.
+  - `/conclave-epic` / `/conclave-story` → new, edited, or split epics and stories.
 - **Quality checklist**: every story testable, every criterion verifiable, backlog ordered by value, acceptance criteria written before estimation.
 
 ## Tech Lead
 
 Owns architectural decisions, technical risks, per-story discipline assignment, and the code-level PR approval gate.
 
-- **Input**: idea + context + clarifications (for spec); draft sprint + architecture (for planning); PR diff + architecture + ADRs (for pr-review).
+- **Input**: idea + confirmed stack (init); draft sprint + architecture (planning); PR diff + architecture + ADRs (pr-review).
 - **Output**:
-  - `/conclave-spec` → Architectural Foundation: overview + ADRs + risks + cross-cutting concerns + mermaid diagram.
-  - `/conclave-planning` (Wave 1, in parallel with Product Manager) → feasibility findings per story, plus a `discipline` value (`frontend | backend | qa | design | devops | mobile | multi`) per story.
+  - `/conclave-discovery` → `01-tech-stack.md`, `02-data-model.md` and `03-bloc.md` (domain rules) in `docs/product/`.
+  - `/conclave-init` → Architectural Foundation (overview, ADRs under `product/adr/`, risks, cross-cutting concerns, mermaid diagram) and, when Sprint 0 is on, the "Walking skeleton" enabler epic.
+  - `/conclave-planning` Wave 1 → `type: enabler` stories for enabler slots, with script-checkable acceptance criteria.
+  - `/conclave-planning` Wave 2 → feasibility findings per story, plus a `discipline` value (`frontend | backend | qa | design | devops | mobile | multi`) per story.
   - `/conclave-pr-review` → structured verdict (approved / request-changes) + per-file findings (blocker / non-blocking) + ADR proposal evaluation.
 
 ## Scrum Master
 
 Facilitates ceremonies, assigns stories, surfaces blockers, protects the team's process. Does not write code, does not own the backlog or architecture.
 
-- **Input**: sprint draft + roster + backlog + DoR + Product Manager's and Tech Lead's Wave 1 findings (including each story's assigned discipline) + (optionally) previous retro.
-- **Output**: meeting record for the current ceremony (sprint planning today; standup / review / retro in future iterations). Runs in Wave 2 — after Product Manager and Tech Lead return — because assignment needs to know each story's discipline first.
+- **Input**: epics + team size + sprint length + launch date (init); draft stories + roster + DoR + Wave 1/2 findings + velocity history + open retro actions (planning); sprint signals + team answers (close).
+- **Output**:
+  - `/conclave-init` → `roadmap.md`: epics sequenced into sprint slots, MVP slot, forecast.
+  - `/conclave-planning` (Wave 3) → planning record with assignments and capacity from velocity. Runs last because assignment needs each story's discipline first.
+  - `/conclave-close` (when `ceremonies.close.retro: true`) → `retro.md` with keep / change / try and at most 3 action items.
+  - `/conclave-epic` → the roadmap re-slotted for a new, edited, or split epic.
 
 **Hard rule**: only assigns a story to a roster member whose `Discipline` matches (or who holds Tech Lead, for cross-cutting stories). If no match exists, it flags an unresolved coverage gap for the orchestrator to raise with the human — it never guesses.
 

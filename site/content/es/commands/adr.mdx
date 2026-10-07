@@ -52,7 +52,7 @@ El comando termina limpio sin escribir archivos.
 
 ## Migración de ADRs inline (primera corrida por repo)
 
-Repositorios corriendo `/conclave-spec` de pre-v0.8.0 tienen secciones inline `### ADR-NNN:` en `architecture.md` sección 4. La primera corrida de `/conclave-adr` en tal repo los migra a archivos standalone:
+Repositorios inicializados antes de v0.8.0 tienen secciones inline `### ADR-NNN:` en `architecture.md` sección 4. La primera corrida de `/conclave-adr` en tal repo los migra a archivos standalone:
 
 1. **Atomicidad per-ADR** — extraer un ADR inline por vez: escribir el archivo standalone, después remover esa sección inline específica. Repetir para el siguiente.
 2. **Resumibilidad** — si la migración se interrumpe a mitad, una sección inline todavía presente en `architecture.md` corresponde a un ADR cuyo archivo standalone no existe todavía; una re-corrida retoma donde la anterior quedó.

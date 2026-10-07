@@ -146,7 +146,7 @@ Inception needs to know what the product is. This step finds the team's product 
 
 ### 3.1 — Scan the repo for product documents (no agent)
 
-1. **Discovery package.** Look for a `README.md` whose frontmatter has `conclave_product_package: true` (default location `docs/product/`; search `find $REPO_ROOT -maxdepth 4 -name README.md -path "*docs*"` and grep the frontmatter). Found → `PACKAGE_DIR`; it wins over everything below.
+1. **Discovery package.** Look for any `README.md` up to depth 4 (same exclusions as item 2) whose frontmatter has `conclave_product_package: true` — `find $REPO_ROOT -maxdepth 4 -name README.md` then `grep -l 'conclave_product_package: true'`. The default location is `docs/product/`, but `/conclave-discovery --out` can put it anywhere. Found → `PACKAGE_DIR`; it wins over everything below.
 2. **Candidate documents.** List every `.md` up to depth 4, excluding `.git/`, `node_modules/`, `vendor/`, `dist/`, `build/`, `conclave/`, `conclave-board/`, `.github/`, `site/`, and the files `CHANGELOG.md`, `LICENSE*`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CLAUDE.md`.
 3. **Score** each candidate (orchestrator-side, by reading the first ~200 lines):
 
@@ -191,7 +191,7 @@ When the user picks a candidate (B) or a path that covers **fewer than 4 of the 
 
 ### 3.4 — Run discovery inline when chosen
 
-When any answer above chose `/conclave-discovery`, run its Steps 1–7 inline now (`commands/conclave-discovery.md`), passing `--from <path>` when completing a document, the project language from Step 2, and team size from the roster mode. It returns without its own next-step block. Then continue here with `PACKAGE_DIR` = its output folder.
+When any answer above chose `/conclave-discovery`, run its Steps 1–7 inline now (`commands/conclave-discovery.md`), passing `--from <path>` when completing a document, the project language from Step 2, team = `solo` when `team_mode = solo` (otherwise let discovery ask), and — when the user picked **Regenerate** in 3.2-A — the decision `regenerate`, so discovery skips its own Step 1.5 question. It returns without its own next-step block. Then continue here with `PACKAGE_DIR` = its output folder.
 
 ### 3.5 — Set the inputs
 
@@ -249,15 +249,15 @@ Read `skills/conclave/templates/config.template.md`. Fill in all `{{placeholders
 | Placeholder | Value |
 |---|---|
 | `{{project_name}}` | from Step 2 |
-| `{{project_type}}` | from Step 3 |
+| `{{project_type}}` | from Step 4.1 |
 | `{{project_language}}` | from Step 2 |
 | `{{story_prefix}}` | from Step 2 |
 | `{{launch_date}}` | from Step 2 (or "TBD") |
 | `{{product_doc_path}}` | from Step 3.5 — package folder, document path, or `""` when the idea was typed |
-| `{{stack_language}}` | from Step 3 |
-| `{{framework}}` | from Step 3 |
-| `{{datastore}}` | from Step 3 |
-| `{{infrastructure}}` | from Step 3 |
+| `{{stack_language}}` | from Step 4.1 |
+| `{{framework}}` | from Step 4.1 |
+| `{{datastore}}` | from Step 4.1 |
+| `{{infrastructure}}` | from Step 4.1 |
 | `{{repo_url}}` | output of `git remote get-url origin 2>/dev/null \|\| echo ""` |
 | `{{iso_date}}` | today's date (ISO) |
 | `{{conclave_version}}` | `2.0.0` |

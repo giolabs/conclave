@@ -1,13 +1,59 @@
 ---
-title: Story state machine
-description: How a story moves from backlog through done, profile-aware.
+title: State machines
+description: How epics, sprints, and stories move through their states — profile-aware.
 ---
 
-# Story state machine
+# State machines
 
-A user story moves through a small set of well-defined states. The exact path depends on the team's profile — specifically whether `peer_pr_review.required` is on.
+Conclave tracks three levels of work, each with its own status field in YAML frontmatter:
 
-## The states
+```
+Product Goal (product/vision.md)
+└── Epic   EP-NNN   proposed → active → done | retired
+    └── Story  US-NNN   backlog → ready → in-progress → review → [verified] → done | retired
+Sprint  SPRINT-NNN     draft → active → closed
+```
+
+## Epics
+
+An epic (`product/epics/EP-NNN-<slug>.md`) is a big chunk of value with a success criterion. It has a `type` (`feature | enabler`), a `size` (`S | M | L`), and the roadmap slots it is planned into.
+
+| Status | Set by | Meaning |
+|---|---|---|
+| `proposed` | `/conclave-init`, `/conclave-epic new` / `split` | Exists and is slotted in the roadmap; no story has been planned from it yet. |
+| `active` | `/conclave-planning` | At least one sprint has pulled stories from it. |
+| `done` | `/conclave-close` | The review confirmed every non-retired story is done **and** the success criterion holds. |
+| `retired` | `/conclave-epic retire` / `split` | Dropped, or replaced by child epics (`superseded_by`). Its unstarted stories are retired with it. |
+
+```
+proposed ──/conclave-planning──→ active ──/conclave-close──→ done
+    ↘                               ↘
+      retired  (/conclave-epic retire | split)
+```
+
+`/conclave-close` never applies a split or retirement itself — it proposes them, and you run [`/conclave-epic`](/en/commands/epic).
+
+## Sprints
+
+| Status | Set by | Meaning |
+|---|---|---|
+| `draft` | `/conclave-planning` (while running) | Stories are being written; an interrupted planning run leaves the sprint here and the next run resumes it. |
+| `active` | `/conclave-planning` (lock) | The Sprint Goal and story list are locked. **Exactly one** sprint can be active. |
+| `closed` | `/conclave-close` | Reviewed, `velocity` and `sprint_goal_met` recorded, reports written. Never reopened. |
+
+```
+draft ──/conclave-planning──→ active ──/conclave-close──→ closed
+```
+
+`/conclave-planning` refuses while a sprint is `active`, so `/conclave-close` sits between every pair of sprints. `/conclave-dev --loop` and `/conclave-sprint` never close a sprint. v1's `done` and `archived` sprint statuses are gone — `/conclave-init --upgrade` maps both to `closed`.
+
+`SPRINT-000` is the optional **Sprint 0** walking skeleton (`sprint.sprint_zero: true`), made of `type: enabler` stories.
+
+## Stories
+
+A user story moves through a small set of well-defined states. The exact path depends on the team's profile — specifically whether `peer_pr_review.required` is on. Since v2.0.0 every story also carries `type` (`feature`, or `enabler` for technical work with no direct user) and `epic` (the `EP-NNN` it was refined from; empty for ad-hoc stories).
+
+### The states
 
 | Status | Meaning |
 |---|---|
@@ -19,7 +65,7 @@ A user story moves through a small set of well-defined states. The exact path de
 | `done` | All gates passed, DoD met, PR mergeable. |
 | `retired` (v0.8.0+) | Parallel terminal state to `done`. Entered via `/conclave-story retire` or `/conclave-story split` (on the parent). Excluded from every command's story collection. |
 
-## Transitions
+### Transitions
 
 ```
 backlog → ready → in-progress → review → [verified] → done
@@ -27,14 +73,15 @@ backlog → ready → in-progress → review → [verified] → done
                                                 retired  (parallel terminal — via /conclave-story)
 ```
 
-## The `retired` terminal state (v0.8.0+)
+### The `retired` terminal state (v0.8.0+)
 
-A story with `status: retired` is out of every command's scope — `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, and `/conclave-sprint` all skip it. Only `/conclave-spec` is exempt (it authors new stories rather than collecting existing ones).
+A story with `status: retired` is out of every command's scope — `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, `/conclave-sprint` and `/conclave-close` all skip it.
 
-There are two ways in:
+There are three ways in:
 
 1. **`/conclave-story retire US-NNN`** — explicit retirement. A `retirement_reason` frontmatter field is populated with the user's reason; `retired_at` is set to today. No LLM call — this is a mechanical policy decision.
 2. **`/conclave-story split US-NNN`** — decomposition. The parent story becomes `retired` with `superseded_by: [US-CHILD_1, ...]` and `retirement_reason: "Split into ..."`. The children carry `split_from: US-NNN`.
+3. **`/conclave-epic retire EP-NNN`** — the epic's `backlog` / `ready` stories are retired with `retirement_reason: "Epic EP-NNN retired"`.
 
 There is no un-retire command. If a team changes their mind, they hand-edit the frontmatter — git preserves the audit trail.
 
@@ -62,7 +109,7 @@ review ──/conclave-qa──→ done
 
 QA passes → `status: done` directly. No separate Tech Lead gate. QA is the merge signal.
 
-## UAT: a verdict distinction, not a new status (v0.3.0+)
+### UAT: a verdict distinction, not a new status (v0.3.0+)
 
 When `conclave/team/testing-environments.md` is configured, `/conclave-qa` generates CI-runnable UAT tests from the story's Gherkin scenarios (Playwright for `frontend`/`multi`, the shared Postman/Newman collection for `backend`/`multi`, a manual checklist for `mobile`), pushes them, and waits for the target repo's own CI to run them — it never executes them itself. This doesn't add a new story-frontmatter status value; it adds a third **verdict**, alongside `passed` and `blocked`:
 
@@ -76,20 +123,20 @@ review ──/conclave-qa──→ passed  → verified/done as above
 - **`blocked` via UAT** — a CI run on the generated Playwright/Newman tests fails, or no run is found / the wait times out (`ceremonies.qa_verification.ci_wait_timeout_minutes`, default 20). Both are treated exactly like a failing Gherkin scenario — never silently `passed`.
 - **Not configured yet** — a missing or all-`TBD` `testing-environments.md` degrades gracefully: `/conclave-qa` skips UAT entirely and verifies acceptance criteria exactly as it did before this file existed.
 
-## Bugs reuse this exact state machine (v0.10.0+)
+### Bugs reuse this exact state machine (v0.10.0+)
 
 A `BUG-NNN` reported via [`/conclave-bug report`](/en/commands/bug) is written directly in `status: ready` — no new state, no new transition table. It never passes through `backlog` or Sprint Planning (`/conclave-planning` and `/conclave-sprint` never look inside `conclave/product/bugs/`), and from `ready` it follows the identical path a story does: `/conclave-dev BUG-NNN` → `/conclave-qa BUG-NNN` → `/conclave-pr-review BUG-NNN` (if `peer_pr_review.required: true`). `US-NNN` and `BUG-NNN` IDs can be mixed in the same `/conclave-dev`/`/conclave-qa` invocation — the ID prefix is all that disambiguates which directory a given ID resolves against. `retired` is available as a manual escape hatch for a mis-filed bug (hand-edit the frontmatter — there's no `/conclave-bug retire` sub-action yet).
 
-## When `discipline` gets assigned
+### When `discipline` gets assigned
 
 Unlike `assignee` (set at planning time), `discipline` follows a specific sequence inside `/conclave-planning`:
 
-1. **Wave 1** — the Tech Lead reviews each story's feasibility and assigns a `discipline` value (`frontend | backend | qa | design | devops | mobile | multi`) in the same pass, in parallel with the Product Manager's scope review.
+1. **Wave 2 (feasibility)** — after the Product Manager has refined the slot's epics into stories, the Tech Lead reviews each story's feasibility and assigns a `discipline` value (`frontend | backend | qa | design | devops | mobile | multi`).
 2. **DoR validation** — a story with no `discipline` fails the Definition of Ready and cannot enter the sprint, in either `lean` or `full-scrum`.
-3. **Wave 2** — the Scrum Master assigns each story to a roster member whose `Discipline` matches (or who holds Tech Lead, for cross-cutting stories), using the value from Wave 1.
+3. **Wave 3** — the Scrum Master assigns each story to a roster member whose `Discipline` matches (or who holds Tech Lead, for cross-cutting stories), using the value from Wave 2.
 4. If no roster member matches a story's discipline, the orchestrator surfaces a coverage-gap question to the human directly — the Scrum Master subagent never guesses an assignee.
 
-## Failure handling
+### Failure handling
 
 A failure in either gate drops the story back to `review`. The dev fixes the issue, pushes new commits, and the gate(s) re-run:
 

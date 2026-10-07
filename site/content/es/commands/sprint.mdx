@@ -1,54 +1,51 @@
 ---
 title: /conclave-sprint
-description: Ejecutá un sprint activo completo — planning, dev, QA y PR review — en una sola invocación. Genera reporte de cierre, guía UAT y snapshot DORA al completarse.
+description: Maneja la fase de build de un sprint en una pasada — planning si no hay sprint activo, después Dev, QA y PR review en lotes. Cerrar el sprint es /conclave-close.
 ---
 
 # /conclave-sprint
 
-Ejecutá un sprint activo (o en borrador) de punta a punta en una sola invocación.
+Maneja la **fase de build** de un sprint en una sola invocación: planifica el próximo slot del roadmap si no hay sprint activo, y después hace una pasada de Dev → QA → PR review.
 
 ```
 /conclave-sprint
+/conclave-sprint --no-interaction
+/conclave-sprint --headless
 ```
 
-No requiere argumentos. El comando encuentra el sprint actual, resuelve los modelos configurados y ejecuta cuatro fases secuenciales. Cada fase respeta el perfil del equipo; los fallos se aíslan por historia.
+Cerrar el sprint — review, retro, velocidad, reportes — es [`/conclave-close`](/es/commands/close). Este comando nunca pone un sprint en `closed` y nunca escribe en `conclave/report/`.
 
 ## Fases
 
 | Fase | Qué hace | Cuándo corre |
 |---|---|---|
-| **Fase 1 — Planning** | Corre Sprint Planning (PM + TL en paralelo, luego SM) para bloquear un sprint `draft` | Se saltea si el sprint ya está `active` |
-| **Fase 2 — Dev** | Despacha todas las historias `ready` al subagente Developer/Designer/DevOps (batches de ≤ 3) | Se saltea si no hay historias `ready` |
-| **Fase 3 — QA** | Despacha todas las historias `review` al subagente QA (batches de ≤ 3) | Se saltea si no hay historias `review` |
-| **Fase 4 — PR Review** | Despacha todas las historias `verified` al subagente Tech Lead (batches de ≤ 3) | Se saltea cuando `ceremonies.peer_pr_review.required: false` o no hay historias `verified` |
+| **Fase 1 — Planning** | Corre [`/conclave-planning`](/es/commands/planning) inline para el próximo slot del roadmap (refinamiento, factibilidad del TL, planning del SM, validación, bloqueo) | Se saltea si ya hay un sprint `active` |
+| **Fase 2 — Dev** | Despacha todas las historias `ready` al subagente Developer/Designer/DevOps (lotes de 3) | Se saltea si no hay historias `ready` |
+| **Fase 3 — QA** | Despacha todas las historias `review` al subagente de QA (lotes de 3) | Se saltea si no hay historias `review` |
+| **Fase 4 — PR Review** | Despacha todas las historias `verified` al subagente Tech Lead (lotes de 3) | Se saltea cuando `ceremonies.peer_pr_review.required: false` o no hay historias `verified` |
 
-## Output de cada fase
+Un workspace sin `product/roadmap.md` (pre-v2) se rechaza con *"Run `/conclave-init --upgrade` first."*
 
-Cada fase imprime un header antes de despachar las llamadas de Agent:
+## Salida por fase
+
+Cada fase imprime un encabezado y, después de sus lotes, una tabla resumen (mismo formato que `/conclave-dev` y `/conclave-qa`):
 
 ```
 ## Phase 2 — Dev (4 stories)
-```
 
-Y una tabla resumen después de que terminan todos los batches (mismo formato que `/conclave-dev` y `/conclave-qa`):
-
-```
 | Story  | Branch               | PR                           | Outcome              |
 |--------|----------------------|------------------------------|----------------------|
 | US-001 | feat/US-001-login    | https://github.com/…/pull/42 | ✓ done               |
-| US-002 | feat/US-002-profile  | https://github.com/…/pull/43 | ✓ done               |
 | US-003 | feat/US-003-settings | —                            | ✗ failed: <error>    |
 ```
 
-Las fases salteadas imprimen un aviso de una línea:
+Las fases salteadas siempre imprimen un aviso de una línea:
 
 ```
 Phase 4 — PR Review: skipped (peer_pr_review.required: false)
 ```
 
-## Resumen final
-
-Después de todas las fases, una tabla a nivel sprint cubre cada historia tocada:
+## Resumen final y aviso de cierre
 
 ```
 | Story  | Starting status | Final status | Notes               |
@@ -58,95 +55,44 @@ Después de todas las fases, una tabla a nivel sprint cubre cada historia tocada
 | US-003 | review          | done         | (was already review)|
 ```
 
+Si quedan historias en curso, sugiere `/conclave-dev --loop`. Cuando todas las historias no retiradas están `done`, imprime:
+
+```
+All stories in SPRINT-NNN are done. Run /conclave-close to review the Increment,
+run the retro, record velocity, and generate the sprint report.
+```
+
 ## Configuración de modelos
 
-`/conclave-sprint` lee el bloque `models:` de `conclave/config.md` e imprime un resumen de una línea antes de la Fase 1:
+Lee el bloque `models:` de `conclave/config.md` e imprime un resumen de una línea antes de la Fase 1. La Fase 2 rutea por disciplina (`design` → designer, `devops` → devops, el resto → developer). Mirá la [referencia de configuración](/es/configuration).
 
-```
-Models: default=claude-sonnet-4-6, tech_lead=claude-opus-4-6, developer=claude-haiku-4-5-20251001
-```
+## Comportamiento ante fallas
 
-Cada llamada de Agent recibe el modelo configurado para su rol. Ver la [referencia de configuración](/es/configuration#bloque-de-configuración-de-modelos-opcional-v070) para el formato completo del bloque `models:`.
-
-## Comportamiento ante fallos
-
-- **Fallo en Fase 1** (error del agente de planning): stop duro. `Sprint run aborted: Phase 1 (Planning) failed.` Motivo: proceder al dev sin un objetivo de sprint bloqueado es estructuralmente inválido.
-- **Fallo por historia en Fases 2–4**: esa historia se reporta en el resumen (`✗ failed`); las demás continúan. Una historia fallida en dev queda en `ready` y se excluye de la colección de la Fase 3.
-- **QA `verdict: blocked`**: resultado normal. La historia queda en `review`, se reporta como `✗ QA: blocked`. No bloquea otras llamadas de QA.
+- **Falla en la Fase 1**: corte duro — `Sprint run aborted: Phase 1 (Planning) failed.`
+- **Falla por historia en las Fases 2–4**: se reporta en el resumen; las demás historias siguen. Una historia que falla en dev queda `ready`.
+- **QA `verdict: blocked`**: resultado normal. La historia queda en `review`.
 
 ## Re-ejecuciones
 
-Re-ejecutar `/conclave-sprint` después de un fallo parcial es seguro. El frontmatter `status` de cada historia es el mecanismo de recuperación:
+Son seguras. El frontmatter `status` de cada historia es el mecanismo de recuperación: la Fase 2 junta `ready`, la Fase 3 `review`, la Fase 4 `verified`. Los bugs (`BUG-NNN`) nunca se recolectan — arreglalos con `/conclave-dev BUG-NNN`.
 
-- La Fase 2 colecciona historias `ready` (las que fallaron en una corrida anterior y quedaron en `ready` permanecen así).
-- La Fase 3 colecciona historias `review` (incluyendo las que quedaron en `review` de un bloqueo anterior de QA).
-- La Fase 4 colecciona historias `verified`.
+## Headless de una pasada
 
-No se introduce ningún archivo de checkpoint. Volvé a correr el comando y retoma exactamente donde quedó el frontmatter.
+`--no-interaction` / `--headless`, o `commands.sprint.interactive: false`. La **misma** pasada única con las preguntas reemplazadas por defaults documentados:
 
-## Cierre de sprint — Pasos 12 y 13 (v0.16.0+)
+- Planning (sin sprint activo): arranca hoy, termina después de `sprint.length_weeks` (default 2) semanas, el primer miembro del roster como facilitador, el Tech Lead como fallback de huecos de cobertura. Las historias que fallan el DoR vuelven a `backlog`; sobre-capacidad saca la de menor prioridad; sub-capacidad no suma nada.
+- Las Fases 2–4 corren igual. La Fase 4 sigue respetando `ceremonies.peer_pr_review.required` — headless no fuerza el gate del TL.
+- No se mergea nada, no se escribe run report, no se reintenta nada.
 
-Cuando todas las historias alcanzan un estado terminal (`done` o explícitamente carriedover), el comando ejecuta dos pasos adicionales antes de marcar el sprint como cerrado:
-
-### Paso 12 — Gate de bug crítico
-
-Escanea `conclave/sprints/SPRINT-NNN/bugs/` buscando cualquier archivo cuyo frontmatter tenga `severity: critical` y `status` distinto de `done`. Si hay algún bug crítico abierto:
-
-```
-Sprint close BLOCKED: 2 critical bug(s) open in conclave/sprints/SPRINT-NNN/bugs/.
-Resolve BUG-001-auth-bypass and BUG-003-data-loss before closing.
-```
-
-Este chequeo corre incondicionalmente — no se puede eludir en modo headless o `--no-interaction`. El sprint no puede cerrarse hasta que todos los bugs críticos estén resueltos.
-
-### Paso 13 — Reportes de cierre
-
-Se generan tres archivos bajo `conclave/report/SPRINT-NNN/` a partir de las plantillas correspondientes:
-
-| Archivo | Plantilla | Contenido |
-|---|---|---|
-| `report.md` | `sprint-closing-report.template.md` | Velocidad, tabla de resultados de historias, conteo de bugs, cobertura de aceptación, carryover, recomendaciones |
-| `UAT.md` | `sprint-uat-summary.template.md` | Escenarios Gherkin por historia, pasos de test manuales, checklist de regresión, tabla de firma |
-| `dora-data.yml` | (inline) | Snapshot DORA pre-computado: timestamps de deploy, lead times, CFR, datos brutos de MTTR para la agregación de `/conclave-dora` |
-
-El status del sprint en `meta.md` se setea en `done` **después** de que el Paso 13 termine, así los reportes de cierre siempre reflejan el estado final.
-
-## Qué produce (lista completa)
-
-- Artefactos de las Fases 1–4 (historias, PRs, reportes de verificación, acta de planning).
-- `conclave/sprints/SPRINT-NNN/bugs/BUG-NNN-*.md` — bugs del sprint escritos por la fase de QA cuando la verificación queda bloqueada.
-- `conclave/report/SPRINT-NNN/report.md` — reporte de cierre del sprint.
-- `conclave/report/SPRINT-NNN/UAT.md` — guía de UAT funcional.
-- `conclave/report/SPRINT-NNN/dora-data.yml` — snapshot de métricas DORA (consumido por `/conclave-dora`).
+> **Cambió en 0.15.0.** `commands.sprint.schedule` / `budgets` / `merge_method` son no-ops ignorados y `--ignore-schedule` no tiene efecto acá. La entrega desatendida es [`/conclave-dev --loop`](/es/commands/dev).
+>
+> **Cambió en 2.0.0.** El gate de bugs críticos, los reportes de cierre y poner el sprint en closed pasaron a [`/conclave-close`](/es/commands/close). La Fase 1 ahora planifica el próximo slot del roadmap en vez de bloquear un sprint `draft` preexistente.
 
 ## Guardrails
 
-- El fallo en Fase 1 es un stop duro. Todos los demás fallos se aíslan por historia.
-- Nunca modifica archivos fuera de `conclave/` (excepto branches de features y `tests/uat/` que escribe la fase de QA).
-- **Ningún modo mergea un PR** — la aprobación del Tech Lead en la Fase 4 es suficiente; mergear es una acción humana.
-- Cada fase salteada imprime un aviso de salteo con el motivo.
-- **El sprint no puede cerrarse con bugs críticos abiertos** — el Paso 12 hace cumplir esto incondicionalmente.
-
-## Headless one-pass
-
-```
-/conclave-sprint --no-interaction
-/conclave-sprint --headless
-```
-
-O bien `commands.sprint.interactive: false` en `conclave/config.md`.
-
-Es **la misma** pasada única del modo interactivo, con los prompts reemplazados por defaults documentados:
-
-- El Planning sobre un sprint `draft` usa hoy como fecha de inicio, la duración configurada del sprint (o 14 días), el primer integrante del roster como facilitador y el Tech Lead como fallback ante gaps de cobertura.
-- Las fases 2–4 corren sin cambios, batch de 3 incluido. La Fase 4 sigue respetando `ceremonies.peer_pr_review.required`.
-- El gate de bug crítico (Paso 12) y los reportes de cierre (Paso 13) corren normalmente.
-- No mergea nada, no reintenta nada.
-
-Una historia que falla en Dev o que QA bloquea se reporta y queda donde está. Levantalas con `/conclave-dev --loop`.
-
-> **Cambió en 0.15.0.** Hasta 0.14.0 este flag corría un loop self-healing que mergeaba a la rama de integración, cerraba el sprint y respetaba `commands.sprint.schedule` / `budgets` / `merge_method`. ADR-006 movió la entrega desatendida a `/conclave-dev --loop`; esas tres claves ahora son no-ops ignorados, y `--ignore-schedule` no tiene efecto acá.
-
-### Entrega desatendida: `/conclave-dev --loop`
-
-Para llevar un sprint (o un subconjunto, o un `BUG-NNN` que este comando nunca colecta) sin supervisión, usá [`/conclave-dev --loop`](/es/commands/dev#loop-de-entrega-de-tres-waves-v0150) (v0.15.0+, ADR-006). Corre tres waves ordenadas — Dev + CI verde, después QA, después una review forzada del Tech Lead —, devuelve los fallos a Dev, gatea por una ventana local recurrente con presupuestos, escribe un reporte con estadísticas de productividad de los agentes, y deja **PRs aprobados para que los mergees vos**. Nunca cierra el sprint: imprime un aviso que apunta acá.
+- La falla en la Fase 1 es un corte duro; las demás fallas se aíslan por historia.
+- **Nunca mergea un PR**, en ningún modo (ADR-006).
+- No es un loop de entrega: sin self-heal, schedule, budgets, run report ni ledger de tokens.
+- Nunca recolecta `BUG-NNN`.
+- Solo escribe dentro de `conclave/`, más las ramas de feature de las historias y los paths `tests/uat/` que QA puede escribir.
+- Nunca cierra un sprint.

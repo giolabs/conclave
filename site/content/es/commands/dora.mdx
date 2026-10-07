@@ -67,7 +67,7 @@ Todo el texto se escribe en el `project_language` de `config.md`. Los nombres de
 
 ## Requisitos previos
 
-- Al menos un sprint debe haberse cerrado con `/conclave-sprint` para que `dora-data.yml` exista en `conclave/report/SPRINT-NNN/`.
+- Al menos un sprint debe haberse cerrado con [`/conclave-close`](/es/commands/close) para que `dora-data.yml` exista en `conclave/report/SPRINT-NNN/`.
 - Los datos precisos de lead time de PRs requieren `gh` autenticado con acceso al repositorio.
 - Los sprints cerrados antes de v0.16.0 no tienen `dora-data.yml`; el comando vuelve a leer los archivos de historias directamente, lo que es más lento y puede tener vacíos.
 

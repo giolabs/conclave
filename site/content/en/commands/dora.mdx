@@ -67,7 +67,7 @@ All prose is written in the `project_language` from `config.md`. DORA metric nam
 
 ## Prerequisites
 
-- At least one sprint must have been closed with `/conclave-sprint` so `dora-data.yml` exists under `conclave/report/SPRINT-NNN/`.
+- At least one sprint must have been closed with [`/conclave-close`](/en/commands/close) so `dora-data.yml` exists under `conclave/report/SPRINT-NNN/`.
 - Accurate PR lead-time data requires `gh` authenticated with access to this repository.
 - Sprints closed before v0.16.0 have no `dora-data.yml`; the command falls back to reading story files directly, which is slower and may have gaps.
 

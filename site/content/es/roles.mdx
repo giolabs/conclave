@@ -11,38 +11,49 @@ Seis son **disciplinas**, siempre presentes en el roster tenga o no tenga seis p
 
 | Rol | Tipo | Charter | Invocado por |
 |---|---|---|---|
-| Tech Lead | Disciplina | `agents/tech-lead.md` | `/conclave-spec` (arquitectura), `/conclave-planning` (factibilidad + asignación de disciplina, Wave 1), `/conclave-pr-review` (revisión de código) |
+| Tech Lead | Disciplina | `agents/tech-lead.md` | `/conclave-discovery` (tech stack, modelo de datos, BLOC), `/conclave-init` (arquitectura, ADRs, épica enabler), `/conclave-planning` (historias enabler en la Ola 1; factibilidad + asignación de disciplina en la Ola 2), `/conclave-pr-review` (revisión de código), `/conclave-adr` |
 | Frontend / Backend / Mobile | Disciplina | `agents/developer.md` | `/conclave-dev` (historias con `discipline: frontend \| backend \| mobile \| multi`) |
 | QA | Disciplina | `agents/qa.md` | `/conclave-qa` |
 | Designer | Disciplina | `agents/designer.md` | `/conclave-dev` (historias con `discipline: design`) |
 | DevOps | Disciplina | `agents/devops.md` | `/conclave-dev` (historias con `discipline: devops`) |
-| Product Manager | Rol de proceso (opcional) | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (revisión de alcance, Wave 1) |
-| Scrum Master | Rol de proceso (opcional) | `agents/scrum-master.md` | `/conclave-planning` (facilitador + asignación, Wave 2 — corre después de Product Manager y Tech Lead) |
+| Product Manager | Rol de proceso (opcional) | `agents/product-manager.md` | `/conclave-discovery` (discovery, MVP), `/conclave-init` (visión + épicas), `/conclave-planning` (refinamiento, Ola 1), `/conclave-close` (review), `/conclave-epic`, `/conclave-story` |
+| Scrum Master | Rol de proceso (opcional) | `agents/scrum-master.md` | `/conclave-init` (roadmap), `/conclave-planning` (capacidad + asignación, Ola 3), `/conclave-close` (retro), `/conclave-epic` (reacomodo del roadmap) |
 
 ## Product Manager
 
-Funcionalmente el **Product Owner** en términos de Scrum, cuando alguien ocupa este rol de proceso opcional. Dueño del Product Backlog, prioriza, define criterios de aceptación.
+Funcionalmente el **Product Owner** en términos de Scrum, cuando alguien ocupa este rol de proceso opcional. Dueño del Product Goal, las épicas y el Product Backlog; prioriza; define criterios de aceptación.
 
-- **Input**: idea + contexto + aclaraciones + (opcionalmente) el borrador arquitectónico del Tech Lead.
-- **Output**: Product Backlog ordenado como historias INVEST con prioridad MoSCoW, estimación en talles de remera, criterios de aceptación en Gherkin.
+- **Input**: idea o doc de producto + respuestas de inception (init); épicas del slot, carry-over, velocidad (planning); datos del sprint e historias done (close).
+- **Output**:
+  - `/conclave-discovery` → `00-discovery.md` (problema, ICP, personas, competidores, UVP, features) y `04-mvp.md` (Product Goal, métricas, épicas candidatas, Sprint 0, secuencia) en `docs/product/`.
+  - `/conclave-init` → `vision.md` (problema, personas, Product Goal, métricas de éxito, alcance del MVP) y 3–8 épicas ordenadas por valor.
+  - `/conclave-planning` (Ola 1) → un Sprint Goal más historias INVEST con prioridad MoSCoW, estimación en talles de remera y 2–4 escenarios Gherkin cada una, refinadas solo desde las épicas del slot.
+  - `/conclave-close` → `review.md`: veredicto del Sprint Goal, progreso de épicas y del Product Goal, adaptaciones propuestas.
+  - `/conclave-epic` / `/conclave-story` → épicas e historias nuevas, editadas o divididas.
 - **Checklist de calidad**: cada historia testeable, cada criterio verificable, backlog ordenado por valor, criterios de aceptación escritos antes de la estimación.
 
 ## Tech Lead
 
 Dueño de las decisiones arquitectónicas, los riesgos técnicos, la asignación de disciplina por historia, y el gate de aprobación de PR a nivel de código.
 
-- **Input**: idea + contexto + aclaraciones (para spec); borrador de sprint + arquitectura (para planning); diff del PR + arquitectura + ADRs (para pr-review).
+- **Input**: idea + stack confirmado (init); borrador de sprint + arquitectura (planning); diff del PR + arquitectura + ADRs (pr-review).
 - **Output**:
-  - `/conclave-spec` → Architectural Foundation: overview + ADRs + riesgos + preocupaciones transversales + diagrama mermaid.
-  - `/conclave-planning` (Wave 1, en paralelo con Product Manager) → findings de factibilidad por historia, más un valor de `discipline` (`frontend | backend | qa | design | devops | mobile | multi`) por historia.
+  - `/conclave-discovery` → `01-tech-stack.md`, `02-data-model.md` y `03-bloc.md` (reglas de dominio) en `docs/product/`.
+  - `/conclave-init` → Architectural Foundation (overview, ADRs en `product/adr/`, riesgos, preocupaciones transversales, diagrama mermaid) y, si el Sprint 0 está activo, la épica enabler "Walking skeleton".
+  - `/conclave-planning` Ola 1 → historias `type: enabler` para slots enabler, con criterios de aceptación verificables por script.
+  - `/conclave-planning` Ola 2 → findings de factibilidad por historia, más un valor de `discipline` (`frontend | backend | qa | design | devops | mobile | multi`) por historia.
   - `/conclave-pr-review` → veredicto estructurado (aprobado / pedir cambios) + findings por archivo (bloqueante / no bloqueante) + evaluación de propuesta de ADR.
 
 ## Scrum Master
 
 Facilita ceremonias, asigna historias, saca a la luz bloqueos, protege el proceso del equipo. No escribe código, no es dueño del backlog ni de la arquitectura.
 
-- **Input**: borrador del sprint + roster + backlog + DoR + los findings de Wave 1 del Product Manager y el Tech Lead (incluyendo la disciplina asignada a cada historia) + (opcionalmente) la retro anterior.
-- **Output**: acta de la ceremonia actual (sprint planning hoy; standup / review / retro en futuras iteraciones). Corre en Wave 2 — después de que Product Manager y Tech Lead retornan — porque la asignación necesita saber la disciplina de cada historia primero.
+- **Input**: épicas + tamaño del equipo + duración del sprint + fecha de lanzamiento (init); historias del borrador + roster + DoR + findings de las Olas 1/2 + historial de velocidad + acciones abiertas de la retro (planning); señales del sprint + respuestas del equipo (close).
+- **Output**:
+  - `/conclave-init` → `roadmap.md`: épicas secuenciadas en slots de sprint, slot del MVP, forecast.
+  - `/conclave-planning` (Ola 3) → registro del planning con asignaciones y capacidad desde la velocidad. Corre al final porque la asignación necesita la disciplina de cada historia primero.
+  - `/conclave-close` (cuando `ceremonies.close.retro: true`) → `retro.md` con mantener / cambiar / probar y como máximo 3 action items.
+  - `/conclave-epic` → el roadmap reacomodado para una épica nueva, editada o dividida.
 
 **Regla dura**: solo asigna una historia a un miembro del roster cuya `Discipline` coincida (o que tenga Tech Lead, para historias transversales). Si no existe ningún match, marca una brecha de cobertura sin resolver para que el orquestador se la plantee al humano — nunca adivina.
 

@@ -9,7 +9,7 @@ El [mapa de flujo](/es/workflow) muestra la forma del modo solo vs. equipo. Esta
 
 ## El equipo
 
-Un equipo chico multidisciplinario, `team_mode: team`, perfil `full-scrum` (peer PR review y todas las ceremonias activas):
+Un equipo chico multidisciplinario, `team_mode: team`, perfil `full-scrum` (aprobación de PR del Tech Lead y retro activas):
 
 | Persona | Disciplina | Rol de proceso |
 |---|---|---|
@@ -23,28 +23,27 @@ Designer está `TBD` — todavía nadie la cubre, y está bien así; la fila del
 
 Cada persona tiene su propio clone del repo y su propia sesión local de Claude Code. **Lo único que comparten es el remoto de git.** Conclave no tiene servidor, ni daemon, ni sesión compartida entre máquinas — cada comando `/conclave-*` lee y escribe archivos en el árbol de trabajo actual, igual que cualquier otra herramienta de CLI.
 
-## Día 0 — una persona hace el bootstrap, todos revisan
+## Día 0 — una persona corre la inception, todos revisan
 
-Ada (Tech Lead) corre el flujo de artefactos fundacionales una vez, en su máquina:
+Ada (Tech Lead) corre la configuración y la inception una vez, en su máquina:
 
 ```bash
 # Terminal de Ada
 /conclave-init
-# → "¿Sos solo vos, o un equipo?" → Equipo
-# → tamaño del equipo, largo del sprint, timezone
-# → una pregunta por disciplina: "¿Quién cubre Frontend?" etc.
+# → nombre del proyecto, prefijo de historia, idioma, fecha de lanzamiento
+# → modo: team · perfil: full-scrum · duración del sprint: 2 semanas
+# → "¿Desde dónde arranca la inception?" → "Describo la idea ahora":
+#   "REST API de gestión de tareas con auth JWT, dashboard en React"
+# → el PM escribe visión + épicas, el TL arquitectura + ADRs + épica walking skeleton,
+#   el SM el roadmap → checkpoint de una pantalla → confirmado
 
-/conclave-spec "REST API de gestión de tareas con auth JWT, dashboard en React"
-# → los subagentes Tech Lead + Product Manager corren en paralelo
-# → se crean conclave/product/backlog.md, architecture.md, sprints/SPRINT-001/
-
-git add conclave/
-git commit -m "conclave: bootstrap del workspace Scrum + borrador del Sprint 1"
-git push -u origin conclave/bootstrap
-gh pr create --title "Conclave: bootstrap + borrador Sprint 1" --body "..."
+git add conclave/ .github/
+git commit -m "conclave: inception de task-manager"
+git push -u origin conclave/inception
+gh pr create --title "Conclave: inception" --body "..."
 ```
 
-Esto es un PR normal. Bea, Cy, Dee y Fen lo revisan en GitHub como cualquier otro diff — leyendo `conclave/product/backlog.md` y `architecture.md` como prosa, sin pasar por Claude Code para nada. Una vez aprobado y mergeado, todos los demás hacen:
+Esto es un PR normal. Bea, Cy, Dee y Fen lo revisan en GitHub como cualquier otro diff — leyendo `vision.md`, las épicas, `architecture.md` y `roadmap.md` como prosa, sin pasar por Claude Code para nada. Una vez aprobado y mergeado, todos los demás hacen:
 
 ```bash
 # Terminales de Bea, Cy, Dee y Fen — después de que el PR mergea
@@ -61,19 +60,20 @@ Fen (que tiene el rol de Scrum Master) corre la ceremonia:
 ```bash
 # Terminal de Fen
 /conclave-planning
-# → Wave 1: los subagentes Product Manager + Tech Lead corren en paralelo
-#     (el Tech Lead asigna una `discipline` a cada historia)
-# → Wave 2: el Scrum Master asigna cada historia a un miembro del roster
+# → Ola 1: el Tech Lead refina la épica walking skeleton en historias enabler
+#     (el Product Manager hace lo mismo con las épicas de feature en los slots siguientes)
+# → Ola 2: el Tech Lead revisa factibilidad y asigna una `discipline` a cada historia
+# → Ola 3: el Scrum Master asigna cada historia a un miembro del roster
 #     cuya Discipline coincida
 # → chequeo de capacidad, validación de DoR, sprint bloqueado a `active`
 
 git add conclave/
-git commit -m "conclave: bloquear SPRINT-001 — entregar el CRUD de tareas + flujo de auth"
-git push -u origin conclave/planning-sprint-001
-gh pr create --title "Sprint Planning: SPRINT-001" --body "Objetivo, asignaciones, validación de DoR."
+git commit -m "conclave: planificar SPRINT-000 — walking skeleton"
+git push -u origin conclave/planning-sprint-000
+gh pr create --title "Sprint Planning: SPRINT-000" --body "Objetivo, asignaciones, validación de DoR."
 ```
 
-El cuerpo del PR lista quién se quedó con qué: `US-001 → Bea (frontend)`, `US-002 → Cy (backend)`, `US-003 → Dee (qa)`, etc. Una vez mergeado, todos vuelven a hacer pull de `main` y pueden ver su propia asignación en `conclave/sprints/SPRINT-001/stories/`.
+El repo todavía no tiene código, así que el primer slot es el **Sprint 0**: historias enabler para el scaffold, los tests, el lint, el CI y la rama `develop`. El cuerpo del PR lista quién se quedó con qué: `US-001 → Fen (devops)`, `US-002 → Cy (backend)`, etc. Una vez mergeado, todos vuelven a hacer pull de `main` y pueden ver su propia asignación en `conclave/sprints/SPRINT-000/stories/`.
 
 ## El loop por historia — totalmente en paralelo, totalmente independiente
 
@@ -121,15 +121,34 @@ Mientras tanto, la US-002 de Cy está pasando por exactamente el mismo loop en s
 
 No todo es paralelizable de forma trivial. Algunos archivos son compartidos, y son las propias salvaguardas de Conclave las que mantienen esto seguro, no ningún mecanismo de locking:
 
-- **`conclave/product/backlog.md` y `conclave/team/roster.md`** solo los escriben `/conclave-spec` y `/conclave-planning` — comandos que una persona facilitadora corre en checkpoints definidos, no algo que cada dev toca a mitad de sprint. Hacé pull antes de planificar; la resolución habitual de conflictos de git ("alguien más mergeó primero") aplica si dos personas intentan correr comandos de tipo planning contra un `main` desactualizado.
-- **Sprint Planning es una ceremonia única**, corrida una vez por sprint por quien facilite — no se paraleliza entre devs, porque Wave 2 (asignación) necesita ver la disciplina de cada historia de Wave 1 antes de poder asignar a alguien.
+- **`conclave/product/` (backlog, épicas, roadmap) y `conclave/team/roster.md`** solo los escriben `/conclave-init`, `/conclave-planning`, `/conclave-close`, `/conclave-epic` y `/conclave-story` — comandos que una persona facilitadora corre en checkpoints definidos, no algo que cada dev toca a mitad de sprint. Hacé pull antes de planificar; la resolución habitual de conflictos de git ("alguien más mergeó primero") aplica si dos personas intentan correr comandos de tipo planning contra un `main` desactualizado.
+- **Sprint Planning y el cierre del sprint son ceremonias únicas**, corridas una vez por sprint por quien facilite — no se paralelizan entre devs. La ola de asignación del planning necesita la disciplina de cada historia primero, y el cierre necesita el estado final de todo el sprint.
 - **Los archivos propios de una historia** (`stories/US-NNN-*.md`, `acceptance/AC-US-NNN.md`) los escribe exactamente un comando a la vez en su ciclo de vida — `/conclave-dev` mientras está `in-progress`, `/conclave-qa` en `review`, `/conclave-pr-review` en `verified` — así que dos personas nunca escriben el mismo archivo de historia al mismo tiempo, salvo que alguien corra el comando equivocado fuera de turno (cosa que los propios chequeos de estado de Conclave rechazan).
 
-En la práctica: **planificá en conjunto, construí en paralelo, mergeá cuando tu PR esté listo.** El remoto de git es el único punto de sincronización que importa.
+## Cerrar el sprint
+
+Cuando termina el sprint, Fen lo cierra:
+
+```bash
+# Terminal de Fen
+/conclave-close
+# → se niega si queda un bug crítico abierto
+# → historias sin terminar: próximo sprint o vuelta al backlog
+# → el Product Manager escribe review.md (veredicto del Sprint Goal, progreso de épicas)
+# → retro (full-scrum): Fen pega las respuestas del equipo (mantener / cambiar / probar);
+#   el Scrum Master escribe retro.md con como máximo 3 action items
+# → sprint closed, velocidad registrada, forecast del roadmap actualizado, reportes escritos
+
+git add conclave/ && git commit -m "conclave: cerrar SPRINT-000"
+```
+
+El siguiente `/conclave-planning` planifica el slot 1, lo dimensiona contra la velocidad del Sprint 0 e incorpora los action items de la retro.
+
+En la práctica: **planificá en conjunto, construí en paralelo, mergeá cuando tu PR esté listo, cerrá en conjunto.** El remoto de git es el único punto de sincronización que importa.
 
 ## Próximos pasos
 
 - [Mapa de flujo](/es/workflow) — el mismo loop dibujado como diagramas, solo vs. equipo lado a lado.
-- [Máquina de estados de la historia](/es/state-machine) — exactamente qué transiciones de estado ejecuta cada comando.
+- [Máquinas de estado](/es/state-machine) — exactamente qué transiciones de estado ejecuta cada comando.
 - [Roles](/es/roles) — qué hace realmente el subagente de cada disciplina.
 - [Comandos](/es/commands/init) — referencia completa de cada slash command disponible.

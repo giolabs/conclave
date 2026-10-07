@@ -42,7 +42,7 @@ There is **no stakeholder questionnaire**: Conclave does not need one to run, an
 2. Parse args: free text → `IDEA`; `--from <path>` → `SOURCE_DOC` (must exist; read it); `--out <dir>` → `OUT_DIR` (default `docs/product/`).
 3. If `conclave/config.md` exists, read `project_language`, `project_name`, `stack.*`, `launch_date`, `sprint.length_weeks`, `models.*` (`MODEL_FOR_PM`, `MODEL_FOR_TL`; overrides → default → null).
 4. Detect existing code: same signal-file scan as `/conclave-init` Step 1. Record `DETECTED_STACK` (may be empty). When code exists, the Tech Lead documents and extends the detected stack — it never proposes replacing it.
-5. If `OUT_DIR/README.md` exists with `conclave_product_package: true` → `AskQuestion`: **Regenerate** (overwrites the five files; git keeps history) / **Update with new info** (Steps run with the existing package as `SOURCE_DOC`, preserving hand-edited sections that the new info does not contradict) / **Cancel**.
+5. If `OUT_DIR/README.md` exists with `conclave_product_package: true` and the caller (`/conclave-init` Step 3.4) did not already pass a `regenerate` decision → `AskQuestion`: **Regenerate** (overwrites the five files; git keeps history) / **Update with new info** (Steps run with the existing package as `SOURCE_DOC`, preserving hand-edited sections that the new info does not contradict) / **Cancel**.
 
 ## Step 2 — Setup questions (one `AskQuestion`)
 
@@ -102,7 +102,7 @@ One `Agent` call (`MODEL_FOR_PM`, `product-manager.md` prefix), **discovery mode
 2. Write `00-discovery.md`, `01-tech-stack.md`, `02-data-model.md`, `03-bloc.md`, `04-mvp.md` from the templates + agent output. Fill frontmatter (`product`, `generated_at`, and `stack:` in `01-tech-stack.md` from the Tech Lead's choices).
 3. Write `README.md` from `product-docs-readme.template.md`.
 4. **Placeholder audit**: grep the six files for `{{`. Any hit → fill it from the agent output or delete that line/section; never leave a placeholder.
-5. If `conclave/config.md` exists and `product_doc_path` is empty, set it to `$OUT_DIR` (a directory is valid).
+5. If `conclave/config.md` exists: `product_doc_path` empty → set it to `$OUT_DIR` (a directory is valid). Pointing elsewhere → `AskQuestion`: *"`product_doc_path` points to `<path>`. Point it to the new package so `/conclave-planning` reads `03-bloc.md`?"* (**Yes** recommended / **Keep current**).
 
 ## Step 8 — Report
 
@@ -129,4 +129,5 @@ Next step:
 - Do not commit.
 - Do not invent facts: unknowns go to open questions; research claims carry their source and date.
 - Do not create stories, epics files, or anything under `conclave/` — that is `/conclave-init` and `/conclave-planning`.
+- `docs/` is excluded from `/conclave-init`'s greenfield check, so writing the package never makes an empty repo look like it has code.
 - Markdown only; diagrams only as Mermaid.

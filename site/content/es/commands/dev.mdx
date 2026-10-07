@@ -222,7 +222,7 @@ Para un `BUG-NNN`, la línea `Fixes #<n>` del cuerpo del PR cierra el issue espe
 ### Qué *no* hace
 
 - **Nunca mergea.** Los PRs aprobados son la salida.
-- **Nunca cierra el sprint.** Cuando todas las historias no `retired` quedan en `done`, imprime un aviso; cerrar queda en `/conclave-review`.
+- **Nunca cierra el sprint.** Cuando todas las historias no `retired` quedan en `done`, imprime un aviso; cerrar queda en [`/conclave-close`](/es/commands/close).
 - **Nunca corre waves en paralelo.** El batch de 3 existe solo dentro de Wave 1, y solo entre historias sin dependencia ni solape de archivos.
 - **Nunca saltea QA.** El gate es la Wave 2, ejecutada headless.
 

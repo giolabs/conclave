@@ -1,0 +1,67 @@
+---
+title: /conclave-epic
+description: PM epic authoring after inception — new, edit, split, retire — with the roadmap re-slotted by the Scrum Master.
+---
+
+# /conclave-epic
+
+Keep the epic layer alive after `/conclave-init`. Epics are created at inception; this command adds, revises, decomposes, or drops them as the product learns — typically right after a [`/conclave-close`](/en/commands/close) review proposed it.
+
+```
+/conclave-epic new
+/conclave-epic edit EP-NNN
+/conclave-epic split EP-NNN
+/conclave-epic retire EP-NNN
+```
+
+**Stories are not written here.** An epic carries rough `## Candidate stories`; `/conclave-planning` refines them when the epic's roadmap slot comes up. Nothing is committed.
+
+Requires a v2 workspace (`conclave_version >= 2.0.0` and `product/epics/`) and a clean working tree.
+
+## Sub-actions at a glance
+
+| Sub-action | Subagent | Effect |
+|---|---|---|
+| `new` | Product Manager, then Scrum Master | Writes `EP-NNN-<slug>.md` with `status: proposed` and slots it into future roadmap slots. |
+| `edit EP-NNN` | Product Manager (+ SM if size/priority changed) | Revises the epic; keeps ID, status, stories, roadmap slots. |
+| `split EP-NNN` | Product Manager, then Scrum Master | Decomposes into 2–4 child epics; parent becomes `retired`. |
+| `retire EP-NNN` | **None** | Mechanical: epic and its unstarted stories → `retired`, roadmap cleaned. |
+
+## `new`
+
+Asks for a title, the outcome it should deliver, type (`feature | enabler`) and priority (`must | should | could`, default `should`). The PM writes the epic against `vision.md`, checking existing epics to avoid overlap. The Scrum Master then places it into future `planned` slots by priority and dependencies — never touching `active` or `closed` slots. You confirm the slot change before `roadmap.md` (with a re-plan log row) and the epic's `roadmap_slots` are written.
+
+## `edit EP-NNN`
+
+Refuses `retired` and `done` epics (*"create a new epic instead"*). Asks what should change; the PM returns the full epic, preserving ID, `status`, `stories:`, `roadmap_slots` and `created_at`. If `size` or `priority` changed, the SM re-slots it.
+
+## `split EP-NNN`
+
+Refuses `retired` and `done` epics. Asks how many children (2, 3 or 4) and the split axis. Hard rule: every non-retired, not-done story of the parent and every candidate story lands in exactly one child; otherwise the PM returns `SPLIT_UNSAFE: <reason>` and nothing is written. The orchestrator re-checks count and coverage mechanically.
+
+On success: children get `split_from: EP-NNN` and `status: proposed` (or `active` if any of their stories is in the active sprint); moved stories get their `epic:` updated, as does the backlog's Epic column; the parent becomes `retired` with `superseded_by` and keeps its `done` stories. The SM re-slots the children.
+
+## `retire EP-NNN`
+
+No subagent. Refuses when any of the epic's stories is `in-progress`, `review` or `verified`, and refuses `done` epics. Asks why (non-empty). Then:
+
+- Epic → `status: retired`, `retirement_reason`, `retired_at`.
+- Its `backlog` / `ready` stories → `retired` (same fields as `/conclave-story retire`).
+- Removed from every `planned` roadmap slot; a slot left empty is marked `planned (empty)` and you are told to fill it. A re-plan log row is added.
+
+## Epic state machine
+
+```
+proposed ──/conclave-planning──→ active ──/conclave-close──→ done
+    ↘                               ↘
+      retired  (/conclave-epic retire | split)
+```
+
+See the [state machine](/en/state-machine#epics) page for details.
+
+## Guardrails
+
+- Never commits, pushes, or opens a PR.
+- Writes only under `conclave/product/` (epics, roadmap, backlog) and the story frontmatter fields `epic`, `status` and retirement fields.
+- Never writes story files.
+- Never modifies `active` or `closed` roadmap slots.

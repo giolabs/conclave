@@ -1,11 +1,11 @@
 ---
 title: /conclave-story
-description: Gestión de historias del PM — new, edit, split, retire — fuera de la ceremonia /conclave-spec. Todas las acciones disponibles en cada team mode.
+description: Gestión de historias del PM — new, edit, split, retire — entre Sprint Plannings. Todas las acciones disponibles en cada team mode.
 ---
 
 # /conclave-story
 
-Autora, refina, descompone, o retira una user story entre corridas de `/conclave-spec`. Cuatro sub-acciones dispatchadas por el primer argumento:
+Autora, refina, descompone, o retira una user story entre Sprint Plannings. El trabajo planificado normalmente entra por [`/conclave-planning`](/es/commands/planning), que refina las épicas del próximo slot del roadmap en historias; usá este comando para agregados ad-hoc y correcciones puntuales. Cuatro sub-acciones dispatchadas por el primer argumento:
 
 ```
 /conclave-story new
@@ -30,12 +30,14 @@ Todas las acciones están disponibles en cada `team_mode` (solo, lean, full-scru
 Pregunta al usuario (vía `AskUserQuestion`):
 
 - Título de la historia (texto libre)
+- **Épica** — una de las `EP-NNN` no retiradas en `conclave/product/epics/`, o `none` (ad-hoc). Default: la épica del slot del sprint activo cuando hay exactamente una.
+- **Tipo** — `feature` (default) o `enabler` (trabajo técnico sin usuario directo, escrito como "In order to / We need").
 - **¿Dónde debería aterrizar?** — `Solo backlog` (default), o `Backlog + entrar al sprint activo` (solo se ofrece cuando existe un sprint)
 - Disciplina (`frontend | backend | mobile | qa | design | devops | multi`)
 - Prioridad (MoSCoW)
 - Estimación (T-shirt)
 
-Después delega al subagent PM para autorar tanto una historia como un archivo de aceptación. Los archivos aterrizan en `conclave/product/stories-backlog/US-NEW_ID-<slug>.md` (solo backlog) o `conclave/sprints/SPRINT-NNN/stories/US-NEW_ID-<slug>.md` (traído al sprint). El campo `assignee` queda vacío — la asignación es tarea de `/conclave-planning`.
+Después delega al subagent PM para autorar tanto una historia como un archivo de aceptación. Los archivos aterrizan en `conclave/product/stories-backlog/US-NEW_ID-<slug>.md` (solo backlog) o `conclave/sprints/SPRINT-NNN/stories/US-NEW_ID-<slug>.md` (traído al sprint). El campo `assignee` queda vacío — la asignación es tarea de `/conclave-planning`. Si se eligió una épica, el nuevo ID se agrega a la lista `stories:` de esa épica, y la fila del backlog lleva la épica en su columna `Epic`.
 
 ## `edit US-NNN`
 
@@ -60,7 +62,7 @@ SPLIT_UNSAFE: Cannot cover parent scenario "<name>" in any proposed child. Sugge
 
 No se escriben archivos en rechazo.
 
-En éxito, cada hijo obtiene su propio story + acceptance file con `split_from: US-NNN` en el frontmatter. El padre queda marcado `status: retired` con `superseded_by: [US-CHILD_1, US-CHILD_2, ...]`.
+En éxito, cada hijo obtiene su propio story + acceptance file con `split_from: US-NNN` en el frontmatter y hereda `sprint`, `epic` y `type` del padre; los hijos se agregan a la lista `stories:` de la épica. El padre queda marcado `status: retired` con `superseded_by: [US-CHILD_1, US-CHILD_2, ...]`.
 
 ## `retire US-NNN`
 
@@ -76,7 +78,7 @@ Pregunta por **razón del retiro** como párrafo libre no-vacío. Actualiza el f
 
 ## El estado `retired` y la exclusión cross-command
 
-Las historias retired quedan excluidas de las collection queries de todos los comandos — `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, `/conclave-sprint`. `/conclave-spec` está exento a propósito (autora historias nuevas en vez de coleccionar existentes).
+Las historias retired quedan excluidas de las collection queries de todos los comandos — `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, `/conclave-sprint`, `/conclave-close`. Retirar una épica entera con [`/conclave-epic retire`](/es/commands/epic) retira sus historias no empezadas de la misma forma.
 
 Mirá la [máquina de estados de la historia](/es/state-machine) para el cuadro completo incluyendo la transición terminal-paralela a `retired`.
 
@@ -93,7 +95,7 @@ Mirá la [referencia de configuración](/es/configuration#model-configuration-bl
 ## Guardrails
 
 - Nunca commitea.
-- Nunca toca archivos fuera de `conclave/product/` y (cuando aplica) los directorios `stories/` y `acceptance/` del sprint activo.
+- Nunca toca archivos fuera de `conclave/product/` (backlog, `stories-backlog/` y la lista `stories:` de las épicas) y (cuando aplica) los directorios `stories/` y `acceptance/` del sprint activo.
 - Nunca despacha múltiples historias en una invocación — dev/QA batch multi-story vive en `/conclave-dev` y `/conclave-qa` desde v0.6.0.
 - `retire` nunca llama al subagent — diseño intencional.
 - El output de `split` es validado tanto por el subagent PM (durante generación) como por el orquestador (chequeo post-hoc de count + coverage) como defense in depth.

@@ -1,98 +1,114 @@
 ---
 title: /conclave-planning
-description: Genera historias, arquitectura y criterios de aceptación desde el documento de producto (primera corrida), después corre la ceremonia de Sprint Planning. Usá --all para planificar todos los sprints a la vez.
+description: Sprint Planning para el próximo slot del roadmap — refina just in time las épicas del slot en historias, dimensiona el compromiso contra la velocidad real, asigna por disciplina y bloquea el sprint como activo.
 ---
 
-# /conclave-planning [--all]
+# /conclave-planning
 
-El comando principal después de `/conclave-init`. En la primera corrida genera el backlog completo y la arquitectura; en cada corrida facilita el Sprint Planning y activa un sprint.
+Planifica **un** sprint: el slot del roadmap más bajo que todavía no está planificado.
 
 ```
-/conclave-planning            # planifica el Sprint 1 (genera + planifica en la primera corrida)
-/conclave-planning --all      # planifica TODOS los sprints del documento de producto en un solo paso
+/conclave-planning
 ```
 
-Este es uno de los dos gates **estructurales** de Scrum que Conclave hace cumplir — requerido en todo perfil, no se puede saltar.
+Corrélo al inicio de cada sprint — después de `/conclave-init` la primera vez, después de `/conclave-close` todas las siguientes. Es uno de los tres gates **estructurales** (junto con QA Verification y Sprint Review) — obligatorio en todos los perfiles.
 
-## Dos fases
+```
+/conclave-init (una vez) → /conclave-planning → build (/conclave-dev, /conclave-qa, /conclave-pr-review) → /conclave-close → /conclave-planning → …
+```
 
-### Fase A — Generación (solo primera corrida)
+> **v2.0.0 eliminó `--all`.** Las historias se refinan un slot a la vez, así las historias de cada sprint reflejan lo que aprendió la review anterior. La vista multi-sprint vive en `product/roadmap.md`.
 
-Corre cuando `conclave/product/backlog.md` no existe todavía o tiene menos de 3 historias.
+## Tres olas
 
-El comando lee `product_doc_path` de `config.md` y lanza **dos agentes de IA en paralelo**:
+| Ola | Rol | Trabajo |
+|---|---|---|
+| 1 | Product Manager (+ Tech Lead en slots enabler) | **Refinar**: convertir las épicas del slot en historias con criterios de aceptación; proponer el Sprint Goal |
+| 2 | Tech Lead | **Factibilidad**: validar contra arquitectura/ADRs, asignar `discipline`, marcar subestimaciones y dependencias entre historias |
+| 3 | Scrum Master | **Planificar**: capacidad desde la velocidad, asignaciones, action items de la retro, registro del planning |
 
-- **Product Manager** — produce el Product Backlog completo (historias con prioridad MoSCoW, estimaciones de remera, agrupaciones por sprint) más criterios de aceptación en Gherkin (mínimo 2 escenarios Given/When/Then por historia).
-- **Tech Lead** — produce la Architectural Foundation: confirmación del stack, diagrama de componentes, ADRs, concerns transversales y tabla de riesgos técnicos.
+No hay una ceremonia de grooming separada: el refinamiento pasa inline, acá, para las épicas del slot que se está planificando.
 
-Todo el texto generado se escribe en el `project_language` configurado durante `/conclave-init`.
+## Qué hace
 
-Antes de que corra la Fase A, el comando pregunta:
+### Gate y resolución del slot
 
-1. **Cantidad objetivo de sprints** — cuántos sprints mapear desde el documento de producto (solo relevante con `--all`).
-2. **Cantidad de historias del Sprint 1** — cuántas historias para el Sprint 1 (default 4).
-3. **Restricciones duras** — deadlines, dependencias prohibidas o requisitos de compliance.
+- Si hay un sprint todavía `active` → se niega: corré `/conclave-close` primero.
+- Un sprint `draft` que dejó una corrida interrumpida → lo retoma, salteando las historias que ya están en disco.
+- El **slot** es la fila más baja de `product/roadmap.md` con estado `planned`. Si no queda ninguna → agregá épicas con `/conclave-epic new` o editá el roadmap.
+- El ID del sprint es el siguiente `SPRINT-NNN` monotónico. Si todavía no hay sprints, es `SPRINT-000` cuando `sprint.sprint_zero: true`, si no `SPRINT-001`.
+- Un workspace sin `product/roadmap.md` (pre-v2) se rechaza: corré `/conclave-init --upgrade`.
 
-**La Fase A produce:**
-- `conclave/product/backlog.md` — el Product Backlog completo y ordenado.
-- `conclave/product/architecture.md` — la Architectural Foundation con ADRs.
-- `conclave/sprints/SPRINT-001/stories/<PREFIJO>-NNN-<slug>.md` — un archivo por historia (usando `story_prefix` de `config.md`).
-- `conclave/sprints/SPRINT-001/acceptance/AC-<PREFIJO>-NNN.md` — criterios Gherkin por historia.
-- `conclave/sprints/SPRINT-001/spec.md` y `meta.md` con `status: draft`.
+### Inputs
 
-### Fase B — Ceremonia de planning (siempre corre)
+Visión (Product Goal), roadmap, las épicas del slot, arquitectura y ADRs, DoR, backlog, roster, más:
 
-Corre siempre, después de la Fase A cuando corresponde.
+- **Carry-over** — historias que la última review marcó como "próximo sprint".
+- **Candidatas del backlog** — historias `backlog` cuya `epic` está en el slot.
+- **Acciones de la retro** — action items abiertos del `retro.md` anterior (cuando `ceremonies.close.retro: true`).
+- **Historial de velocidad** — `velocity` de los últimos 3 sprints `closed`.
+- **Reglas de dominio** — cuando `product_doc_path` apunta a un paquete de [`/conclave-discovery`](/es/commands/discovery), su `03-bloc.md` (invariantes, casos de uso, edge cases).
 
-1. Ubica el/los sprint(s) en borrador. Sin `--all`: el `SPRINT-NNN` de número más bajo con `status: draft`. Con `--all`: todos los sprints en `draft`, ordenados por número.
-2. Carga contexto: `config.md`, roster, backlog, DoR, arquitectura, archivos del sprint.
-3. Le pide inputs al equipo — la profundidad escala con el perfil:
-   - Siempre: fechas del sprint, nombre del facilitador.
-   - Full-scrum: ajustes de capacidad por dev, compromisos de carryover.
-4. **Delega en dos waves — PM + TL en paralelo primero (Wave 1), después SM solo (Wave 2):**
-   - **Wave 1** — el TL valida factibilidad y **asigna una `discipline`** (`frontend | backend | qa | design | devops | multi`) a cada historia; el PM valida el alcance.
-   - **Wave 2** — el SM asigna cada historia a un miembro del roster cuya `Discipline` coincida.
-5. Reconcilia los outputs: swaps de alcance del PM (se muestran para aceptar/rechazar), validación de DoR, resolución de brechas de cobertura, chequeo de capacidad (avisa en sobre-compromiso > 20%).
+### Preguntas
 
-## Modo multi-sprint — `--all`
+Siempre: fecha de inicio del sprint (default hoy), fecha de fin (default inicio + `sprint.length_weeks`), facilitador. `full-scrum` además pregunta por PTO o disponibilidad parcial.
 
-Con `--all`:
+### Ola 1 — refinamiento
 
-- **Sprint 1** (el draft de número más bajo) → `status: active`. Se aplica el planning interactivo completo.
-- **Sprints restantes** → permanecen en `status: draft`, pero reciben su `planning.md` completo, asignaciones y tags de disciplina. Quedan pre-planificados y listos para activarse cuando cierre el sprint anterior.
+El Product Manager propone un **Sprint Goal** trazable al objetivo del slot y escribe un par historia + aceptación por cada historia nueva: `type: feature`, `epic: EP-NNN`, prioridad, estimación, dependencias, 2–4 escenarios Gherkin. Nada de `XL` — primero divide. Las candidatas del backlog que ya existen se reutilizan, no se duplican.
 
-Útil después de `/conclave-init` cuando tenés un documento de producto que cubre múltiples sprints — planificás todo de antemano sabiendo que el plan se refinará cuando cada sprint se active.
+**BLOC → Gherkin.** Cuando está el `03-bloc.md` del paquete de discovery, el PM también lo recibe: cada invariante, caso de uso o edge case que toca una historia tiene que aparecer como escenario Gherkin en esa historia. Es la única parte del paquete de producto que se lee en cada planning, no solo en la inception.
 
-## Qué produce
+Cuando el slot contiene una épica `type: enabler`, el Tech Lead escribe historias `type: enabler` ("In order to / We need") cuyos criterios de aceptación puede verificar un script. Para el Sprint 0 el set mínimo es: scaffold para el stack confirmado, framework de tests + un test que pasa, lint, un workflow de CI que corre ambos en los PRs, y la rama de integración `develop`.
 
-- `conclave/sprints/SPRINT-NNN/meta.md` actualizado con `status: active` (primer sprint) o `status: draft` (posteriores con `--all`), fechas objetivo.
-- `conclave/sprints/SPRINT-NNN/spec.md` actualizado con asignados, disciplinas.
-- El frontmatter de cada `stories/<PREFIJO>-NNN-*.md` actualizado: `assignee` y `discipline` definidos, `status: ready`.
-- `conclave/sprints/SPRINT-NNN/planning.md` — el acta de la reunión.
-- `conclave/product/backlog.md` actualizado mostrando las historias seleccionadas como `in-progress`.
+### Ola 2 — factibilidad
 
-## Requisitos
+El Tech Lead valida cada historia del borrador contra la arquitectura y los ADRs, nombra dependencias entre historias, marca subestimaciones y **asigna una `discipline`** (`frontend | backend | qa | design | devops | mobile | multi`).
 
-- `conclave/config.md` debe existir (corré `/conclave-init` primero).
-- `product_doc_path` en `config.md` debe apuntar a un archivo existente (la Fase A lo lee).
+### Ola 3 — registro del planning
 
-## Consciencia del perfil
+El Scrum Master asigna cada historia a un miembro del roster cuya disciplina coincide, incorpora las acciones de la retro y escribe el registro del planning.
 
-| Perfil | Preguntas de capacidad | Backlog grooming | Preguntas de carryover |
-|---|---|---|---|
-| `lean` | se saltean | absorbido en planning | se saltean |
-| `full-scrum` | se pregunta por dev | separado (se asume ya hecho) | se pregunta |
-| `custom` | depende de los flags | depende de los flags | depende de los flags |
+### Validación
 
-## Salvaguardas
+- **DoR** — una historia que falla puede volver a `backlog` o arreglarse en el momento (vuelve a correr el PM solo para esa historia). En `full-scrum` el sprint no se puede bloquear mientras quede seleccionada una historia que falla.
+- **Capacidad** — unidades `XS=1, S=2, M=3, L=5, XL=8`. La capacidad es la **velocidad promedio de los últimos 3 sprints cerrados**. Sin ningún sprint cerrado todavía, cae a `num_devs × length_weeks × 5` (menos PTO) y se etiqueta *"fixed formula — no velocity yet"*. Un Sprint 0 cerrado cuenta como historial solo si entregó al menos una unidad.
+  - Más de `1.2 × capacidad` → sacar la historia de menor prioridad o mantenerla y registrar el riesgo.
+  - Menos de `0.6 × capacidad` con más candidatas en el slot → ofrece sumar la siguiente.
+- **Huecos de cobertura** — si nadie del roster cubre la disciplina de una historia → pregunta si asignarla al Tech Lead como fallback.
 
-- Se rehúsa si `conclave/config.md` no existe ("corré `/conclave-init` primero").
-- Se rehúsa si `product_doc_path` está vacío o el archivo no existe (la Fase A lo necesita).
-- Se rehúsa a correr si no existe ningún sprint en `draft`.
-- No puede volver a correr sobre el mismo sprint después de que pasa a `active`.
-- Con `--all`, los sprints ya en `active` se saltean silenciosamente.
-- Nunca commitea.
+### Bloqueo
 
-## Después de que corre
+`meta.md` → `status: active` con fechas y `committed_units`; se escriben `spec.md` y `planning.md`; las historias → `status: ready` con asignado y disciplina; se actualizan las filas del backlog (columna Epic completa); las épicas del slot pasan de `proposed` → `active`; el slot del roadmap → `active` con el ID del sprint y las fechas reales.
 
-Cada dev asignado corre [`/conclave-dev <PREFIJO>-NNN`](/es/commands/dev) para su historia.
+## Salida
+
+```
+✓ SPRINT-001 is active (2026-10-12 → 2026-10-23) — slot 1: <objetivo del slot>
+  Sprint Goal: <una oración>
+  Epics:       EP-001, EP-002
+
+  US-001 → Bea (frontend) [M]  EP-001
+  US-002 → Fen (devops)   [S]  EP-000 enabler
+
+  Capacity: 14 / 15 units — velocity avg of SPRINT-000..000
+  Retro actions carried in: 1
+```
+
+## Guardrails
+
+- Solo escribe dentro de `conclave/`. Nunca commitea.
+- `sprint_planning` y `qa_verification` son estructurales — una config que ponga cualquiera de los dos en `required: false` se rechaza.
+- Solo puede haber un sprint `active`: nunca planifica mientras haya uno activo.
+- Nunca genera historias para épicas fuera del slot.
+- Preserva las ediciones manuales en historias, `spec.md` y `planning.md` al retomar un borrador.
+
+## Después de correrlo
+
+```bash
+git add conclave/ && git commit -m "conclave: plan SPRINT-NNN — <sprint goal>"
+
+/conclave-dev US-001        # una historia
+/conclave-dev --loop        # loop autónomo de tres olas sobre el sprint
+/conclave-close             # al final del sprint
+```

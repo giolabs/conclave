@@ -1,13 +1,59 @@
 ---
-title: Máquina de estados de la historia
-description: Cómo una historia pasa de backlog a done, según el perfil.
+title: Máquinas de estado
+description: Cómo épicas, sprints e historias pasan por sus estados — según el perfil.
 ---
 
-# Máquina de estados de la historia
+# Máquinas de estado
 
-Una historia de usuario pasa por un conjunto pequeño y bien definido de estados. El camino exacto depende del perfil del equipo — específicamente si `peer_pr_review.required` está activo.
+Conclave sigue tres niveles de trabajo, cada uno con su propio campo de estado en el frontmatter YAML:
 
-## Los estados
+```
+Product Goal (product/vision.md)
+└── Épica   EP-NNN   proposed → active → done | retired
+    └── Historia  US-NNN   backlog → ready → in-progress → review → [verified] → done | retired
+Sprint  SPRINT-NNN     draft → active → closed
+```
+
+## Épicas
+
+Una épica (`product/epics/EP-NNN-<slug>.md`) es un bloque grande de valor con un criterio de éxito. Tiene un `type` (`feature | enabler`), un `size` (`S | M | L`) y los slots del roadmap en los que está planificada.
+
+| Status | Lo setea | Significado |
+|---|---|---|
+| `proposed` | `/conclave-init`, `/conclave-epic new` / `split` | Existe y está ubicada en el roadmap; todavía no se planificó ninguna historia desde ella. |
+| `active` | `/conclave-planning` | Al menos un sprint tomó historias de ella. |
+| `done` | `/conclave-close` | La review confirmó que todas las historias no retiradas están done **y** se cumple el criterio de éxito. |
+| `retired` | `/conclave-epic retire` / `split` | Descartada, o reemplazada por épicas hijas (`superseded_by`). Sus historias no empezadas se retiran con ella. |
+
+```
+proposed ──/conclave-planning──→ active ──/conclave-close──→ done
+    ↘                               ↘
+      retired  (/conclave-epic retire | split)
+```
+
+`/conclave-close` nunca aplica una división o un retiro por sí mismo — los propone, y vos corrés [`/conclave-epic`](/es/commands/epic).
+
+## Sprints
+
+| Status | Lo setea | Significado |
+|---|---|---|
+| `draft` | `/conclave-planning` (mientras corre) | Se están escribiendo las historias; una corrida de planning interrumpida deja el sprint acá y la siguiente lo retoma. |
+| `active` | `/conclave-planning` (bloqueo) | El Sprint Goal y la lista de historias están bloqueados. Puede haber **exactamente un** sprint activo. |
+| `closed` | `/conclave-close` | Revisado, con `velocity` y `sprint_goal_met` registrados y reportes escritos. Nunca se reabre. |
+
+```
+draft ──/conclave-planning──→ active ──/conclave-close──→ closed
+```
+
+`/conclave-planning` se niega mientras haya un sprint `active`, así que `/conclave-close` queda entre cada par de sprints. `/conclave-dev --loop` y `/conclave-sprint` nunca cierran un sprint. Los estados de sprint `done` y `archived` de v1 desaparecieron — `/conclave-init --upgrade` mapea ambos a `closed`.
+
+`SPRINT-000` es el **Sprint 0** opcional de walking skeleton (`sprint.sprint_zero: true`), hecho de historias `type: enabler`.
+
+## Historias
+
+Una historia de usuario pasa por un conjunto pequeño y bien definido de estados. El camino exacto depende del perfil del equipo — específicamente si `peer_pr_review.required` está activo. Desde v2.0.0 cada historia lleva además `type` (`feature`, o `enabler` para trabajo técnico sin usuario directo) y `epic` (la `EP-NNN` desde la que se refinó; vacío para historias ad-hoc).
+
+### Los estados
 
 | Status | Significado |
 |---|---|
@@ -19,7 +65,7 @@ Una historia de usuario pasa por un conjunto pequeño y bien definido de estados
 | `done` | Todos los gates pasados, DoD cumplida, PR mergeable. |
 | `retired` (v0.8.0+) | Estado terminal paralelo a `done`. Se entra vía `/conclave-story retire` o `/conclave-story split` (en el padre). Excluido de la colección de historias de todos los comandos. |
 
-## Transiciones
+### Transiciones
 
 ```
 backlog → ready → in-progress → review → [verified] → done
@@ -27,14 +73,15 @@ backlog → ready → in-progress → review → [verified] → done
                                                 retired  (terminal paralelo — vía /conclave-story)
 ```
 
-## El estado terminal `retired` (v0.8.0+)
+### El estado terminal `retired` (v0.8.0+)
 
-Una historia con `status: retired` queda fuera del scope de todos los comandos — `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review` y `/conclave-sprint` la saltean. Solo `/conclave-spec` está exento (autora historias nuevas en lugar de coleccionar existentes).
+Una historia con `status: retired` queda fuera del scope de todos los comandos — `/conclave-planning`, `/conclave-dev`, `/conclave-qa`, `/conclave-pr-review`, `/conclave-sprint` y `/conclave-close` la saltean.
 
-Hay dos formas de entrar:
+Hay tres formas de entrar:
 
 1. **`/conclave-story retire US-NNN`** — retiro explícito. El campo `retirement_reason` se puebla con la razón del usuario; `retired_at` se setea con la fecha de hoy. Sin llamada a LLM — es una decisión de política mecánica.
 2. **`/conclave-story split US-NNN`** — descomposición. La historia padre pasa a `retired` con `superseded_by: [US-CHILD_1, ...]` y `retirement_reason: "Split into ..."`. Los hijos llevan `split_from: US-NNN`.
+3. **`/conclave-epic retire EP-NNN`** — las historias `backlog` / `ready` de la épica se retiran con `retirement_reason: "Epic EP-NNN retired"`.
 
 No hay un comando para des-retirar. Si el equipo cambia de opinión, edita el frontmatter a mano — git preserva el audit trail.
 
@@ -62,7 +109,7 @@ review ──/conclave-qa──→ done
 
 QA pasa → `status: done` directamente. Sin gate separado del Tech Lead. QA es la señal de merge.
 
-## UAT: una distinción de veredicto, no un nuevo status (v0.3.0+)
+### UAT: una distinción de veredicto, no un nuevo status (v0.3.0+)
 
 Cuando `conclave/team/testing-environments.md` está configurado, `/conclave-qa` genera tests UAT ejecutables en CI a partir de los escenarios Gherkin de la historia (Playwright para `frontend`/`multi`, la colección compartida de Postman/Newman para `backend`/`multi`, un checklist manual para `mobile`), los pushea, y espera a que el propio CI del repo target los corra — nunca los ejecuta él mismo. Esto no agrega un nuevo valor de status en el frontmatter de la historia; agrega un tercer **veredicto**, junto a `passed` y `blocked`:
 
@@ -76,20 +123,20 @@ review ──/conclave-qa──→ passed  → verified/done como arriba
 - **`blocked` vía UAT** — una corrida de CI sobre los tests Playwright/Newman generados falla, o no se encuentra ninguna corrida / la espera expira (`ceremonies.qa_verification.ci_wait_timeout_minutes`, default 20). Ambos casos se tratan exactamente igual que un escenario Gherkin que falla — nunca se pasa silenciosamente.
 - **Todavía no configurado** — un `testing-environments.md` faltante o completamente `TBD` degrada con gracia: `/conclave-qa` se salta UAT por completo y verifica los criterios de aceptación exactamente como lo hacía antes de que este archivo existiera.
 
-## Los bugs reusan esta misma máquina de estados (v0.10.0+)
+### Los bugs reusan esta misma máquina de estados (v0.10.0+)
 
 Un `BUG-NNN` reportado vía [`/conclave-bug report`](/es/commands/bug) se escribe directamente en `status: ready` — sin estado nuevo, sin tabla de transiciones nueva. Nunca pasa por `backlog` ni por Sprint Planning (`/conclave-planning` y `/conclave-sprint` nunca miran dentro de `conclave/product/bugs/`), y desde `ready` sigue el mismo camino que una historia: `/conclave-dev BUG-NNN` → `/conclave-qa BUG-NNN` → `/conclave-pr-review BUG-NNN` (si `peer_pr_review.required: true`). Los IDs `US-NNN` y `BUG-NNN` se pueden mezclar en la misma invocación de `/conclave-dev`/`/conclave-qa` — el prefijo del ID es lo único que desambigua contra qué directorio se resuelve cada uno. `retired` está disponible como escape manual para un bug mal cargado (editar el frontmatter a mano — todavía no hay una sub-acción `/conclave-bug retire`).
 
-## Cuándo se asigna `discipline`
+### Cuándo se asigna `discipline`
 
 A diferencia de `assignee` (definido al momento de planning), `discipline` sigue una secuencia específica dentro de `/conclave-planning`:
 
-1. **Wave 1** — el Tech Lead revisa la factibilidad de cada historia y le asigna un valor de `discipline` (`frontend | backend | qa | design | devops | mobile | multi`) en el mismo paso, en paralelo con la revisión de alcance del Product Manager.
+1. **Ola 2 (factibilidad)** — después de que el Product Manager refinó las épicas del slot en historias, el Tech Lead revisa la factibilidad de cada historia y le asigna un valor de `discipline` (`frontend | backend | qa | design | devops | mobile | multi`).
 2. **Validación de DoR** — una historia sin `discipline` falla la Definition of Ready y no puede entrar al sprint, tanto en `lean` como en `full-scrum`.
-3. **Wave 2** — el Scrum Master asigna cada historia a un miembro del roster cuya `Discipline` coincida (o que tenga Tech Lead, para historias transversales), usando el valor de Wave 1.
+3. **Ola 3** — el Scrum Master asigna cada historia a un miembro del roster cuya `Discipline` coincida (o que tenga Tech Lead, para historias transversales), usando el valor de la Ola 2.
 4. Si ningún miembro del roster coincide con la disciplina de una historia, el orquestador le hace directamente al humano una pregunta de brecha de cobertura — el subagente Scrum Master nunca adivina un asignado.
 
-## Manejo de fallas
+### Manejo de fallas
 
 Una falla en cualquiera de los dos gates devuelve la historia a `review`. El dev arregla el problema, pushea nuevos commits, y el/los gate(s) vuelven a correr:
 

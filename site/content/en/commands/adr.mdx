@@ -52,7 +52,7 @@ The command exits cleanly with no file writes.
 
 ## Inline-ADR migration (first run per repo)
 
-Repositories running pre-v0.8.0 `/conclave-spec` have inline `### ADR-NNN:` sections in `architecture.md` section 4. The first `/conclave-adr` run in such a repo migrates them to standalone files:
+Repositories bootstrapped before v0.8.0 have inline `### ADR-NNN:` sections in `architecture.md` section 4. The first `/conclave-adr` run in such a repo migrates them to standalone files:
 
 1. **Per-ADR atomicity** — extract one inline ADR at a time: write the standalone file, then remove that specific inline section. Repeat for the next.
 2. **Resumability** — if the migration is interrupted mid-way, an inline section still present in `architecture.md` corresponds to an ADR whose standalone file does not yet exist; a re-run picks up where the previous run left off.

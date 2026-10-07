@@ -1,0 +1,132 @@
+---
+title: /conclave-discovery
+description: Turn a raw product idea (or an incomplete product document) into the product documentation package inception needs — discovery, tech stack, data model, BLOC and MVP — written to docs/product/.
+---
+
+# /conclave-discovery
+
+Write the **product documentation package** that [`/conclave-init`](/en/commands/init) turns into the inception artifacts (vision, epics, architecture + ADRs, roadmap). Optional, and usually run once — before `/conclave-init` on a greenfield repo with no product document. You don't have to remember it: `/conclave-init` offers it when it finds no usable document.
+
+```
+/conclave-discovery                                  # asks for the idea
+/conclave-discovery "an app for marketplace sellers to answer buyer questions with AI"
+/conclave-discovery --from docs/brief.md             # complete an existing, partial document
+/conclave-discovery --out docs/                      # different output folder
+```
+
+| Argument | Effect |
+|---|---|
+| free text | The idea. Without it (and without `--from`) the command asks for it. |
+| `--from <path>` | An existing document to complete: everything it says is kept, the gaps are filled. The file must exist. |
+| `--out <dir>` | Output folder. Default `docs/product/`. |
+
+Works with or without a `conclave/` workspace. When `conclave/config.md` exists it reuses `project_language`, `project_name`, `stack.*`, `launch_date`, `sprint.length_weeks` and the per-role `models.*`.
+
+## The package
+
+Plain markdown, written **outside `conclave/`**: these are the team's product documents, not Conclave state. Edit them freely.
+
+| # | File | Written by | Feeds in Conclave |
+|---|---|---|---|
+| 00 | `00-discovery.md` | Product Manager (+ Haiku research) | `vision.md` (problem, personas, metrics) |
+| 01 | `01-tech-stack.md` | Tech Lead | stack in `config.md`, `architecture.md`, ADRs, Sprint 0 enablers |
+| 02 | `02-data-model.md` | Tech Lead | `architecture.md`, story technical notes |
+| 03 | `03-bloc.md` | Tech Lead | Gherkin scenarios at every `/conclave-planning` |
+| 04 | `04-mvp.md` | Product Manager | Product Goal, MVP scope, epics, roadmap |
+| — | `README.md` | orchestrator | Index; its `conclave_product_package: true` frontmatter marks the folder as a Conclave product package |
+
+What each document holds:
+
+- **00 Discovery** — problem statement, ICP, personas, business model, competitors (researched, with sources and access date), UVP, the full feature brainstorm (MoSCoW), primary user journey, and **open questions**.
+- **01 Tech stack** — a choice per layer with *why* and *reconsider when*, test + lint + CI tooling, rejected alternatives, technical risks and evidence. Its `stack:` frontmatter pre-fills the stack confirmation in `/conclave-init`.
+- **02 Data model** — overview, Mermaid ER diagram, entities, structural decisions (tenancy, soft-delete, audit), scale notes.
+- **03 BLOC** (Business Logic Component) — the domain rules: ubiquitous language, numbered invariants, main use cases, state machines, calculations, authorization, edge cases and hard decisions, domain events.
+- **04 MVP** — what the MVP is, **Product Goal**, success metrics, MVP scope, candidate epics, a Sprint 0 walking skeleton, a sequencing hint, the MVP Definition of Done, risks, and post-MVP.
+
+There is **no stakeholder questionnaire**. Conclave does not need one to run; anything unknown is recorded as an open question in `00-discovery.md` instead of being invented.
+
+## What it does
+
+### Step 1 — Resolve context
+
+Finds the repo root, parses the arguments, reads `conclave/config.md` when present, and runs the same signal-file scan as `/conclave-init` to detect existing code. When code exists, the Tech Lead documents and extends the detected stack — it never proposes replacing it.
+
+If the output folder already holds a package, you choose: **Regenerate** (overwrites the five files; git keeps history), **Update with new info** (the existing package becomes the `--from` source and hand-edited sections that the new info does not contradict are preserved), or **Cancel**.
+
+### Step 2 — Setup questions
+
+One question round, skipping anything already known:
+
+1. **Idea** — only without free text or `--from`. A paragraph is enough: what it does, for whom, what problem it solves.
+2. **Language** of the documents — default `project_language`, else the language you are writing in.
+3. **Project type** — SaaS B2B, SaaS B2C, Marketplace, Mobile-first consumer, Fintech, Internal tool, Other.
+4. **Team** — solo, 2–3, 4–8 (affects stack and timeline).
+5. **Constraints** (optional) — deadline, budget, mandated or banned technologies, compliance.
+
+**Vague-idea gate.** If the idea cannot name a user and a problem ("an app to sell things"), the command asks 2–3 targeted questions — who exactly, what they do today, what outcome they want — before continuing. It never invents the missing facts.
+
+### Step 3 — Competitor research (Haiku)
+
+A read-only Haiku subagent looks up 3–5 real direct competitors with web search: name, URL, positioning, pricing model, one strength, one gap, plus a sources list with access dates. If web tools are unavailable or the call fails, the table stays empty and *"competitor research not run"* is recorded as an open question.
+
+### Step 4 — Discovery (Product Manager)
+
+The Product Manager writes `00-discovery.md` from the idea (or source document), your answers, the research and a 10-step discovery checklist.
+
+**Checkpoint** — the only one, because everything downstream derives from it:
+
+```
+ICP:     <one line>
+Problem: <one line>
+UVP:     <one sentence>
+Rivals:  <names>
+```
+
+**Continue**, or **Adjust** with a free-text correction (the PM re-runs once with it).
+
+### Step 5 — Tech stack, data model, BLOC (Tech Lead)
+
+One Tech Lead call returns `01-tech-stack.md`, `02-data-model.md` and `03-bloc.md`, using `00-discovery.md`, your answers, the detected stack and an adaptive stack decision tree by project type.
+
+### Step 6 — MVP (Product Manager)
+
+The Product Manager writes `04-mvp.md` from the four previous documents, team, constraints, launch date and sprint length (default 2 weeks): Product Goal, metrics, scope, **candidate epics**, the **Sprint 0** walking skeleton, a **sequencing hint**, and an estimated time to MVP (±25%).
+
+### Step 7 — Write the package
+
+Creates the output folder, writes the five documents and the `README.md` index, then runs a **placeholder audit**: any `{{…}}` left in the six files is filled from the agent output or the line is removed — no placeholder survives. If `conclave/config.md` exists with an empty `product_doc_path`, it is set to the output folder.
+
+### Step 8 — Report
+
+```
+✓ Product package written to docs/product/
+
+  00 Discovery   ICP: <…> · UVP: <…>
+  01 Tech stack  <frontend> · <backend> · <db> · <hosting>
+  02 Data model  <n> entities
+  03 BLOC        <n> invariants · <n> edge cases
+  04 MVP         Product Goal: <…> · <n> candidate epics · ~<n> sprints (±25%)
+
+Open questions: <n> (see 00-discovery.md §9)
+```
+
+## How Conclave consumes it
+
+- **`/conclave-init`** finds the package first (its `README.md` frontmatter wins over every other document), sets `product_doc_path` to the folder, and feeds all five documents to inception: `01-tech-stack.md` pre-fills the stack confirmation when no code is detected, and becomes the initial ADRs (its rejected alternatives become the ADRs' alternatives considered); `04-mvp.md` candidate epics become the inception epics, and its Sprint 0 enablers default the walking skeleton on. The inception questions about users, Product Goal and constraints are skipped — the package already answers them.
+- **`/conclave-planning`** passes `03-bloc.md` to the Product Manager at **every** planning: each invariant, use case or edge case a story touches must appear as a Gherkin scenario on that story.
+
+After inception the planning source of truth is `conclave/product/vision.md`, `epics/` and `roadmap.md`; the package is not re-read except for the BLOC.
+
+## Next step
+
+- No `conclave/` yet → [`/conclave-init`](/en/commands/init). It finds the folder and runs inception from it.
+- Invoked from inside `/conclave-init` → it returns control to init; no next-step block.
+- `conclave/` already on v2 → inception artifacts are **not** regenerated. Use [`/conclave-epic new`](/en/commands/epic) for new epics, or edit `conclave/product/vision.md`.
+
+## Guardrails
+
+- Writes only inside the output folder (and `product_doc_path` in an existing `conclave/config.md`).
+- Never creates stories, epic files or anything else under `conclave/` — that is `/conclave-init` and `/conclave-planning`.
+- Does not commit.
+- Does not invent facts: unknowns go to open questions; research claims carry their source and date.
+- Markdown only; diagrams only as Mermaid.

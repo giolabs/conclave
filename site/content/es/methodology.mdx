@@ -14,10 +14,17 @@ Conclave asume **Scrum** estándar con adaptaciones prácticas que hacen los equ
 | Development Team | **Disciplinas: Tech Lead, Frontend, Backend, QA, Designer, DevOps** | Siempre presentes en el roster, incluso en un proyecto solo donde una persona cubre las seis. Este es el eje primario del roster. |
 | Product Owner | **Product Manager (PM)** | Un rol de proceso opcional que cualquier persona con una disciplina puede además asumir — dueño del backlog, prioriza, define la aceptación, cuando alguien lo ocupa. La mayoría de los equipos lo llama PM en la práctica. |
 | Scrum Master | **Scrum Master (SM)** | Un rol de proceso opcional. Facilita ceremonias, saca a la luz bloqueos, cuando alguien lo ocupa. Si nadie lo hace, el Tech Lead y el equipo deciden el proceso por consenso. |
-| Product Backlog | `conclave/product/backlog.md` | Lista ordenada de historias de usuario. |
+| Product Goal | `conclave/product/vision.md` | Un resultado medible con el que se compromete el MVP, escrito en la inception. |
+| Épica | `conclave/product/epics/EP-NNN-<slug>.md` | Un bloque grande de valor con criterio de éxito. No es un término de la Scrum Guide, pero es la capa entre el Product Goal y las historias. |
+| Product Backlog | `conclave/product/backlog.md` + historias candidatas de las épicas | Lista ordenada de historias refinadas; las candidatas aproximadas viven en su épica hasta que el planning las refina. |
+| Roadmap | `conclave/product/roadmap.md` | Épicas secuenciadas en slots de sprint, con burnup y forecast. Se re-planifica en cada cierre. |
 | Sprint Backlog | Tabla de historias seleccionadas en `conclave/sprints/SPRINT-NNN/spec.md` | Snapshot al momento de planning. |
-| Increment | Los PRs mergeados que cierran historias | Conclave no lo trackea directamente — lo hace git. |
-| Sprint Planning | `/conclave-planning` | Bloquea el sprint. Uno de los dos gates estructurales. |
+| Increment | Historias `done` en el sprint (verificadas por QA, aprobadas por el TL si está activo) | Conclave nunca mergea; si un humano mergeó cada PR se reporta en el cierre. |
+| Sprint Planning | `/conclave-planning` | Planifica un slot del roadmap, refinando sus épicas just in time. Gate estructural. |
+| Refinamiento del backlog | Dentro de `/conclave-planning` | Sin ceremonia de grooming separada. |
+| Daily Scrum | El [board](/es/commands/board) + estados de las historias | Sin comando de standup. |
+| Sprint Review | `/conclave-close` | Inspecciona el Increment contra el Sprint Goal, registra la velocidad, re-planifica el roadmap. Gate estructural. |
+| Sprint Retrospective | `/conclave-close` | Corre cuando `ceremonies.close.retro: true`; como máximo 3 action items, que importa el próximo planning. |
 | Definition of Ready | `conclave/product/definition-of-ready.md` | Checklist personalizada por el equipo que una historia debe pasar antes de entrar a un sprint. |
 | Definition of Done | `conclave/product/definition-of-done.md` | Checklist personalizada por el equipo que una historia debe cumplir para llegar a `done`. |
 | Historia de usuario | Un archivo bajo `sprints/SPRINT-NNN/stories/` | Formato INVEST. |
@@ -37,15 +44,22 @@ conclave/
 │   ├── roster.md                     # quién cubre cada disciplina, más PM/SM opcionales
 │   └── ceremonies.md                 # cadencia
 ├── product/                          # persiste entre sprints
+│   ├── vision.md                     # Product Goal
+│   ├── roadmap.md                    # slots, burnup, forecast
+│   ├── epics/EP-NNN-<slug>.md
 │   ├── backlog.md
-│   ├── architecture.md               # ADRs vivos
+│   ├── architecture.md
+│   ├── adr/ADR-NNN-<slug>.md         # ADRs oficiales
 │   ├── definition-of-ready.md
 │   └── definition-of-done.md
 ├── context/                          # snapshots congelados de los inputs
 └── sprints/
     └── SPRINT-NNN/
-        ├── meta.md                   # nombre, fechas, status
+        ├── meta.md                   # estado, slot, épicas, unidades comprometidas, velocidad
         ├── spec.md                   # plan del sprint
+        ├── planning.md               # registro del planning
+        ├── review.md                 # /conclave-close
+        ├── retro.md                  # /conclave-close, si la retro está activa
         ├── stories/
         │   └── US-NNN-<slug>.md
         └── acceptance/
@@ -56,17 +70,18 @@ conclave/
 
 - **Solo markdown.** Los campos estructurados viven en frontmatter YAML. El cuerpo es prosa legible por humanos.
 - **Directorio visible.** `conclave/` no está oculto — se renderiza en GitHub y es descubrible.
-- **Agregar, no pisar.** Una segunda corrida de `/conclave-spec` crea `SPRINT-002/` y actualiza `product/backlog.md` de forma aditiva; nunca sobreescribe trabajo previo.
+- **Agregar, no pisar.** Cada corrida de `/conclave-planning` crea el siguiente `SPRINT-NNN/` y actualiza `product/backlog.md` de forma aditiva; nunca sobreescribe trabajo previo. `/conclave-init --upgrade` migra frontmatter en el lugar pero nunca borra ni renombra un sprint, historia o reporte.
 - **Snapshot del contexto.** Cada comando que genera artefactos escribe un snapshot fresco bajo `conclave/context/` para que el artefacto sea auditable contra los inputs que lo produjeron.
 - **Referenciar, no duplicar.** Las historias referencian su archivo de aceptación; el spec del sprint referencia `product/definition-of-done.md` en vez de copiarlo.
-- **La numeración es fija.** Los IDs `SPRINT-NNN` y `US-NNN` incrementan monótonamente y nunca se reusan.
+- **La numeración es fija.** Los IDs `SPRINT-NNN`, `EP-NNN` y `US-NNN` incrementan monótonamente y nunca se reusan.
+- **Un solo sprint activo.** `/conclave-planning` se niega mientras haya un sprint `active`; solo `/conclave-close` lo pone en `closed`.
 - **El schema del roster degrada con gracia.** Un `roster.md` escrito antes de que el modelo de disciplinas existiera (sin columna `Discipline`) no se rechaza — los comandos tratan a cada miembro como multi-disciplina y muestran un aviso de compatibilidad una sola vez.
 
 ## Cómo los slash commands invocan subagentes de rol
 
 Cada slash command es un orquestador en markdown. Su cuerpo dice, en prosa: *"Invocá un subagente cargado con `skills/conclave/agents/<rol>.md` para producir X."*
 
-Claude lee el archivo del charter de rol, dispara una llamada a la herramienta `Agent` con ese contenido como prefijo del system prompt, y continúa cuando el subagente retorna. Roles independientes corren en paralelo emitiendo ambas llamadas `Agent` en un solo mensaje (PM + TL en `/conclave-spec`). `/conclave-planning` corre en dos waves en vez de una: PM + TL en paralelo primero, después SM solo — la asignación necesita saber la disciplina que el Tech Lead recién asignó a cada historia antes de poder elegir un asignado válido.
+Claude lee el archivo del charter de rol, dispara una llamada a la herramienta `Agent` con ese contenido como prefijo del system prompt, y continúa cuando el subagente retorna. Roles independientes corren en paralelo emitiendo ambas llamadas `Agent` en un solo mensaje (PM + TL en la inception de `/conclave-init`, antes de que el SM escriba el roadmap). `/conclave-planning` corre en tres olas: refinamiento del PM, después factibilidad y asignación de disciplina del TL, después planning del SM — la asignación necesita saber la disciplina de cada historia antes de poder elegir un asignado válido.
 
 No hay un DSL. Es el mismo patrón que usa el propio plugin `code-review` de Anthropic para sus agentes de revisión en paralelo.
 
@@ -74,9 +89,10 @@ No hay un DSL. Es el mismo patrón que usa el propio plugin `code-review` de Ant
 
 Cada integrante del equipo corre su propio Claude Code local. El estado compartido vive en `conclave/` y se commitea a git. La coordinación pasa por pull requests:
 
-- El PM refina el backlog → abre un PR a `conclave/product/backlog.md`.
+- El PM ajusta épicas (`/conclave-epic`) o historias (`/conclave-story`) → abre un PR a `conclave/product/`.
 - Dev, Designer, o DevOps toma una historia (el que coincida con su `discipline`) → crea la branch `feat/US-NNN-<slug>` → implementa → abre un PR.
 - QA verifica → agrega un reporte de verificación al archivo de aceptación → comentario en el PR.
 - El TL aprueba el código (cuando `peer_pr_review.required: true`) → corre `gh pr review --approve`.
+- Al final del sprint, el facilitador corre `/conclave-close` → abre un PR con la review, la retro, la velocidad y la actualización del roadmap.
 
 No hay servidor central, ni estado propietario, ni superficie para el vendor lock-in. El equipo es dueño del workflow porque el workflow son solo archivos en su propio repo.

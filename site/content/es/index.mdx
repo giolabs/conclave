@@ -24,8 +24,9 @@ La mayoría de las herramientas de "IA hace Scrum" inventan un formato de datos 
 ## Qué obtenés
 
 - **Siete charters de rol** (`skills/conclave/agents/*.md`) — Tech Lead, Developer (cubre Frontend y Backend), QA, Designer, DevOps, Product Manager, Scrum Master — cada uno un "system prompt" en markdown que un slash command carga al invocar un subagente para esa disciplina.
-- **Doce slash commands** que cubren artefactos fundacionales del Día 0, el loop de entrega por historia, orquestación de sprint, authoring de stories/ADRs/bugs, más dos boards complementarios: [`/conclave-board`](/es/commands/board) (Kanban Next.js de status) y [`/conclave-sprint-board`](/es/commands/sprint-board) (HTML offline de roadmap / analíticas).
-- **Ceremonias conscientes del perfil.** Los equipos lean se saltan el daily standup, la revisión de pares y la retro. Los equipos full-scrum exigen todo. Dos gates estructurales — Sprint Planning y Verificación de QA — están siempre activos, sin importar el perfil.
+- **Catorce slash commands** que cubren el ciclo Scrum Lite — discovery de producto opcional ([`/conclave-discovery`](/es/commands/discovery)), inception (`/conclave-init`), planning, el loop de entrega por historia, cierre (`/conclave-close`) — más authoring de épicas/historias/ADRs/bugs, un Kanban Next.js de status ([`/conclave-board`](/es/commands/board)) y métricas DORA.
+- **Una capa de producto arriba de las historias.** Product Goal → épicas → historias, con un roadmap vivo cuyo forecast se recalcula con la velocidad real en cada cierre de sprint.
+- **Gates conscientes del perfil.** Tres gates estructurales — Sprint Planning, Verificación de QA y Sprint Review — están siempre activos. Los equipos lean se saltan la aprobación de PR del Tech Lead y la retro; los equipos full-scrum corren ambas.
 - **Amigable para solistas.** `/conclave-init` pregunta de entrada si sos vos solo o un equipo, y escala toda la configuración en consecuencia.
 
 ## Hacia dónde ir ahora
@@ -36,5 +37,6 @@ La mayoría de las herramientas de "IA hace Scrum" inventan un formato de datos 
 - [Roles](/es/roles) — los siete charters de rol y qué comandos invocan a cada uno.
 - [Perfiles de equipo](/es/profiles) — cómo escalar la sobrecarga de ceremonias al tamaño de tu equipo.
 - [Referencia de configuración](/es/configuration) — cada campo de `conclave/config.md` explicado.
-- [Máquina de estados de la historia](/es/state-machine) — cómo una historia pasa de `backlog` a `done`, según el perfil.
-- [Comandos](/es/commands/init) — referencia completa de cada uno de los doce slash commands.
+- [Máquinas de estado](/es/state-machine) — cómo épicas, sprints e historias pasan por sus estados.
+- [Comandos](/es/commands/init) — referencia completa de cada uno de los catorce slash commands.
+- [Actualizar desde v1](/es/upgrade) — migrá un workspace existente con `/conclave-init --upgrade`.

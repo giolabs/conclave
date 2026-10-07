@@ -222,7 +222,7 @@ For a `BUG-NNN`, the PR body's `Fixes #<n>` line closes the mirrored GitHub issu
 ### What it does *not* do
 
 - **It never merges.** Approved PRs are the output.
-- **It never closes the sprint.** When every non-retired story ends up `done`, it prints a hint; closing stays with `/conclave-review`.
+- **It never closes the sprint.** When every non-retired story ends up `done`, it prints a hint; closing stays with [`/conclave-close`](/en/commands/close).
 - **It never runs waves concurrently.** Batch-of-3 exists only inside Wave 1, and only for stories with no dependency or file overlap between them.
 - **It never skips QA.** The gate is Wave 2, executed headless.
 

@@ -9,7 +9,7 @@ The [workflow map](/en/workflow) shows the shape of solo vs. team mode. This pag
 
 ## The team
 
-A small cross-functional team, `team_mode: team`, profile `full-scrum` (peer PR review and every ceremony on):
+A small cross-functional team, `team_mode: team`, profile `full-scrum` (Tech Lead PR approval and retro on):
 
 | Person | Discipline | Process role |
 |---|---|---|
@@ -23,28 +23,27 @@ Designer is `TBD` — nobody covers it yet, which is fine; the roster row stays 
 
 Each person has their own clone of the repo and their own local Claude Code session. **The only thing they share is the git remote.** Conclave has no server, no daemon, no cross-machine session — every `/conclave-*` command reads and writes files in the current working tree, same as any other CLI tool.
 
-## Day 0 — one person bootstraps, everyone reviews
+## Day 0 — one person runs inception, everyone reviews
 
-Ada (Tech Lead) runs the founding-artifacts flow once, on her machine:
+Ada (Tech Lead) runs setup and inception once, on her machine:
 
 ```bash
 # Ada's terminal
 /conclave-init
-# → "Is this just you, or a team?" → Team
-# → team size, sprint length, timezone
-# → one question per discipline: "Who covers Frontend?" etc.
+# → project name, story prefix, language, launch date
+# → team mode: team · profile: full-scrum · sprint length: 2 weeks
+# → "What should inception start from?" → "I'll describe the idea now":
+#   "Task management REST API with JWT auth, React dashboard"
+# → PM writes vision + epics, TL writes architecture + ADRs + walking-skeleton epic,
+#   SM writes the roadmap → one-screen checkpoint → confirmed
 
-/conclave-spec "Task management REST API with JWT auth, React dashboard"
-# → Tech Lead + Product Manager subagents run in parallel
-# → conclave/product/backlog.md, architecture.md, sprints/SPRINT-001/ created
-
-git add conclave/
-git commit -m "conclave: bootstrap Scrum workspace + Sprint 1 draft"
-git push -u origin conclave/bootstrap
-gh pr create --title "Conclave: bootstrap + Sprint 1 draft" --body "..."
+git add conclave/ .github/
+git commit -m "conclave: inception for task-manager"
+git push -u origin conclave/inception
+gh pr create --title "Conclave: inception" --body "..."
 ```
 
-This is a normal PR. Bea, Cy, Dee, and Fen review it in GitHub like any other diff — reading `conclave/product/backlog.md` and `architecture.md` as prose, not through Claude Code at all. Once approved and merged, everyone else does:
+This is a normal PR. Bea, Cy, Dee, and Fen review it in GitHub like any other diff — reading `vision.md`, the epics, `architecture.md` and `roadmap.md` as prose, not through Claude Code at all. Once approved and merged, everyone else does:
 
 ```bash
 # Bea's, Cy's, Dee's, Fen's terminals — after the PR merges
@@ -61,19 +60,20 @@ Fen (holding Scrum Master) runs the ceremony:
 ```bash
 # Fen's terminal
 /conclave-planning
-# → Wave 1: Product Manager + Tech Lead subagents run in parallel
-#     (Tech Lead assigns a `discipline` to every story)
-# → Wave 2: Scrum Master assigns each story to a roster member
+# → Wave 1: Tech Lead refines the walking-skeleton epic into enabler stories
+#     (Product Manager does the same for feature epics in later slots)
+# → Wave 2: Tech Lead checks feasibility and assigns a `discipline` to every story
+# → Wave 3: Scrum Master assigns each story to a roster member
 #     whose Discipline matches
 # → capacity check, DoR validation, sprint locked to `active`
 
 git add conclave/
-git commit -m "conclave: lock SPRINT-001 — ship the task CRUD + auth flow"
-git push -u origin conclave/planning-sprint-001
-gh pr create --title "Sprint Planning: SPRINT-001" --body "Goal, assignments, DoR validation."
+git commit -m "conclave: plan SPRINT-000 — walking skeleton"
+git push -u origin conclave/planning-sprint-000
+gh pr create --title "Sprint Planning: SPRINT-000" --body "Goal, assignments, DoR validation."
 ```
 
-The PR body lists who got what: `US-001 → Bea (frontend)`, `US-002 → Cy (backend)`, `US-003 → Dee (qa)`, and so on. Once it's merged, everyone pulls `main` again and can see their own assignment in `conclave/sprints/SPRINT-001/stories/`.
+The repo has no code yet, so the first slot is **Sprint 0**: enabler stories for the scaffold, tests, lint, CI and the `develop` branch. The PR body lists who got what: `US-001 → Fen (devops)`, `US-002 → Cy (backend)`, and so on. Once it's merged, everyone pulls `main` again and can see their own assignment in `conclave/sprints/SPRINT-000/stories/`.
 
 ## The per-story loop — fully parallel, fully independent
 
@@ -121,15 +121,34 @@ Meanwhile Cy's US-002 is going through the exact same loop on its own branch, on
 
 Not everything is embarrassingly parallel. A few files are shared, and Conclave's own guardrails are what keep this safe rather than any locking mechanism:
 
-- **`conclave/product/backlog.md` and `conclave/team/roster.md`** are only written by `/conclave-spec` and `/conclave-planning` — commands one facilitator runs at defined checkpoints, not something every dev touches mid-sprint. Pull before you plan; the usual "someone else merged first" git conflict resolution applies if two people try to run planning-type commands against a stale `main`.
-- **Sprint Planning is a single ceremony**, run once per sprint by whoever facilitates — not parallelized across devs, because Wave 2 (assignment) needs to see every story's discipline from Wave 1 before it can allocate anyone.
+- **`conclave/product/` (backlog, epics, roadmap) and `conclave/team/roster.md`** are only written by `/conclave-init`, `/conclave-planning`, `/conclave-close`, `/conclave-epic` and `/conclave-story` — commands one facilitator runs at defined checkpoints, not something every dev touches mid-sprint. Pull before you plan; the usual "someone else merged first" git conflict resolution applies if two people try to run planning-type commands against a stale `main`.
+- **Sprint Planning and Sprint Close are single ceremonies**, run once per sprint by whoever facilitates — not parallelized across devs. Planning's assignment wave needs every story's discipline first, and close needs the whole sprint's final state.
 - **A story's own files** (`stories/US-NNN-*.md`, `acceptance/AC-US-NNN.md`) are written by exactly one command at a time in its lifecycle — `/conclave-dev` while `in-progress`, `/conclave-qa` at `review`, `/conclave-pr-review` at `verified` — so two people never write the same story file concurrently unless someone runs the wrong command out of turn (which Conclave's own status checks refuse).
 
-In practice: **plan together, build in parallel, merge whenever your PR is ready.** The git remote is the only synchronization point that matters.
+## Closing the sprint
+
+When the sprint ends, Fen closes it:
+
+```bash
+# Fen's terminal
+/conclave-close
+# → refuses if a critical bug is still open
+# → unfinished stories: next sprint or back to backlog
+# → Product Manager writes review.md (Sprint Goal verdict, epic progress)
+# → retro (full-scrum): Fen pastes the team's keep / change / try answers;
+#   Scrum Master writes retro.md with at most 3 action items
+# → sprint closed, velocity recorded, roadmap forecast updated, reports written
+
+git add conclave/ && git commit -m "conclave: close SPRINT-000"
+```
+
+The next `/conclave-planning` plans slot 1, sizes it against Sprint 0's velocity, and carries in the retro's action items.
+
+In practice: **plan together, build in parallel, merge whenever your PR is ready, close together.** The git remote is the only synchronization point that matters.
 
 ## Next steps
 
 - [Workflow map](/en/workflow) — the same loop drawn as diagrams, solo vs. team side by side.
-- [Story state machine](/en/state-machine) — exactly which status transitions each command performs.
+- [State machines](/en/state-machine) — exactly which status transitions each command performs.
 - [Roles](/en/roles) — what each discipline's subagent actually does.
 - [Commands](/en/commands/init) — full reference for every shipped slash command.
