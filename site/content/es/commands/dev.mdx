@@ -72,6 +72,20 @@ Cuando se pasa más de un ID de historia:
 
 Los tres charters comparten los mismos inputs, la misma forma de outputs, y la misma plantilla de cuerpo de PR — solo difiere el dominio de lo que se construye.
 
+Cuando una historia lleva `spec: SPEC-NNN`, el subagente de ejecución también lee esa SPEC y cada ADR de los `adrs:` de la historia, e implementa contra ellos.
+
+### Historias spike (v2.0.0+)
+
+`type: spike` gana sobre cualquier `discipline`: la historia se enruta al charter del **Tech Lead** (modelo `models.overrides.tech_lead`). Un spike investiga, no entrega features:
+
+- El TL responde la `question` de la historia dentro de su `timebox`, con la evidencia más barata que pueda cambiar la decisión — docs versionadas, medir el código existente, o un prototipo descartable en un worktree o una rama `lab/<ID>-*` que **nunca** se commitea en la rama de la historia.
+- Escribe `conclave/sprints/SPRINT-NNN/spikes/<ID>-findings.md` desde `spike-findings.template.md`, más cada salida declarada: un ADR `proposed` en `product/adr/` (`adr`), una SPEC `draft` en `product/specs/` (`spec`), nuevos tamaños en los hallazgos (`estimate`).
+- El PR es **solo de docs** — markdown bajo `conclave/`. `outcome: not-answered` está permitido si los hallazgos explican con honestidad por qué.
+- Al pasar a `review`, la historia recibe `findings_path`, y la épica suma los ADRs nuevos a `adrs`, la SPEC a `spec` (si estaba vacío), y las filas de ADR en `architecture.md` §4.
+- Cuando varios spikes de una misma corrida declaran salidas ADR o SPEC, el orquestador reserva rangos de números disjuntos de entrada, así spikes concurrentes nunca escriben el mismo `ADR-NNN` / `SPEC-NNN` (se permiten huecos).
+
+En `--loop`, un spike pasa por W1 → W2 → W3 como cualquier historia, y su fila del ledger es `tech_lead`. Ver [`/conclave-spike`](/es/commands/spike).
+
 ## Qué produce
 
 - Código (o, para `design`, notas de handoff) + evidencia de verificación en el repo.
@@ -222,7 +236,7 @@ Para un `BUG-NNN`, la línea `Fixes #<n>` del cuerpo del PR cierra el issue espe
 ### Qué *no* hace
 
 - **Nunca mergea.** Los PRs aprobados son la salida.
-- **Nunca cierra el sprint.** Cuando todas las historias no `retired` quedan en `done`, imprime un aviso; cerrar queda en `/conclave-review`.
+- **Nunca cierra el sprint.** Cuando todas las historias no `retired` quedan en `done`, imprime un aviso; cerrar queda en [`/conclave-close`](/es/commands/close).
 - **Nunca corre waves en paralelo.** El batch de 3 existe solo dentro de Wave 1, y solo entre historias sin dependencia ni solape de archivos.
 - **Nunca saltea QA.** El gate es la Wave 2, ejecutada headless.
 

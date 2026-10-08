@@ -36,7 +36,7 @@ Each row references a standalone ADR file under `conclave/product/adr/`. To auth
 | [ADR-002](adr/ADR-002-{{adr_2_slug}}.md) | {{adr_2_title}} | proposed | {{iso_date}} |
 | [ADR-003](adr/ADR-003-{{adr_3_slug}}.md) | {{adr_3_title}} | proposed | {{iso_date}} |
 
-> `/conclave-spec` creates this table with initial ADR rows and writes the corresponding standalone files under `adr/`. Later `/conclave-adr` runs append rows here for each new ADR.
+> `/conclave-init` (inception) creates this table with initial ADR rows and writes the corresponding standalone files under `adr/`. Later `/conclave-adr` runs append rows here for each new ADR.
 
 ## 5. Cross-cutting concerns
 

@@ -27,7 +27,12 @@ Este comando solo corre cuando `ceremonies.peer_pr_review.required: true` en `co
    - Despacha el subagente Tech Lead con el archivo de historia, los criterios de aceptación, el diff del PR, el variable registry del lab config, y `base_url`.
    - Escribe `US-NNN-lab.md` en el directorio de historias del sprint.
    - Actualiza `lab_test_path` en el frontmatter de la historia; commitea y pushea.
+   - Se saltea para historias `type: spike` — un spike no tiene comportamiento en runtime para probar en lab.
    - Ver [Lab tests](/es/lab-tests) para el formato de spec completo y las reglas de seguridad.
+
+### Historias spike (v2.0.0+)
+
+Para una historia `type: spike`, el Tech Lead revisa el **entregable** en lugar de código: que los hallazgos respondan la pregunta con la evidencia que dicen tener, que cada ADR producido pase los gates de evidencia de [`/conclave-adr`](/es/commands/adr), que una SPEC producida siga `tech-spec.template.md`, y que el diff tenga solo markdown bajo `conclave/`. El archivo de hallazgos, los ADRs y la SPEC producidos se incluyen en la review.
 
 ## Qué produce
 

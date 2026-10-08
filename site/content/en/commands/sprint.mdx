@@ -1,54 +1,51 @@
 ---
 title: /conclave-sprint
-description: Drive an entire active sprint end-to-end — planning, dev, QA, and PR review — in a single invocation. Generates closing report, UAT guide, and DORA snapshot on completion.
+description: Drive the build phase of a sprint in one pass — planning if no sprint is active, then batched Dev, QA, and PR review. Closing the sprint is /conclave-close.
 ---
 
 # /conclave-sprint
 
-Drive an entire active (or draft) sprint end-to-end in a single invocation.
+Drive the **build phase** of a sprint in a single invocation: plan the next roadmap slot if no sprint is active, then one pass of Dev → QA → PR review.
 
 ```
 /conclave-sprint
+/conclave-sprint --no-interaction
+/conclave-sprint --headless
 ```
 
-No arguments required. The command finds the current sprint, resolves configured models, and runs four sequential phases. Each phase is profile-aware; failures are isolated per story.
+Closing the sprint — review, retro, velocity, reports — is [`/conclave-close`](/en/commands/close). This command never sets a sprint `closed` and never writes `conclave/report/`.
 
 ## Phases
 
 | Phase | What it does | When it runs |
 |---|---|---|
-| **Phase 1 — Planning** | Runs Sprint Planning (PM + TL concurrent, then SM) to lock a `draft` sprint | Skipped if sprint is already `active` |
+| **Phase 1 — Planning** | Runs [`/conclave-planning`](/en/commands/planning) inline for the next roadmap slot (refinement, TL feasibility, SM planning, validation, lock) | Skipped if a sprint is already `active` |
 | **Phase 2 — Dev** | Dispatches all `ready` stories to the Developer/Designer/DevOps subagent (batch-of-3) | Skipped if no `ready` stories |
 | **Phase 3 — QA** | Dispatches all `review` stories to the QA subagent (batch-of-3) | Skipped if no `review` stories |
 | **Phase 4 — PR Review** | Dispatches all `verified` stories to the Tech Lead subagent (batch-of-3) | Skipped when `ceremonies.peer_pr_review.required: false` or no `verified` stories |
 
+A workspace without `product/roadmap.md` (pre-v2) is refused with *"Run `/conclave-init --upgrade` first."*
+
 ## Phase output
 
-Each phase prints a header before dispatching Agent calls:
+Each phase prints a header and, after its batches, a summary table (same format as `/conclave-dev` and `/conclave-qa`):
 
 ```
 ## Phase 2 — Dev (4 stories)
-```
 
-And a summary table after all batches complete (same format as `/conclave-dev` and `/conclave-qa`):
-
-```
 | Story  | Branch               | PR                           | Outcome              |
 |--------|----------------------|------------------------------|----------------------|
 | US-001 | feat/US-001-login    | https://github.com/…/pull/42 | ✓ done               |
-| US-002 | feat/US-002-profile  | https://github.com/…/pull/43 | ✓ done               |
 | US-003 | feat/US-003-settings | —                            | ✗ failed: <error>    |
 ```
 
-Skipped phases print a one-line notice:
+Skipped phases always print a one-line notice:
 
 ```
 Phase 4 — PR Review: skipped (peer_pr_review.required: false)
 ```
 
-## Final summary
-
-After all phases, a sprint-level summary table covers every story touched:
+## Final summary and close hint
 
 ```
 | Story  | Starting status | Final status | Notes               |
@@ -58,95 +55,44 @@ After all phases, a sprint-level summary table covers every story touched:
 | US-003 | review          | done         | (was already review)|
 ```
 
+When stories are still in flight, it points to `/conclave-dev --loop`. When every non-retired story is `done`, it prints:
+
+```
+All stories in SPRINT-NNN are done. Run /conclave-close to review the Increment,
+run the retro, record velocity, and generate the sprint report.
+```
+
 ## Model configuration
 
-`/conclave-sprint` reads the `models:` block from `conclave/config.md` and prints a one-line summary before Phase 1:
-
-```
-Models: default=claude-sonnet-4-6, tech_lead=claude-opus-4-6, developer=claude-haiku-4-5-20251001
-```
-
-Each Agent call receives the model configured for its role. See the [configuration reference](/en/configuration#model-configuration-block-optional-v070) for the full `models:` block format.
+Reads the `models:` block from `conclave/config.md` and prints a one-line summary before Phase 1. Phase 2 routes by discipline (`design` → designer, `devops` → devops, everything else → developer). See the [configuration reference](/en/configuration#model-configuration-block-optional-v070).
 
 ## Failure behaviour
 
-- **Phase 1 failure** (planning agent errors): hard stop. `Sprint run aborted: Phase 1 (Planning) failed.` Reason: proceeding to dev without a locked sprint goal is structurally invalid.
-- **Phase 2–4 per-story failure**: that story is reported in the summary (`✗ failed`); other stories continue. A failed dev story stays `ready` and is excluded from Phase 3's collection.
-- **QA `verdict: blocked`**: normal outcome. Story stays `review`, reported as `✗ QA: blocked`. Does not block other QA calls.
+- **Phase 1 failure**: hard stop — `Sprint run aborted: Phase 1 (Planning) failed.`
+- **Phase 2–4 per-story failure**: reported in the summary; other stories continue. A failed dev story stays `ready`.
+- **QA `verdict: blocked`**: a normal outcome. The story stays `review`.
 
 ## Re-runs
 
-Re-running `/conclave-sprint` after a partial failure is safe. Story `status` frontmatter is the recovery mechanism:
-
-- Phase 2 collects `ready` stories (those that failed in a prior run and were reset stay `ready`).
-- Phase 3 collects `review` stories (including those left in `review` from a prior QA block).
-- Phase 4 collects `verified` stories.
-
-No checkpoint file is introduced. Re-run the command and it picks up exactly where the frontmatter left off.
-
-## Sprint closing — Steps 12 and 13 (v0.16.0+)
-
-When all stories reach a terminal state (`done` or explicitly carried over), the command runs two additional steps before marking the sprint closed:
-
-### Step 12 — Critical bug gate
-
-Scans `conclave/sprints/SPRINT-NNN/bugs/` for any file whose frontmatter has `severity: critical` and `status` other than `done`. If any critical bug is open:
-
-```
-Sprint close BLOCKED: 2 critical bug(s) open in conclave/sprints/SPRINT-NNN/bugs/.
-Resolve BUG-001-auth-bypass and BUG-003-data-loss before closing.
-```
-
-This check runs unconditionally — it cannot be bypassed in headless or `--no-interaction` mode. The sprint cannot close until all critical bugs are resolved.
-
-### Step 13 — Closing reports
-
-Three files are generated under `conclave/report/SPRINT-NNN/` from the corresponding templates:
-
-| File | Template | Contents |
-|---|---|---|
-| `report.md` | `sprint-closing-report.template.md` | Velocity, story results table, bug count, acceptance coverage, carryover, recommendations |
-| `UAT.md` | `sprint-uat-summary.template.md` | Per-story Gherkin scenarios, manual test steps, regression checklist, sign-off table |
-| `dora-data.yml` | (inline) | Pre-computed DORA snapshot: deploy timestamps, lead times, CFR, MTTR raw data for `/conclave-dora` aggregation |
-
-The sprint status in `meta.md` is set to `done` **after** Step 13 completes, so closing reports always reflect the final state.
-
-## What it produces (complete list)
-
-- Phase 1–4 artifacts (stories, PRs, verification reports, planning record).
-- `conclave/sprints/SPRINT-NNN/bugs/BUG-NNN-*.md` — sprint bugs written by the QA phase when verification is blocked.
-- `conclave/report/SPRINT-NNN/report.md` — sprint closing report.
-- `conclave/report/SPRINT-NNN/UAT.md` — functional UAT guide.
-- `conclave/report/SPRINT-NNN/dora-data.yml` — DORA metrics snapshot (consumed by `/conclave-dora`).
-
-## Guardrails
-
-- Phase 1 failure is a hard stop. All other failures are per-story isolated.
-- Never modifies files outside `conclave/` (except feature branches and `tests/uat/` written by the QA phase).
-- **No mode merges any PR** — Tech Lead approval in Phase 4 is sufficient; merging is a human action.
-- Every skipped phase prints a skip notice with the reason.
-- **Sprint cannot close with open critical bugs** — Step 12 enforces this unconditionally.
+Safe. Story `status` frontmatter is the recovery mechanism: Phase 2 collects `ready`, Phase 3 `review`, Phase 4 `verified`. Bugs (`BUG-NNN`) are never collected — fix them with `/conclave-dev BUG-NNN`.
 
 ## Headless one-pass
 
-```
-/conclave-sprint --no-interaction
-/conclave-sprint --headless
-```
+`--no-interaction` / `--headless`, or `commands.sprint.interactive: false`. The **same** single pass with prompts replaced by documented defaults:
 
-Or set `commands.sprint.interactive: false` in `conclave/config.md`.
+- Planning (no active sprint): start today, end after `sprint.length_weeks` (default 2) weeks, first roster member as facilitator, Tech Lead as coverage-gap fallback. DoR failures drop back to `backlog`; over-capacity drops the lowest priority; under-capacity pulls nothing more.
+- Phases 2–4 run unchanged. Phase 4 still honors `ceremonies.peer_pr_review.required` — headless does not force the TL gate.
+- Nothing is merged, no run report is written, nothing is retried.
 
-This is the **same** single pass as interactive mode, with prompts replaced by documented defaults:
+> **Changed in 0.15.0.** `commands.sprint.schedule` / `budgets` / `merge_method` are ignored no-ops and `--ignore-schedule` has no effect here. Unattended delivery is [`/conclave-dev --loop`](/en/commands/dev#autonomous-three-wave-delivery-loop-v0150).
+>
+> **Changed in 2.0.0.** The critical-bug gate, the closing reports and setting the sprint closed moved to [`/conclave-close`](/en/commands/close). Phase 1 now plans the next roadmap slot instead of locking a pre-existing `draft` sprint.
 
-- Planning on a `draft` sprint uses today as the start date, the configured sprint length (else 14 days), the first roster member as facilitator, and the Tech Lead as a fallback for coverage gaps.
-- Phases 2–4 run unchanged, including batch-of-3 concurrency. Phase 4 still honors `ceremonies.peer_pr_review.required`.
-- The critical bug gate (Step 12) and closing reports (Step 13) run as normal.
-- Nothing is merged, nothing is retried.
+## Guardrails
 
-A story that fails Dev or is blocked by QA is reported and left where it is. Pick those up with `/conclave-dev --loop`.
-
-> **Changed in 0.15.0.** Up to 0.14.0 this flag ran a self-healing loop that merged into the integration branch, closed the sprint, and honored `commands.sprint.schedule` / `budgets` / `merge_method`. ADR-006 moved unattended delivery to `/conclave-dev --loop`; those three config keys are now ignored no-ops, and `--ignore-schedule` has no effect here.
-
-### Unattended delivery: `/conclave-dev --loop`
-
-To drive a sprint (or a subset, or a `BUG-NNN` this command never collects) unattended, use [`/conclave-dev --loop`](/en/commands/dev#autonomous-three-wave-delivery-loop-v0150) (v0.15.0+, ADR-006). It runs three ordered waves — Dev + green CI, then QA, then a forced Tech Lead review — sends failures back to Dev, gates on a recurring local-time window with budgets, writes a run report with agent-productivity statistics, and leaves **approved PRs for you to merge**. It never closes the sprint; it prints a hint pointing back here.
+- Phase 1 failure is a hard stop; all other failures are isolated per story.
+- **Never merges a PR**, in either mode (ADR-006).
+- Not a delivery loop: no self-heal, schedule, budgets, run report or token ledger.
+- Never collects `BUG-NNN`.
+- Writes only inside `conclave/`, plus story feature branches and the `tests/uat/` paths QA may write.
+- Never closes a sprint.

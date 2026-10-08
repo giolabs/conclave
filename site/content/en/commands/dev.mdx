@@ -72,6 +72,20 @@ When more than one story ID is passed:
 
 All three charters share the same inputs, outputs shape, and PR-body template — only the domain of what gets built differs.
 
+When a story carries `spec: SPEC-NNN`, the execution subagent also reads that SPEC and every ADR in the story's `adrs:` and implements against them.
+
+### Spike stories (v2.0.0+)
+
+`type: spike` wins over any `discipline`: the story is routed to the **Tech Lead** charter (model `models.overrides.tech_lead`). A spike researches, it does not ship:
+
+- The TL answers the story's `question` within its `timebox`, using the cheapest evidence that can change the decision — versioned docs, measuring existing code, or a throwaway prototype in a disposable worktree or a `lab/<ID>-*` branch that is **never** committed to the story branch.
+- It writes `conclave/sprints/SPRINT-NNN/spikes/<ID>-findings.md` from `spike-findings.template.md`, plus every declared output: a `proposed` ADR under `product/adr/` (`adr`), a `draft` SPEC under `product/specs/` (`spec`), new sizes in the findings (`estimate`).
+- The PR is **docs-only** — markdown under `conclave/`. `outcome: not-answered` is allowed when the findings say honestly why.
+- On `review`, the story gets `findings_path`, and the epic gets the new ADRs in `adrs`, the SPEC in `spec` (when empty), and the ADR rows in `architecture.md` §4.
+- When several spikes in one run declare ADR or SPEC outputs, the orchestrator reserves disjoint number ranges up front so concurrent spikes never write the same `ADR-NNN` / `SPEC-NNN` (gaps are allowed).
+
+In `--loop`, a spike goes through W1 → W2 → W3 like any story, and its ledger row is `tech_lead`. See [`/conclave-spike`](/en/commands/spike).
+
 ## What it produces
 
 - Code (or, for `design`, handoff notes) + verification evidence in the repo.
@@ -222,7 +236,7 @@ For a `BUG-NNN`, the PR body's `Fixes #<n>` line closes the mirrored GitHub issu
 ### What it does *not* do
 
 - **It never merges.** Approved PRs are the output.
-- **It never closes the sprint.** When every non-retired story ends up `done`, it prints a hint; closing stays with `/conclave-review`.
+- **It never closes the sprint.** When every non-retired story ends up `done`, it prints a hint; closing stays with [`/conclave-close`](/en/commands/close).
 - **It never runs waves concurrently.** Batch-of-3 exists only inside Wave 1, and only for stories with no dependency or file overlap between them.
 - **It never skips QA.** The gate is Wave 2, executed headless.
 

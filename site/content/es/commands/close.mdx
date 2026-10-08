@@ -1,0 +1,108 @@
+---
+title: /conclave-close
+description: Cierra el sprint activo — Sprint Review, Retrospectiva opcional, velocidad, re-planificación del roadmap y reportes de cierre. El único comando que pone un sprint en closed.
+---
+
+# /conclave-close
+
+Cierra el sprint **activo**. Es el último paso de cada sprint y el **único** comando que pone un sprint en `closed` — `/conclave-planning` se niega a planificar el siguiente sprint hasta que este comando haya corrido.
+
+```
+/conclave-close
+```
+
+| Parte | ¿Siempre? | Rol | Salida |
+|---|---|---|---|
+| Review | sí — estructural | Product Manager | `sprints/SPRINT-NNN/review.md`, actualización de épicas y roadmap, velocidad |
+| Retro | cuando `ceremonies.close.retro: true` | Scrum Master | `sprints/SPRINT-NNN/retro.md` |
+| Reportes | sí | orquestador | `report/SPRINT-NNN/{report.md, UAT.md, dora-data.yml}` |
+
+Conclave nunca mergea (ADR-006). La review cuenta una historia como parte del Increment cuando su estado es `done` — verificada por QA y, si el gate del TL está activo, aprobada. Si un humano ya mergeó el PR se reporta, no se exige.
+
+## Qué hace
+
+### Paso 1 — Encontrar el sprint activo
+
+Sin sprint activo → *"No active sprint to close."* El comando carga meta, spec, registro del planning, historias, archivos de aceptación y bugs del sprint, más la visión, el roadmap, las épicas del sprint y el `retro.md` anterior.
+
+### Paso 2 — Gate de bugs críticos
+
+Cualquier `BUG-NNN` con `severity: critical` que no esté `done`/`closed` y pertenezca a este sprint bloquea el cierre, y no se modifica nada:
+
+```
+⛔ SPRINT-NNN cannot close — 1 open critical bug(s):
+  - BUG-004: <título> (status: review)
+Fix them with /conclave-dev BUG-NNN, verify with /conclave-qa BUG-NNN, then re-run /conclave-close.
+```
+
+El gate es incondicional. Los bugs no críticos abiertos solo generan una advertencia y se listan en la review.
+
+### Paso 3 — Datos del sprint
+
+Se calculan sin agente: unidades comprometidas, **velocidad** (unidades de historias `done`, `XS=1 S=2 M=3 L=5 XL=8`; un spike cuenta su `timebox` — es trabajo real que el equipo comprometió), la lista de lo no terminado, el progreso por épica, el estado de merge del PR de cada historia done (`unknown` si `gh` no está disponible) y señales para la retro — historias devueltas por QA o el TL, corridas autónomas bloqueadas o abortadas, bugs abiertos, cantidad de carry-over.
+
+### Paso 4 — Historias sin terminar
+
+Para cada historia que no está `done`, elegís:
+
+- **Próximo sprint** — mantiene estado y asignado; el próximo `/conclave-planning` la toma como carry-over.
+- **Volver al backlog** — `status: backlog`, se limpian asignado y sprint.
+
+### Paso 5 — Review (Product Manager)
+
+El PM inspecciona el Increment contra el Sprint Goal y escribe `review.md`:
+
+- Veredicto del Sprint Goal: `true | false | partial`, con el motivo.
+- Progreso por épica, con un veredicto por épica — `done` solo cuando todas las historias no retiradas están done **y** se cumple el criterio de éxito de la épica.
+- Progreso del Product Goal.
+- Adaptaciones: nuevas historias candidatas, épicas repriorizadas, épicas para dividir o retirar — **solo propuestas**.
+- Spikes terminados en el sprint (v2.0.0+): una línea cada uno — pregunta, resultado, recomendación y qué cambia. Un spike `not-answered` recibe un próximo paso explícito.
+
+### Paso 6 — Retro (Scrum Master), si está activa
+
+Hace tres preguntas opcionales de texto libre — *qué mantener, qué cambiar, qué probar* — y, por cada action item abierto de la retro anterior, *hecho / no hecho / descartar*. En `team_mode: team`, pegá las respuestas del equipo (una línea por persona alcanza). Sin usuario (headless), el SM trabaja solo con las señales del Paso 3. La salida tiene **como máximo 3** action items, cada uno con dueño y medida; el próximo `/conclave-planning` importa los abiertos.
+
+### Paso 7 — Escritura
+
+- `review.md` y (si está activa) `retro.md`; se actualiza el estado de los action items de la retro anterior.
+- Frontmatter de historias según tus decisiones del Paso 4.
+- Las épicas que la review marcó como done → `status: done`. Las divisiones y retiros **no** se aplican; aparecen en el reporte como sugerencias `/conclave-epic split|retire`.
+- **Resultados de spikes en la épica** (v2.0.0+) — para cada historia `type: spike` en `done`, sus hallazgos se aplican a su épica: `uncertainty` ← la "Uncertainty after the spike" del reporte; `adrs` suma los ADRs producidos; `spec` ← la SPEC producida si estaba vacío; la pregunta abierta correspondiente queda con el sufijo `— answered by <ID>` (o `— not answered, see <ID>`); las nuevas historias candidatas se agregan a `## Candidate stories`. Los cambios de estimación de historias existentes se listan en el reporte, no se aplican. Un spike `not-answered` cuya épica sigue en `uncertainty: high` → sugiere otro [`/conclave-spike`](/es/commands/spike) o una decisión del PM.
+- `meta.md` → `status: closed`, `velocity`, `sprint_goal_met`, `closed_at`.
+- Se actualizan las filas del backlog. Las historias candidatas de la review van a la sección `## Candidate stories` de su épica, no a archivos de historia — el refinamiento pasa en el planning.
+- Roadmap: el slot → `closed`; se agrega una fila de burnup; el **forecast** se recalcula con la velocidad promedio de los últimos 3 sprints cerrados. Si se mueve el slot del MVP o la fecha de lanzamiento, se actualizan las fechas de los slots futuros y una fila del log de re-planificación registra por qué. Las épicas nunca se reordenan ni se descartan automáticamente.
+- Reportes en `conclave/report/SPRINT-NNN/`:
+
+| Archivo | Contenido |
+|---|---|
+| `report.md` | Comprometido / done / carry-over, bugs, velocidad, tasa de completitud, resumen de aceptación, decisiones y bloqueos, recomendaciones para el próximo sprint |
+| `UAT.md` | Por cada historia done: setup desde la rama de integración, pasos desde sus escenarios Gherkin |
+| `dora-data.yml` | Datos crudos para [`/conclave-dora`](/es/commands/dora): historias done, velocidad, bugs, PRs mergeados, lead times, MTTR |
+
+## Salida
+
+```
+✓ SPRINT-001 closed — Sprint Goal met: partial
+  Velocity:    11 / 14 units (avg last 3: 11)
+  Increment:   4 stories done · PRs merged: 3/4 (unmerged PRs wait for a human)
+  Carry-over:  1 next sprint · 0 back to backlog
+  Epics done:  EP-000
+  Retro:       2 action items
+  Forecast:    MVP at SPRINT-004 (2026-12-04) — moved from SPRINT-003
+  Suggested:   /conclave-epic split EP-002
+```
+
+## Guardrails
+
+- Solo se puede cerrar el sprint `active`; un sprint `closed` nunca se reabre.
+- Nunca mergea, pushea ni toca código — solo escribe dentro de `conclave/`.
+- Nunca crea archivos de historia.
+- Nunca aplica automáticamente divisiones o retiros de épicas, ni reordena el roadmap.
+- La review corre en cualquier perfil. La retro solo corre cuando `ceremonies.close.retro: true`.
+
+## Después de correrlo
+
+```bash
+git add conclave/ && git commit -m "conclave: close SPRINT-NNN"
+/conclave-planning      # planificá el próximo slot
+```

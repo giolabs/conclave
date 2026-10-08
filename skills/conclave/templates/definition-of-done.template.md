@@ -43,6 +43,15 @@ These items apply only if the corresponding flag in `conclave/config.md` is `req
 
 - [ ] **Tech Lead PR approval** — the Tech Lead (or designated approver) has run `/conclave-pr-review US-NNN` and approved the PR. *(Governed by `ceremonies.peer_pr_review.required` — off in the `lean` profile. When off, QA verification is the merge signal and there is no separate code-level gate.)*
 
+## Spikes (`type: spike`)
+
+A spike is done on its deliverable, not on production code. Replace the **Code and tests** section above with:
+
+- [ ] `spikes/<PREFIX>-NNN-findings.md` exists, answers the question (or states honestly why it could not) and carries a recommendation with evidence tiers.
+- [ ] Every declared output exists: a `proposed` ADR under `product/adr/` for `adr`, a `draft` SPEC under `product/specs/` for `spec`, updated estimates for `estimate`.
+- [ ] The epic's `uncertainty`, `adrs`, `spec` and `## Open questions` reflect the findings.
+- [ ] No prototype code is in the PR — prototypes stay on a lab branch or worktree.
+
 ## How to update
 
 The team owns this list. Add or remove items via PR. The DoD typically tightens over time as the team learns what bites them.

@@ -1,6 +1,6 @@
 ---
 sprint: "{{sprint_id}}"
-status: draft               # draft | active | done | archived
+status: draft               # draft | active | closed
 generated_by: conclave
 generated_at: "{{iso_date}}"
 ---
@@ -43,12 +43,4 @@ See `../../product/architecture.md`. If a story in this sprint requires an archi
 - [ ] Each Dev runs `/conclave-dev US-NNN` to pick up their assigned story.
 - [ ] QA runs `/conclave-qa US-NNN` to verify each story behaviorally.
 - [ ] Tech Lead runs `/conclave-pr-review US-NNN` to approve each PR *(only when `peer_pr_review.required: true`)*.
-- [ ] Run `/conclave-review` and `/conclave-retro` at sprint end. *(planned, not yet shipped)*
-
-For the MVP, after this file is generated:
-
-```bash
-git add conclave/
-git commit -m "conclave: founding artifacts for {{project_name}}"
-gh pr create --title "Conclave: founding artifacts" --body "Review the backlog, architecture, and Sprint 1 plan."
-```
+- [ ] Run `/conclave-close` at sprint end (Review + Retro) to record velocity and unlock the next planning.

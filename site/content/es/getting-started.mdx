@@ -1,6 +1,6 @@
 ---
 title: Primeros pasos
-description: Instalá Conclave y arrancá tu primer sprint en dos comandos.
+description: Instalá Conclave, corré la inception una vez y arrancá el ciclo de sprints.
 ---
 
 # Primeros pasos
@@ -8,6 +8,7 @@ description: Instalá Conclave y arrancá tu primer sprint en dos comandos.
 Conclave corre en **Claude Code o Cursor** contra el mismo directorio `conclave/`.
 
 - **¿Cursor y nunca instalaste Conclave?** Seguí primero [Cursor desde cero](/es/installation#cursor-desde-cero) (clonar el plugin → instalar → después inicializar **tu app**).
+- **¿Ya usás Conclave v1.x?** Corré `/conclave-init --upgrade` — mirá [Actualizar desde v1](/es/upgrade).
 - Si no, instalá tu runtime vía [Instalación](/es/installation) / [Plataformas](/es/platforms), y después:
 
 ## Dos comandos para arrancar
@@ -15,53 +16,33 @@ Conclave corre en **Claude Code o Cursor** contra el mismo directorio `conclave/
 Dentro de cualquier repo git:
 
 ```bash
-# 1. Wizard único — detecta el stack, reúne nombre del proyecto, prefijo de historia,
-#    fecha de lanzamiento, perfil de equipo, y ubica el documento de producto. Sin agentes de IA.
+# 0. Opcional, greenfield: escribí el paquete de documentación de producto (docs/product/).
+#    Si lo salteás, /conclave-init lo ofrece cuando no encuentra documento de producto.
+/conclave-discovery
+
+# 1. Una vez por repo: configuración + inception.
+#    Detecta el stack, pregunta nombre del proyecto, prefijo de historia, idioma,
+#    fecha de lanzamiento, perfil de equipo y duración del sprint, y después convierte
+#    tu idea (o doc de producto) en visión, épicas, arquitectura y un roadmap por sprint.
 /conclave-init
 
-# 2. Generá historias + arquitectura desde el doc de producto y bloqueá el Sprint 1 como activo.
-#    Usá --all para planificar todos los sprints del documento en un solo paso.
+# 2. Planificá el primer slot del roadmap (Sprint 0 walking skeleton en un repo nuevo).
 /conclave-planning
-/conclave-planning --all
 ```
 
-Eso es todo. Después del paso 2 el sprint está `active`, cada historia tiene un asignado y una disciplina, y el equipo puede abrir un PR con todo el directorio `conclave/`.
+Después del paso 2 el sprint está `active`, cada historia tiene un asignado y una disciplina, y el equipo puede abrir un PR con todo el directorio `conclave/`.
 
-`/conclave-init` es un **wizard puro** (sin agentes de IA). Auto-detecta tu stack y después pregunta: nombre del proyecto, prefijo de ID de historia (ej. `US`, `TASK`, `FEAT`), idioma del proyecto, fecha de lanzamiento, modo de equipo (solo/equipo) y perfil de equipo. También ubica el documento de planificación del producto — o te ayuda a crearlo.
+`/conclave-init` no necesita un documento de producto terminado. Busca uno en el repo, puntúa lo que encuentra según cinco señales de cobertura (problema, usuarios, objetivo/métricas, features/alcance, límite del MVP) y, si no hay nada usable, ofrece [`/conclave-discovery`](/es/commands/discovery) — una pasada guiada que escribe discovery, tech stack, modelo de datos, reglas de dominio (BLOC) y MVP en `docs/product/`. Un párrafo con la idea también sirve, para una inception más flaca. El Product Manager escribe la visión (con el **Product Goal**) y 3–8 épicas, el Tech Lead escribe la arquitectura y los ADRs, y el Scrum Master secuencia las épicas en slots del roadmap. Confirmás un resumen de una pantalla antes de que se escriba nada.
 
-`/conclave-planning` hace el resto. En la **primera corrida** invoca al Tech Lead y al Product Manager en paralelo — leyendo tu documento de producto — para producir el backlog, la arquitectura, los archivos de historias y los criterios de aceptación en Gherkin. Después (en **cada corrida**) corre la ceremonia de Sprint Planning.
+La inception también pregunta **cuántos sprints** debería tener el release (`auto` o un número fijo), y el Tech Lead marca la `uncertainty` de cada épica y si necesita SPEC (`needs_spec`). A las épicas riesgosas se les agenda un spike con timebox un slot antes.
 
-## Qué se crea
+Después `/conclave-planning` refina solo las épicas del próximo slot en historias con criterios de aceptación Gherkin, dimensiona el compromiso contra la velocidad, asigna por disciplina y bloquea el sprint.
 
-Después de correr ambos comandos, tu repo tiene un directorio `conclave/` completo:
+## El ciclo de sprint
 
 ```
-conclave/
-├── README.md
-├── config.md                         # story_prefix, product_doc_path, config del equipo
-├── team/
-│   ├── roster.md                     # quién cubre cada disciplina, más PM/SM opcionales
-│   └── ceremonies.md
-├── product/
-│   ├── backlog.md                    # Product Backlog ordenado (de /conclave-planning)
-│   ├── architecture.md               # ADRs + decisiones técnicas (de /conclave-planning)
-│   ├── definition-of-ready.md
-│   └── definition-of-done.md
-├── context/                          # snapshots congelados de los inputs usados
-└── sprints/
-    └── SPRINT-001/
-        ├── meta.md
-        ├── spec.md                   # plan del sprint
-        ├── planning.md               # acta de la reunión de planning
-        ├── stories/                  # un archivo por historia (PREFIJO-001-slug.md)
-        └── acceptance/               # criterios de aceptación Gherkin (AC-PREFIJO-001.md)
+[/conclave-discovery] → /conclave-init (una vez) → /conclave-planning → /conclave-dev → /conclave-qa → /conclave-pr-review → /conclave-close → /conclave-planning → …
 ```
-
-Cada archivo es markdown. Cada cambio es un diff de git normal que tu equipo puede revisar en un PR.
-
-## Continuando el loop
-
-Una vez que el Sprint 1 está bloqueado:
 
 ```bash
 # Cada dev toma la historia que le asignaron
@@ -70,15 +51,64 @@ Una vez que el Sprint 1 está bloqueado:
 # QA verifica la historia cuando llega a review
 /conclave-qa US-001
 
-# Tech Lead aprueba el PR (solo en perfiles donde peer_pr_review está activo)
+# Tech Lead aprueba el PR (solo cuando peer_pr_review.required está activo)
 /conclave-pr-review US-001
+
+# Al final del sprint: review, retro opcional, velocidad, re-planificación del roadmap, reportes
+/conclave-close
+
+# En cualquier momento, antes de que llegue el slot de una épica (v2.0.0+):
+/conclave-spike "¿Cuál de A o B …?" --epic EP-003   # historia de investigación con timebox
+/conclave-adr "…"                                   # una decisión de arquitectura
+/conclave-spec EP-003                               # el diseño técnico de la épica
+/conclave-roadmap replan --sprints 6                # cambiar cuántos sprints tiene el release
+
+# Próximo slot
+/conclave-planning
 ```
 
-Cuando todas las historias del sprint están `done`, estás listo para el próximo ciclo de planning. Corré `/conclave-planning` para el `SPRINT-002` — la Fase A se saltea (el backlog ya existe), solo corre la ceremonia de planning.
+`/conclave-dev --loop` maneja Dev → QA → Tech Lead sobre todo el sprint sin supervisión y deja PRs aprobados para que los mergee un humano. `/conclave-sprint` corre la fase de build en una pasada. Ninguno de los dos cierra el sprint — solo lo hace `/conclave-close`.
+
+## Sprint 0
+
+En un repo sin código de aplicación, `sprint.sprint_zero` vale `true` por default y el roadmap arranca con `SPRINT-000`: un **walking skeleton** hecho de historias `type: enabler` — scaffold para el stack confirmado, framework de tests con un test que pasa, lint, un workflow de CI que corre ambos, y la rama de integración `develop`. Le da a `/conclave-dev --loop` algo contra qué correr tests desde el Sprint 1.
+
+## Qué se crea
+
+```
+conclave/
+├── README.md
+├── config.md                         # proyecto, stack, perfil, cadencia de sprint
+├── team/
+│   ├── roster.md                     # quién cubre cada disciplina, más PM/SM opcionales
+│   └── ceremonies.md
+├── product/
+│   ├── vision.md                     # Product Goal, personas, métricas de éxito
+│   ├── roadmap.md                    # slots, burnup, forecast
+│   ├── epics/EP-NNN-<slug>.md
+│   ├── backlog.md                    # historias a medida que se refinan
+│   ├── architecture.md
+│   ├── adr/ADR-NNN-<slug>.md
+│   ├── specs/SPEC-NNN-<slug>.md      # especificaciones técnicas (v2.0.0+)
+│   ├── definition-of-ready.md
+│   └── definition-of-done.md
+├── context/                          # snapshots congelados de los inputs usados
+└── sprints/
+    └── SPRINT-000/
+        ├── meta.md                   # estado, slot, épicas, velocidad
+        ├── spec.md                   # plan del sprint
+        ├── planning.md               # registro del planning
+        ├── stories/                  # PREFIJO-001-slug.md
+        ├── acceptance/               # AC-PREFIJO-001.md
+        ├── review.md                 # lo escribe /conclave-close
+        └── retro.md                  # lo escribe /conclave-close si la retro está activa
+```
+
+Cada archivo es markdown. Cada cambio es un diff de git normal que tu equipo puede revisar en un PR.
 
 ## Próximos pasos
 
-- Mirá un [ejemplo de equipo](/es/team-example) — cómo trabajan realmente varios desarrolladores, cada uno con su propia sesión local de Claude Code, un sprint juntos.
+- Mirá un [ejemplo de equipo](/es/team-example) — cómo trabajan varios desarrolladores, cada uno con su propia sesión local de Claude Code, un sprint juntos.
 - Leé la [metodología](/es/methodology) para entender el modelo de Scrum que asume Conclave.
 - Elegí el [perfil de equipo](/es/profiles) adecuado para tu situación.
 - Revisá la [referencia de configuración](/es/configuration) para cada campo de `conclave/config.md`.

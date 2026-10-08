@@ -12,11 +12,11 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "platforms" / "cursor"
 
 AGENT_DESC = {
-    "product-manager": "Conclave Product Manager — backlog, scope, story authoring",
+    "product-manager": "Conclave Product Manager — vision, epics, refinement, review, story authoring",
     "tech-lead": "Conclave Tech Lead — architecture, feasibility, PR review, ADRs",
     "designer": "Conclave Designer — design-discipline story execution",
     "devops": "Conclave DevOps — devops-discipline story execution",
-    "scrum-master": "Conclave Scrum Master — planning facilitation and assignment",
+    "scrum-master": "Conclave Scrum Master — roadmap, planning facilitation, assignment, retro",
     "developer": "Conclave Developer — implement stories/bugs with tests and PRs",
     "qa": "Conclave QA — verification, UAT, bug-report authoring",
 }
@@ -110,10 +110,12 @@ def main() -> int:
 
     manifest = {
         "name": "conclave-cursor",
-        "version": "0.15.0",
+        "version": json.loads(
+            (ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
+        )["version"],
         "description": (
             "Conclave Scrum for Cursor — same conclave/ contract as the Claude Code "
-            "plugin. Twelve slash commands, seven role agents, the three-wave "
+            "plugin. Seventeen slash commands (spikes, epic SPECs and release planning included), seven role agents, the three-wave "
             "delivery loop on /conclave-dev (never merges), synced methodology "
             "and templates."
         ),
@@ -140,6 +142,10 @@ def main() -> int:
         )
         print(f"agent {name}")
 
+    canonical = {p.name for p in (ROOT / "commands").glob("conclave-*.md")}
+    for stale in (OUT / "commands").glob("conclave-*.md"):
+        if stale.name not in canonical:
+            stale.unlink()
     for path in sorted((ROOT / "commands").glob("conclave-*.md")):
         out = transform_command(path.read_text(encoding="utf-8"), path.stem)
         (OUT / "commands" / path.name).write_text(out, encoding="utf-8")

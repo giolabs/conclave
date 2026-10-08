@@ -3,41 +3,36 @@ export default {
     type: "separator",
     title: "Setup",
   },
+  discovery: "/conclave-discovery",
   init: "/conclave-init",
-  spec: "/conclave-spec",
+  roadmap: "/conclave-roadmap",
 
-  "planning-separator": {
+  "cycle-separator": {
     type: "separator",
-    title: "Planning",
+    title: "Sprint cycle",
   },
   planning: "/conclave-planning",
-  story: "/conclave-story",
-
-  "development-separator": {
-    type: "separator",
-    title: "Development",
-  },
   dev: "/conclave-dev",
-  adr: "/conclave-adr",
-
-  "quality-separator": {
-    type: "separator",
-    title: "Quality",
-  },
   qa: "/conclave-qa",
   "pr-review": "/conclave-pr-review",
-  bug: "/conclave-bug",
-
-  "sprint-separator": {
-    type: "separator",
-    title: "Sprint management",
-  },
+  close: "/conclave-close",
   sprint: "/conclave-sprint",
-  board: "/conclave-board",
 
-  "metrics-separator": {
+  "authoring-separator": {
     type: "separator",
-    title: "Metrics & Reporting",
+    title: "Backlog & decisions",
   },
+  epic: "/conclave-epic",
+  story: "/conclave-story",
+  bug: "/conclave-bug",
+  adr: "/conclave-adr",
+  spike: "/conclave-spike",
+  spec: "/conclave-spec",
+
+  "views-separator": {
+    type: "separator",
+    title: "Views & metrics",
+  },
+  board: "/conclave-board",
   dora: "/conclave-dora",
 };

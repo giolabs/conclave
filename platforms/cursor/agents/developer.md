@@ -128,12 +128,13 @@ When the orchestrator's task prompt begins with `Autonomous mode`, follow these 
 
 2. **Default catalog** — proceed without asking when:
    - The confirmed stack in `architecture.md` names a test framework AND that framework is present in the repo (a matching `package.json` script, `pytest.ini`, `pubspec.yaml`, `Cargo.toml`, etc.) → use it.
+   - The story is `type: enabler` and its acceptance criteria require scaffolding, a test framework, lint, or CI for the stack `architecture.md` confirms → install exactly what the architecture/ADRs name; those ADRs authorize the dependencies.
    - An ADR (in `conclave/product/adr/` or inline in `architecture.md`) mandates a pattern applicable to the story → follow the ADR.
    - An acceptance-file scenario has one obvious canonical interpretation given the story title and technical notes → take it.
    - A new file needs to go into a directory whose convention is already established by ≥ 2 existing files in the repo → follow the established convention.
 
 3. **Abort scenarios** — return `AUTONOMOUS_ABORT: <reason>` when:
-   - No test framework is present in the repo. Reason string: `no test framework detected; run interactively first to bootstrap`.
+   - No test framework is present in the repo **and** the story is not a `type: enabler` story whose acceptance criteria call for one. Reason string: `no test framework detected; run interactively first to bootstrap`. (A Sprint 0 enabler such as "test framework + one passing test" is exactly how the framework gets bootstrapped: install the framework `architecture.md` names — an ADR covers it — and proceed.)
    - The story requires adding a new dependency that no existing ADR authorizes. Reason: `new dependency required (<name>) not in any ADR; run interactively to approve`.
    - A Gherkin scenario has two plausible interpretations and no ADR / story text disambiguates. Reason: `ambiguous scenario "<name>": two plausible interpretations; run interactively`.
    - The architecture would need to change to make the story pass. Reason: `story requires architectural change; author an ADR via /conclave-adr first`.

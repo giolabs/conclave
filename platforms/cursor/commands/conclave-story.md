@@ -1,6 +1,6 @@
 ---
 name: conclave-story
-description: PM story authoring outside the /conclave-spec ceremony. First arg is a sub-action — new (author a new story), edit US-NNN (revise), split US-NNN (decompose into 2–4 children), retire US-NNN (mark terminal). Available in every team mode (solo, lean, full-scrum). Delegates to the Product Manager subagent for new/edit/split; retire is a mechanical frontmatter update with no LLM call.
+description: PM story authoring outside Sprint Planning. First arg is a sub-action — new (author a new story), edit US-NNN (revise), split US-NNN (decompose into 2–4 children), retire US-NNN (mark terminal). Available in every team mode (solo, lean, full-scrum). Delegates to the Product Manager subagent for new/edit/split; retire is a mechanical frontmatter update with no LLM call.
 ---
 
 # /conclave-story &lt;new | edit US-NNN | split US-NNN | retire US-NNN&gt;
@@ -14,7 +14,7 @@ description: PM story authoring outside the /conclave-spec ceremony. First arg i
 > - Concurrent batches still issue ≤ 3 Task calls per wave (correctness over wall-clock if Cursor serializes them).
 
 
-Author, refine, decompose, or retire a user story between `/conclave-spec` runs. All four sub-actions leave the target repo in a PR-ready state — nothing is committed automatically.
+Author, refine, decompose, or retire a user story between Sprint Plannings. Planned work normally enters through `/conclave-planning`, which refines the next roadmap slot's epics into stories; use this command for ad-hoc additions and fixes to individual stories. All four sub-actions leave the target repo in a PR-ready state — nothing is committed automatically.
 
 Follow these steps in order.
 
@@ -75,6 +75,8 @@ Continue to the matching section below based on `ACTION`.
 1. **Compute the next story ID**. Glob `$REPO_ROOT/conclave/sprints/*/stories/US-*-*.md` and `$REPO_ROOT/conclave/product/stories-backlog/US-*-*.md`. Extract the numeric part of each `US-NNN`. Also scan `$REPO_ROOT/conclave/product/backlog.md` for `US-NNN` mentions. `NEW_ID = max(all found) + 1`, zero-padded to 3 digits.
 2. **Ask the user (`AskQuestion`)**:
    - **Story title** (free text).
+   - **Epic** — one of the non-retired `EP-NNN` in `conclave/product/epics/`, or `none` (ad-hoc). Default: the epic of the active sprint's slot when there is exactly one.
+   - **Type** — `feature` (default) or `enabler`.
    - **Where should it land?** — `Backlog only` (default) / `Backlog + pull into active sprint` (only offered when a sprint is `active` or `draft`).
    - **Discipline** — `frontend | backend | mobile | qa | design | devops | multi` (default `multi`).
    - **Priority** — `must | should | could | wont` (default `should`).
@@ -89,9 +91,10 @@ Continue to the matching section below based on `ACTION`.
    - Compute `SLUG` from the story title (lowercase, dash-separated ASCII, ~40 chars).
    - If the user chose `Backlog + pull into active sprint`: write `conclave/sprints/SPRINT-NNN/stories/US-NEW_ID-<slug>.md` and `conclave/sprints/SPRINT-NNN/acceptance/AC-US-NEW_ID.md`. Set frontmatter `sprint: SPRINT-NNN`, `status: ready`.
    - Otherwise: write `conclave/product/stories-backlog/US-NEW_ID-<slug>.md` and `conclave/product/stories-backlog/acceptance/AC-US-NEW_ID.md`. Create the directories if they do not exist. Set frontmatter `sprint: ""`, `status: backlog`.
-   - Populate the frontmatter fields from the seed answers (`priority`, `estimate`, `discipline`, `assignee: ""`, `created_at`). Leave retirement/lineage fields absent.
+   - Populate the frontmatter fields from the seed answers (`priority`, `estimate`, `discipline`, `type`, `epic`, `assignee: ""`, `created_at`). Leave retirement/lineage fields absent.
+   - When `epic` is set, append `US-NEW_ID` to that epic file's `stories:` list.
 5. **Update `conclave/product/backlog.md`**:
-   - Append a new row at the bottom of the Backlog table. Columns: Order (next integer), Story (link — `[US-NEW_ID](../<path-to-file>)`), Title, Priority, Estimate, Status, In sprint (`SPRINT-NNN` or `—`).
+   - Append a new row at the bottom of the Backlog table. Columns: Order (next integer), Story (link — `[US-NEW_ID](../<path-to-file>)`), Epic (`EP-NNN` or `—`), Title, Priority, Estimate, Status, In sprint (`SPRINT-NNN` or `—`).
    - Update the frontmatter `last_groomed_at` to today's ISO date.
 6. **Report** — see Step 7.
 
@@ -136,8 +139,9 @@ Continue to the matching section below based on `ACTION`.
 8. **Write child files**:
    - Compute a `SLUG` per child from its title.
    - Same target directory as the parent (sprint's `stories/` or `stories-backlog/`).
-   - Each child's frontmatter: inherit parent's `sprint`, set `status: ready` (or `backlog` if parent was backlog-only), set `split_from: US-NNN`, `assignee: ""`, `discipline` from the PM's output (or inherit if the PM did not override).
+   - Each child's frontmatter: inherit parent's `sprint`, `epic` and `type`, set `status: ready` (or `backlog` if parent was backlog-only), set `split_from: US-NNN`, `assignee: ""`, `discipline` from the PM's output (or inherit if the PM did not override).
    - Also write the child's acceptance file.
+   - If the parent has an `epic`, append every child ID to that epic's `stories:` list (the parent stays listed; it is `retired`).
 9. **Update the parent's frontmatter** — do NOT delete the parent file:
    - `status: retired`
    - `retired_at: <today ISO date>`
@@ -186,7 +190,7 @@ Print a summary tailored to the sub-action:
 
 - **Never commit**. The team reviews the change as a PR.
 - **Never merge, push, or open a PR**. The user runs `git commit` and `gh pr create` after reviewing.
-- **Never touch files outside `conclave/`** (specifically: `conclave/product/{backlog.md,stories-backlog/**}`, and the active sprint's `stories/` and `acceptance/` directories when applicable). Never touch `commands/`, `skills/`, `.claude-plugin/`, `docs/`, `.github/`.
+- **Never touch files outside `conclave/`** (specifically: `conclave/product/{backlog.md,stories-backlog/**}`, the `stories:` list of `conclave/product/epics/EP-NNN-*.md`, and the active sprint's `stories/` and `acceptance/` directories when applicable). Never touch `commands/`, `skills/`, `.claude-plugin/`, `docs/`, `.github/`.
 - **Never dispatch multiple stories in one invocation**. This command handles one action per run. Batch multi-story dev/QA lives in `/conclave-dev` and `/conclave-qa` from v0.6.0.
 - **`retire` never calls the subagent**. If a future change is tempted to add LLM prose to retirement, resist — retirement is a policy decision the human already made.
 - **`split` output must be validated post-hoc for count and coverage** even though the PM subagent is responsible for enforcing the same rule during generation (defense in depth).

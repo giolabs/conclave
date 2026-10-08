@@ -92,7 +92,7 @@ Read:
 - `$REPO_ROOT/conclave/config.md` — `team_profile`, `ceremonies.peer_pr_review.required`, `ceremonies.qa_verification.ci_wait_timeout_minutes` (default `20` if absent), and `models.*`. Resolve `MODEL_FOR_QA` = `models.overrides.qa` → `models.default` → null (session). Invalid model name → print `WARNING: Unknown model '<value>' for role qa. Falling back to <next_fallback>.` then continue. Absent `models:` block → null, no warning. Print `Model for qa: <id or 'session default'>` if non-null.
 - `$REPO_ROOT/conclave/product/definition-of-done.md`
 - `$REPO_ROOT/conclave/team/testing-environments.md` — if missing, or every environment/variable row is still `TBD`, set `UAT_ENABLED = false` and skip Steps 5–7 entirely (go straight to today's Gherkin-only verification at Step 8). Otherwise `UAT_ENABLED = true`.
-- The story or bug file (note `discipline`)
+- The story or bug file (note `discipline` and `type`). **`type: spike` (v2.0.0+)**: set `UAT_ENABLED = false` and skip Steps 5–6 — a spike ships no runtime behaviour. Also read its `findings_path` file, every ADR in its `produced_adrs` (from the epic's `adrs:` / the PR diff) and its `produced_spec`, so Step 7 can check the deliverable.
 - The acceptance file (`US-NNN`) or the bug file itself, which holds its own repro steps inline (`BUG-NNN`)
 - `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/verification-report.template.md`
 - `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/uat-report.template.md` (only if `UAT_ENABLED`)
@@ -139,7 +139,7 @@ Issue a single `Agent` tool call with:
 
 - **Model**: `MODEL_FOR_QA` (omit if null).
 - Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/qa.md`.
-- Task: verify the story per the charter, folding in the UAT outcome.
+- Task: verify the story per the charter, folding in the UAT outcome. For a spike: task **spike verification** (charter section "Verifying a spike") — each Gherkin scenario is checked against the findings report and the declared outputs, not against running software.
 - Inputs to embed in the prompt:
   - Story file content, acceptance file content with all Gherkin scenarios
   - `definition-of-done.md` content

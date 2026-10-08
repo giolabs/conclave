@@ -1,25 +1,39 @@
 ---
-description: One-time project wizard. Configures the Conclave workspace for Scrum — collects project name, story ID prefix, stack, launch date, and locates the product planning document. Run once per repo before /conclave-planning.
-allowed-tools: Bash(git rev-parse:*), Bash(git init:*), Bash(ls:*), Bash(find:*), Bash(grep:*), Bash(date:*), Bash(mkdir:*), Bash(cat:*), Read, Write, AskUserQuestion
+description: One-time project setup plus Scrum inception. Configures the Conclave workspace (name, story prefix, stack, profile, cadence), then finds your product documentation (or offers /conclave-discovery to write it) and turns it into a product vision with a Product Goal, a set of epics, an architectural foundation, and a sprint-by-sprint roadmap (Sprint 0 walking skeleton first). Run once per repo before /conclave-planning. `--upgrade` migrates a v1.x workspace to the v2 structure.
+allowed-tools: Bash(git rev-parse:*), Bash(head:*), Bash(git init:*), Bash(git remote:*), Bash(git ls-files:*), Bash(git config user.name:*), Bash(ls:*), Bash(find:*), Bash(grep:*), Bash(date:*), Bash(mkdir:*), Bash(cat:*), Read, Write, Edit, Agent, AskUserQuestion, WebSearch, WebFetch
 ---
 
-# /conclave-init
+# /conclave-init [--upgrade]
 
-One-time project setup wizard. Creates the `conclave/` workspace and records the project configuration that every other Conclave command reads.
+One-time project setup **and inception**. Creates the `conclave/` workspace, records the project configuration every other Conclave command reads, and produces the four artifacts the rest of the Scrum cycle hangs from:
 
-**Run this command once per repository**, before `/conclave-planning`. If the workspace already exists, the command refuses and tells you what to do instead.
+| Artifact | Owner | Purpose |
+|---|---|---|
+| `product/vision.md` | Product Manager | Problem, personas, **Product Goal**, success metrics, MVP scope |
+| `product/epics/EP-NNN-<slug>.md` | Product Manager | The big chunks of value, each with a success criterion |
+| `product/architecture.md` + `product/adr/` | Tech Lead | Architectural foundation and the enablers the skeleton needs |
+| `product/roadmap.md` | Scrum Master | Epics sequenced into sprint slots up to the MVP / launch date |
 
-There are no AI agents in this command — it is a wizard that reads your project and writes configuration. Story and sprint generation happens in `/conclave-planning`.
+```
+/conclave-init             # new workspace: setup + inception
+/conclave-init --upgrade   # existing v1.x workspace: migrate config, derive vision/epics/roadmap from the existing backlog
+```
+
+**Run this once per repository**, before `/conclave-planning`. Stories are **not** written here — they are refined just in time, one roadmap slot at a time, by `/conclave-planning`.
 
 ---
 
-## Step 0 — Guard idempotency
+## Step 0 — Guard idempotency and pick the mode
 
 1. Run `git rev-parse --show-toplevel` to find `REPO_ROOT`. If not a git repo, ask the user via `AskUserQuestion` whether to `git init` here; if they decline, stop with a clear message.
-2. If `$REPO_ROOT/conclave/config.md` already exists, **stop** and print:
-   > "`conclave/` is already initialized. Edit `conclave/config.md` directly to change settings. Run `/conclave-planning` to generate stories and plan a sprint."
-
-   Do not continue.
+2. Check `--upgrade`. Set `MODE = upgrade` if present, `MODE = new` otherwise.
+3. If `$REPO_ROOT/conclave/config.md` exists:
+   - Read `conclave_version` from its frontmatter.
+   - `MODE = new` and version `< 2.0.0` (or absent) → stop: *"This workspace was created by Conclave v1.x. Run `/conclave-init --upgrade` to migrate it to v2 (vision, epics, roadmap, new ceremony flags)."*
+   - `MODE = new` and version `>= 2.0.0` → stop: *"`conclave/` is already initialized. Edit `conclave/config.md` to change settings. Run `/conclave-planning` to plan the next sprint."*
+   - `MODE = upgrade` and version `>= 2.0.0` → stop: *"Already on v2 — nothing to upgrade."*
+   - `MODE = upgrade` and version `< 2.0.0` → jump to **Step U** (upgrade path). Skip Steps 1–9.
+4. If `config.md` does not exist and `MODE = upgrade` → stop: *"No v1 workspace found. Run `/conclave-init` without `--upgrade`."*
 
 ## Step 1 — Detect the stack
 
@@ -74,6 +88,17 @@ Build a readable summary of what was found. Examples of how to infer from files:
 
 If no signal files are found, set the detected stack to "Not detected — will fill manually".
 
+Then compute `GREENFIELD`:
+
+```bash
+git ls-files | grep -v -E '^(conclave/|docs/|\.github/|README|LICENSE|\.gitignore|CLAUDE\.md)' | head -1
+```
+
+- No output and no signal files → `GREENFIELD = true` (no application code yet).
+- Otherwise → `GREENFIELD = false`.
+
+`GREENFIELD` sets the default for `sprint.sprint_zero` and tells the Tech Lead whether the architecture is a proposal for an empty repo or a description of an existing one.
+
 ## Step 2 — Collect project info (AskUserQuestion)
 
 Ask the user all required fields in a single `AskUserQuestion` call.
@@ -97,25 +122,81 @@ Options:
 
 **Question 6 — Team profile** (skip if team_mode is `solo` — force `lean`)
 Options:
-- `lean` (recommended for small teams / internal projects) — only Sprint Planning and QA Verification are enforced
-- `full-scrum` — all ceremonies required (daily standup, grooming, peer PR review, sprint review, retro)
-- `custom` — you'll configure each ceremony individually in `conclave/config.md`
+- `lean` (recommended for small teams / internal projects) — Planning, QA Verification and Sprint Review are enforced; TL gate and retro off
+- `full-scrum` — Tech Lead PR approval gate on, retrospective on inside `/conclave-close`
+- `custom` — set `ceremonies.peer_pr_review.required` and `ceremonies.close.retro` yourself in `conclave/config.md`
+
+**Question 7 — Sprint length**
+Options: `1 week`, `2 weeks` (recommended), `3 weeks`, `4 weeks`. Stored as `sprint.length_weeks`.
 
 Wait for all answers before continuing.
 
-## Step 3 — Confirm or override the detected stack
+## Step 3 — Product documentation
 
-Use a second `AskUserQuestion` to present the detected stack and let the user confirm or correct it.
+Inception needs to know what the product is. This step finds the team's product documentation, checks it covers what inception needs, and — when there is none — offers `/conclave-discovery` to write it.
 
-Show:
-- Detected signal files and the inferred stack label.
-- Fields to confirm: language, framework, datastore, infrastructure.
+### 3.1 — Scan the repo for product documents (no agent)
 
-For each field, the default is what you inferred from the signal files (or empty if nothing was detected). Options:
-- "Looks correct" — use the detected values
-- "Let me correct it" — accept free text for each field
+1. **Discovery package.** Look for any `README.md` up to depth 4 (same exclusions as item 2) whose frontmatter has `conclave_product_package: true` — `find $REPO_ROOT -maxdepth 4 -name README.md` then `grep -l 'conclave_product_package: true'`. The default location is `docs/product/`, but `/conclave-discovery --out` can put it anywhere. Found → `PACKAGE_DIR`; it wins over everything below.
+2. **Candidate documents.** List every `.md` up to depth 4, excluding `.git/`, `node_modules/`, `vendor/`, `dist/`, `build/`, `conclave/`, `conclave-board/`, `.github/`, `site/`, and the files `CHANGELOG.md`, `LICENSE*`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CLAUDE.md`.
+3. **Score** each candidate (orchestrator-side, by reading the first ~200 lines):
 
-If the user corrects any field, use their values. Set:
+| Signal | Points |
+|---|---|
+| Under `docs/` (or `doc/`, `product/`) | +2 |
+| Filename contains `mvp`, `product`, `prd`, `vision`, `discovery`, `brief`, `idea`, `project`, `spec`, `requirements` | +3 |
+| Each coverage signal present (table below) | +2 |
+| Root `README.md` | −2 (usually install docs, not product) |
+
+**Coverage signals** — what inception needs; match headings or obvious paragraphs, in any language:
+
+| Signal | Matches (case-insensitive, EN/ES) |
+|---|---|
+| Problem | problem, pain, problema, dolor |
+| Users | user, persona, ICP, customer, usuario, cliente |
+| Goal / metrics | goal, objective, metric, KPI, success, objetivo, métrica, éxito |
+| Features / scope | feature, scope, functionality, funcionalidad, alcance, requisitos |
+| MVP boundary | MVP, out of scope, fuera de alcance, v1, release |
+
+Keep candidates scoring ≥ 4, top 3 by score. Record each one's missing coverage signals.
+
+### 3.2 — Choose the source (one `AskUserQuestion`)
+
+**A. A discovery package was found** → don't ask about other files: *"Found the product package at `<PACKAGE_DIR>` (generated <date>). Use it?"* — **Use it** (recommended) / **Regenerate with /conclave-discovery** / **Use something else**.
+
+**B. Candidates were found** → *"These look like product documents. Which one describes the product?"*
+- One option per candidate: `<path>` — covers N/5 (missing: …)
+- **"None of these — write it with /conclave-discovery"**
+- **"I'll describe the idea in a paragraph"**
+
+**C. Nothing was found** → *"No product documentation found. Inception needs to know what the product is, for whom, and what the MVP is."*
+- **"Create it with /conclave-discovery"** (recommended) — guided: discovery, tech stack, data model, domain rules, MVP; about 10–15 minutes of questions and generation.
+- **"I'll describe the idea in a paragraph"** — faster, thinner inception; the PM fills gaps and lists open questions.
+- **"I have a document elsewhere"** — the user gives a path; verify it exists.
+
+### 3.3 — Gap check for a chosen document
+
+When the user picks a candidate (B) or a path that covers **fewer than 4 of the 5** coverage signals → one `AskUserQuestion`: *"`<path>` is missing <signals>. Complete it first?"*
+- **"Complete it with /conclave-discovery --from <path>"** (recommended) — keeps everything the document says, fills the gaps, writes the package to `docs/product/`.
+- **"Use it as is"** — the PM will list what is missing as open questions in `vision.md`.
+
+### 3.4 — Run discovery inline when chosen
+
+When any answer above chose `/conclave-discovery`, run its Steps 1–7 inline now (`commands/conclave-discovery.md`), passing `--from <path>` when completing a document, the project language from Step 2, team = `solo` when `team_mode = solo` (otherwise let discovery ask), and — when the user picked **Regenerate** in 3.2-A — the decision `regenerate`, so discovery skips its own Step 1.5 question. It returns without its own next-step block. Then continue here with `PACKAGE_DIR` = its output folder.
+
+### 3.5 — Set the inputs
+
+- Package → `PRODUCT_DOC_PATH = PACKAGE_DIR`; `IDEA` = the five documents concatenated with their filenames as headings; `PACKAGE_STACK` = the `stack:` frontmatter of `01-tech-stack.md`.
+- Document → `PRODUCT_DOC_PATH = <path>`; `IDEA` = its content.
+- Paragraph → `PRODUCT_DOC_PATH = ""`; ask for the text in the next message; `IDEA` = that text. Write it verbatim to `$REPO_ROOT/conclave/context/idea.md` once Step 5 creates the directory.
+
+## Step 4 — Confirm the stack and inception preferences
+
+### 4.1 — Stack (one `AskUserQuestion`)
+
+Defaults, in order: the signal-file inference from Step 1; when nothing was detected, `PACKAGE_STACK` from the discovery package. Show where each value came from ("detected from `package.json`" / "from docs/product/01-tech-stack.md"). If both exist and disagree, show both and recommend the detected one — the code is the fact.
+
+Options: **"Looks correct"** / **"Let me correct it"** (free text per field). Set:
 
 ```
 STACK_LANGUAGE   = <confirmed or user-entered>
@@ -125,78 +206,19 @@ STACK_INFRA      = <confirmed or user-entered>
 PROJECT_TYPE     = <inferred from stack: backend | frontend | mobile | devops | multi>
 ```
 
-## Step 4 — Find the product planning document
+### 4.2 — Inception preferences (one `AskUserQuestion`, all optional)
 
-The product planning document is the single source of truth for stories and sprints. It must exist before `/conclave-planning` can run.
+Only ask what `IDEA` does not already answer — a discovery package answers the first three, so skip them:
+1. **Primary users** — who uses this first?
+2. **Product Goal hint** — what measurable outcome would make the MVP a success? (or "let the PM propose")
+3. **Hard constraints** — deadlines, compliance, budgets, banned technologies.
+4. **Sprint 0** — "Start with a walking-skeleton sprint (scaffold, tests, CI)?" Default `yes` when `GREENFIELD = true` (or when the package's `04-mvp.md` lists Sprint 0 enablers), `no` otherwise.
+5. **How many sprints?** — **"Auto — as many as the must/should epics need"** (default) or a number (Sprint 0 included). When `launch_date` is set, show the sprints that fit before it as a hint (`weeks to launch ÷ sprint.length_weeks`). A number fixes the release horizon: epics that do not fit go to *Beyond the horizon* and the forecast names any `must` epic left out.
+6. **SPEC gate** — "When an epic needs a technical spec, should planning **warn** (default) or **require** an approved SPEC?"
 
-**4.1 — Search the repo for a candidate**
+Carry the answers as `INCEPTION_PREFS`. Set `SPRINT_ZERO` from question 4, `PLANNED_SPRINTS` (`auto` or the integer) from question 5, `SPEC_GATE` from question 6 (`require` is the default for `full-scrum`).
 
-Look for these files in priority order:
-
-```bash
-find $REPO_ROOT -maxdepth 4 -type f -name "*.md" \
-  -not -path "*/.git/*" \
-  -not -path "*/node_modules/*" \
-  -not -path "*/conclave/*" \
-  | xargs grep -l -i "sprint\|backlog\|user stor\|epics\|feature\|mvp\|milestone\|release" \
-    2>/dev/null | head -10
-```
-
-Also check these specific paths without grepping (they may exist but be empty):
-- `$REPO_ROOT/docs/mvp.md`
-- `$REPO_ROOT/docs/project.md`
-- `$REPO_ROOT/mvp.md`
-- `$REPO_ROOT/project.md`
-- `$REPO_ROOT/docs/product.md`
-- `$REPO_ROOT/PRODUCT.md`
-
-**4.2 — If one or more candidates are found**
-
-Present up to 3 candidates to the user via `AskUserQuestion`:
-- "We found these files that may contain your product plan. Which one is it?"
-- Options: each candidate path, plus "None of these — I'll specify one" and "None of these — I'll create one now"
-
-If the user picks a file, set `PRODUCT_DOC_PATH` to that path and continue to Step 5.
-
-If the user says "I'll specify one" — ask for the path and set `PRODUCT_DOC_PATH`. If the file doesn't exist at that path, tell the user and wait for a valid path.
-
-**4.3 — If no candidates are found**
-
-Use `AskUserQuestion` to present three options:
-
-> "No product planning document was found in this repo. `/conclave-planning` needs one to generate stories and sprints. Please choose:"
-
-Options:
-1. **"I'll paste the content now"** — The user pastes the content of the document in their next message. Write it to `$REPO_ROOT/docs/mvp.md` and set `PRODUCT_DOC_PATH = "docs/mvp.md"`.
-2. **"The file is already there — here's the path"** — The user provides the path. Verify it exists. Set `PRODUCT_DOC_PATH`.
-3. **"I'll create it later"** — Acknowledge and set `PRODUCT_DOC_PATH = null`. The workspace will be created but `/conclave-planning` will refuse to run until the field is filled in `config.md`.
-
-Recommended format to suggest if the user is creating the document:
-
-```markdown
-# <Project name> — Product Plan
-
-## Vision
-<One-paragraph description of the product.>
-
-## MVP Scope
-<What the MVP includes and excludes.>
-
-## Sprint 1
-### Goal
-<One sentence.>
-### Features
-- Feature 1: <description>
-- Feature 2: <description>
-
-## Sprint 2
-### Goal
-<One sentence.>
-### Features
-- Feature 3: <description>
-```
-
-## Step 5 — Create the workspace
+## Step 5 — Create the workspace skeleton
 
 Create all files in parallel where possible.
 
@@ -204,7 +226,9 @@ Create all files in parallel where possible.
 
 ```bash
 mkdir -p $REPO_ROOT/conclave/team
-mkdir -p $REPO_ROOT/conclave/product
+mkdir -p $REPO_ROOT/conclave/product/epics
+mkdir -p $REPO_ROOT/conclave/product/adr
+mkdir -p $REPO_ROOT/conclave/product/specs
 mkdir -p $REPO_ROOT/conclave/context
 mkdir -p $REPO_ROOT/conclave/sprints
 mkdir -p $REPO_ROOT/conclave/runs
@@ -219,39 +243,40 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/config.template.md`. Fill 
 | Placeholder | Value |
 |---|---|
 | `{{project_name}}` | from Step 2 |
-| `{{project_type}}` | from Step 3 |
+| `{{project_type}}` | from Step 4.1 |
 | `{{project_language}}` | from Step 2 |
 | `{{story_prefix}}` | from Step 2 |
 | `{{launch_date}}` | from Step 2 (or "TBD") |
-| `{{product_doc_path}}` | from Step 4 (or `""` if null) |
-| `{{stack_language}}` | from Step 3 |
-| `{{framework}}` | from Step 3 |
-| `{{datastore}}` | from Step 3 |
-| `{{infrastructure}}` | from Step 3 |
+| `{{product_doc_path}}` | from Step 3.5 — package folder, document path, or `""` when the idea was typed |
+| `{{stack_language}}` | from Step 4.1 |
+| `{{framework}}` | from Step 4.1 |
+| `{{datastore}}` | from Step 4.1 |
+| `{{infrastructure}}` | from Step 4.1 |
 | `{{repo_url}}` | output of `git remote get-url origin 2>/dev/null \|\| echo ""` |
 | `{{iso_date}}` | today's date (ISO) |
-| `{{conclave_version}}` | `1.0.0` |
+| `{{conclave_version}}` | `2.0.0` |
 | `{{team_mode}}` | from Step 2 |
 | `{{team_profile}}` | from Step 2 (force `lean` when `team_mode = solo`) |
-| `{{daily_standup_required}}` | `true` for full-scrum, `false` for lean, ask for custom |
-| `{{backlog_grooming_required}}` | `true` for full-scrum, `false` for lean |
-| `{{peer_pr_review_required}}` | `true` for full-scrum, `false` for lean |
-| `{{sprint_review_required}}` | `true` for full-scrum, `false` for lean |
-| `{{sprint_retrospective_required}}` | `true` for full-scrum, `false` for lean |
+| `{{peer_pr_review_required}}` | `true` for full-scrum, `false` for lean and custom |
+| `{{close_retro}}` | `true` for full-scrum, `false` for lean and custom |
+| `{{sprint_length_weeks}}` | from Step 2 (default `2`) |
+| `{{sprint_zero}}` | `SPRINT_ZERO` from Step 4.2 |
+| `{{planned_sprints}}` | `PLANNED_SPRINTS` from Step 4.2 (`auto` or an integer) |
+| `{{spec_gate}}` | `SPEC_GATE` from Step 4.2 (`warn` or `require`) |
 
 Write to `$REPO_ROOT/conclave/config.md`.
 
 ### 5.3 — team/roster.md
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/roster.template.md`. Fill in:
-- If `team_mode = solo`: a single row with the project name as person name covering all disciplines.
+- If `team_mode = solo`: a single row covering all disciplines. Person name = output of `git config user.name` (fall back to asking the user) — **not** the project name; `/conclave-dev` matches assignees against the git identity.
 - If `team_mode = team`: leave the template rows as-is for the team to fill in.
 
 Write to `$REPO_ROOT/conclave/team/roster.md`.
 
 ### 5.4 — team/ceremonies.md
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/ceremonies.template.md`. Use default sprint length (2 weeks), Monday as planning day, Wednesday as standup, Friday as retro. Write to `$REPO_ROOT/conclave/team/ceremonies.md`.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/ceremonies.template.md`. Fill `sprint_length_weeks` from Step 2, `{{peer_pr_review_label}}` and `{{retro_label}}` with `required` / `optional` per the profile. Write to `$REPO_ROOT/conclave/team/ceremonies.md`.
 
 ### 5.5 — product/definition-of-ready.md and product/definition-of-done.md
 
@@ -263,9 +288,11 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/conclave-readme.template.m
 
 ### 5.7 — GitHub templates
 
-Read and write the two GitHub templates from `skills/conclave/templates/`:
+Read and write the GitHub and team templates from `skills/conclave/templates/`:
 - `pr-template-github.template.md` → `.github/PULL_REQUEST_TEMPLATE.md`
 - `bug-report-github.template.md` → `.github/ISSUE_TEMPLATE/bug_report.md`
+- `pr-review-template-github.template.md` → `conclave/team/PR_REVIEW_TEMPLATE.md`
+- `testing-environments.template.md` → `conclave/team/testing-environments.md`
 
 Only write these if the target files do not already exist (do not overwrite).
 
@@ -276,41 +303,156 @@ In parallel:
 - Write `conclave/context/skills.inventory.md` listing the skills currently available in the session.
 - Write `conclave/context/rules.inventory.md` listing the stack signal files found in Step 1 (paths only — no content).
 
-## Step 6 — Report to the user
+## Step 6 — Inception, wave 1: PM + TL in parallel
 
-Print a clear summary:
+Resolve models from `config.md` `models:` (`MODEL_FOR_PM`, `MODEL_FOR_TL`, `MODEL_FOR_SM`; overrides → default → null; invalid name → warn and fall back).
+
+Issue **two `Agent` tool calls in a single message**:
+
+### Agent A — Product Manager (vision + epics)
+
+- **Model**: `MODEL_FOR_PM` (omit if null).
+- Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/product-manager.md`.
+- Task: **inception mode** (see the charter section "How you operate inside `/conclave-init` (inception)").
+- Inputs: `IDEA` (prefixed with `## Product idea — source of truth for intent:`; when it is a discovery package, say so — `04-mvp.md` candidate epics are the epics), `INCEPTION_PREFS`, `launch_date`, `sprint.length_weeks`, `vision.template.md`, `epic.template.md`.
+- Language: *"Write all prose in `{{PROJECT_LANGUAGE}}`. Keep frontmatter keys and identifiers in English."*
+- Output: one `## Vision` block (body of `vision.template.md`) followed by 3–8 `## Epic` blocks (body of `epic.template.md`, `type: feature`), ordered by value.
+
+### Agent B — Tech Lead (architecture + enablers)
+
+- **Model**: `MODEL_FOR_TL` (omit if null).
+- Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/tech-lead.md`.
+- Task: produce the Architectural Foundation (`architecture.template.md`) plus initial ADRs (`adr.template.md`), and — when `SPRINT_ZERO = true` — one `## Enabler epic` block (body of `epic.template.md`, `type: enabler`, title "Walking skeleton") listing the enablers Sprint 0 needs: repo scaffold for the confirmed stack, test framework with one passing test, lint, CI workflow running both, integration branch (`develop`).
+- Inputs: `IDEA` (a discovery package's `01-tech-stack.md`, `02-data-model.md` and `03-bloc.md` are the starting point for architecture and ADRs), `INCEPTION_PREFS`, confirmed stack, `GREENFIELD`, context snapshots.
+- When `GREENFIELD = true`, every ADR's evidence comes from versioned docs (Tier B) — there is no code to measure; say so in each ADR's Unknowns.
+
+Wait for both. If either errors, surface and stop.
+
+## Step 6.5 — Inception, wave 1.5: Tech Lead risk pass (v2.0.0+)
+
+The PM wrote the epics without seeing the architecture; the TL wrote the architecture without seeing the epics. One more `Agent` call joins them before the roadmap:
+
+- **Model**: `MODEL_FOR_TL`. Prompt prefix: `tech-lead.md`.
+- Task: **inception risk pass** (charter section "How you operate inside `/conclave-init` (inception)" → *Risk pass*).
+- Inputs: the PM's epic blocks, the TL's architecture and ADR blocks, confirmed stack, `GREENFIELD`.
+- Output: one `## Risk` block per epic (by its order in the PM output):
+  - `uncertainty: low | medium | high` with one-line reason
+  - `needs_spec: true | false` with one-line reason (true when the epic changes the data model, a public contract, or more than one component)
+  - `adrs:` — which of the TL's initial ADRs the epic depends on
+  - `open_questions:` — 0–3 questions phrased as decisions; at least one when `uncertainty: high`
+  - optional `technical_notes` for the epic
+
+Merge each block into its epic (frontmatter + `## Open questions (spike candidates)` + `## Technical notes`). The PM's scope is never changed here.
+
+## Step 7 — Inception, wave 2: SM roadmap
+
+One `Agent` call:
+
+- **Model**: `MODEL_FOR_SM` (omit if null).
+- Prompt prefix: full content of `${CLAUDE_PLUGIN_ROOT}/skills/conclave/agents/scrum-master.md`.
+- Task: **roadmap mode** (charter section "How you operate inside `/conclave-init` (roadmap)").
+- Inputs: the PM's epics (with size, dependencies and the Step 6.5 risk fields), the TL's enabler epic (if any), `roster.md` (team size), `sprint.length_weeks`, `launch_date`, `PLANNED_SPRINTS`, today's date, `roadmap.template.md`.
+- Output: the body of `roadmap.template.md` — release plan, slots (with `spike:EP-NNN` entries ahead of every `uncertainty: high` epic), beyond the horizon, target dates, MVP slot, forecast.
+
+## Step 8 — Checkpoint: user confirms inception
+
+Show the user a compact summary:
+
+```
+Product Goal:  <one sentence>
+Personas:      <names>
+Epics:         EP-001 <title> [M, must] · EP-002 <title> [S, should, uncertainty: high, needs SPEC] · …
+Sprints:       <N> planned (<auto | fixed>) · Sprint 0: <yes/no> · beyond the horizon: <epics or none>
+Roadmap:       S0 walking skeleton · S1 EP-001, spike:EP-002 · S2 EP-001, EP-002 · … MVP at SPRINT-00N (<date>)
+Spikes:        <n> scheduled — EP-002: "<first open question>"
+ADRs:          ADR-001 <title> · ADR-002 <title> · …
+Launch risk:   <on track | at risk — reason>
+```
+
+Then one `AskUserQuestion`:
+- **"Looks right — write it"**
+- **"Change something"** — the user states the change in free text; re-run only the affected agent (PM for vision/epics, TL for enablers, SM for roadmap or sprint count — always re-run the risk pass and the SM if epics changed), then show the summary again. Max 3 rounds; after that, write what exists and tell the user to edit the files directly.
+
+## Step 9 — Write inception artifacts
+
+1. `product/vision.md` ← `vision.template.md` + PM vision block.
+2. Epics: number from `EP-001` (enabler epic first when present). For each: `product/epics/EP-NNN-<slug>.md` ← `epic.template.md` + block + risk fields; set `roadmap_slots` from the SM's roadmap (a `spike:EP-NNN` entry counts as a slot of that epic). The enabler epic gets `uncertainty: low`, `needs_spec: false`.
+3. `product/architecture.md` ← TL output; each ADR → `product/adr/ADR-NNN-<slug>.md`, and the ADR index table in `architecture.md` lists them.
+4. `product/roadmap.md` ← `roadmap.template.md` + SM output.
+5. `product/backlog.md` ← `product-backlog.template.md` with an **empty** table (stories arrive at planning).
+6. Append `## /conclave-init inception — <ISO>` to `conclave/context/claude-md.snapshot.md` recording: idea source (`PRODUCT_DOC_PATH` or `context/idea.md`), epic count, slot count and horizon, MVP slot, spikes scheduled, epics flagged `needs_spec`.
+
+## Step U — Upgrade a v1.x workspace (`--upgrade`)
+
+Migrates in place. **Append, don't clobber**: existing sprints, stories, acceptance files, and reports are never rewritten except for the frontmatter fields listed below. Every sub-step is idempotent — re-running after a partial failure resumes.
+
+**U.1 — Inventory.** Read `config.md`, `product/backlog.md`, `product/architecture.md`, every `sprints/SPRINT-NNN/meta.md`, every story frontmatter, and `PRODUCT_DOC_PATH` if set. Print what was found (sprints by status, story count, inline ADR count).
+
+**U.2 — Config.**
+- Map `ceremonies.sprint_retrospective.required` → `ceremonies.close.retro` (same boolean; absent → profile default).
+- Remove all four v1 keys: `ceremonies.daily_standup`, `ceremonies.backlog_grooming`, `ceremonies.sprint_review`, `ceremonies.sprint_retrospective`.
+- Add the `sprint:` block: `length_weeks` from `team/ceremonies.md` (default 2), `sprint_zero: false`, `planned_sprints: auto`.
+- Add the `delivery:` block: `spike_max_timebox: M`, `spec_gate: warn`.
+- Set `conclave_version: "2.0.0"`. Rewrite the `product_doc_path` comment to the v2 wording.
+- Show the diff and confirm via `AskUserQuestion` before writing.
+
+**U.3 — Sprint status.** v1 `status: done` or `archived` in `meta.md` → `closed`. Add `slot`, `epics: []`, `committed_units`, `velocity` (sum of `done` story estimates, XS=1 S=2 M=3 L=5 XL=8), `sprint_goal_met: null`, `closed_at: ""` where missing.
+
+**U.4 — Derive inception artifacts from what exists.** Run Steps 6–9 with these differences:
+- `IDEA` = product doc (if any) + current backlog table + `architecture.md` overview.
+- PM task: **inception mode, upgrade variant** — group existing stories into epics (every non-retired story lands in exactly one epic) and write `vision.md`. Return a story → epic map.
+- TL: skip; keep `architecture.md`. If inline `### ADR-NNN:` sections exist, tell the user to run `/conclave-adr` once to migrate them.
+- Risk pass (Step 6.5): run it on the derived epics with the existing `architecture.md` and ADRs, so every epic gets `uncertainty`, `needs_spec` and open questions.
+- SM: roadmap (with `horizon: auto`, the release plan and `spike:EP-NNN` entries for `uncertainty: high` epics) where already-closed sprints are `closed` slots, the active sprint (if any) is the `active` slot, and remaining epics fill future slots. Seed the burnup table from closed sprints' velocities.
+
+**U.5 — Story frontmatter.** For every story file add `type: feature` and `epic: <EP-NNN from the map>` when missing. No other field changes.
+
+**U.6 — Backlog.** Add the `Epic` column to `backlog.md`, replace the `## Vision` section with the link line from `product-backlog.template.md`.
+
+**U.7 — Report.**
+
+```
+✓ Upgraded conclave/ to v2.0.0
+  Config:   ceremonies migrated (retro: <bool>), sprint.length_weeks: <n>
+  Sprints:  <n> closed · <n> active · <n> draft
+  Epics:    <n> created from <n> stories
+  Roadmap:  <n> slots, MVP at <SPRINT-NNN>
+Next: review the diff, commit, then /conclave-close (if the active sprint is finished) or keep working.
+```
+
+## Step 10 — Report to the user
 
 ```
 ✓ Conclave workspace initialized at conclave/
 
   Project:        <project_name>
+  Product Goal:   <one sentence>
+  Epics:          <n> (EP-001 … EP-00N)
+  Roadmap:        <n> slots (<auto | fixed>) · Sprint 0: <yes/no> · MVP at <SPRINT-NNN> (<date>)
+  Spikes:         <n> scheduled · SPECs needed: <EP-…, or none>
   Story prefix:   <prefix>-001, <prefix>-002, …
-  Launch date:    <launch_date>
   Stack:          <framework> / <language>
-  Profile:        <team_profile>
-  Product doc:    <product_doc_path or "⚠ not set — edit config.md before running /conclave-planning">
+  Profile:        <team_profile> · sprints of <n> week(s)
 ```
 
 Then suggest:
 
 ```bash
-# Review the workspace
-ls conclave/
+git add conclave/ .github/
+git commit -m "conclave: inception for <project_name>"
 
-# When ready, generate stories and plan the first sprint:
+# Optional, before the epic's slot comes up:
+/conclave-spec EP-NNN                # technical spec for each epic flagged needs_spec
+/conclave-roadmap replan --sprints N # change how many sprints the release has
+
+# Plan the first slot (Sprint 0 when enabled):
 /conclave-planning
-
-# Or plan all sprints from your product document at once:
-/conclave-planning --all
 ```
-
-If `PRODUCT_DOC_PATH` is null (user chose "I'll create it later"), add:
-
-> ⚠️ **Before running `/conclave-planning`**, create your product document and set `product_doc_path` in `conclave/config.md`.
 
 ## Guardrails
 
-- Do not create any file outside `$REPO_ROOT/conclave/` or `$REPO_ROOT/.github/` (and only if those files don't already exist).
-- Do not commit. The user reviews on a PR.
-- Do not run any AI agent. This command is orchestrator logic only.
-- Do not overwrite an existing `conclave/config.md` under any circumstances — the idempotency guard in Step 0 must catch that first.
+- Do not create any file outside `$REPO_ROOT/conclave/`, `$REPO_ROOT/.github/` (only if those files don't already exist), and — only when the user chose `/conclave-discovery` in Step 3 — the discovery package folder (default `docs/product/`).
+- Do not commit, and do not create branches — the integration branch is an enabler story in Sprint 0.
+- Do not write stories here. Stories are refined just in time by `/conclave-planning`.
+- Do not overwrite an existing `conclave/config.md` outside `--upgrade`; the guard in Step 0 must catch that first.
+- `--upgrade` never deletes or renames a sprint, story, or report file.

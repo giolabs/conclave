@@ -1,330 +1,121 @@
 ---
-description: "[Deprecated] Use /conclave-init instead. This command is kept as a backward-compatible alias — it will tell you to run /conclave-init."
-allowed-tools: []
+description: Technical specification for an epic. /conclave-spec EP-NNN has the Tech Lead compose the epic's design — decisions (ADRs), components, contracts, data changes, domain rules, test strategy, rollout and a story breakdown — and the Product Manager check it against the epic's scope; the result is SPEC-NNN in draft. /conclave-spec approve SPEC-NNN marks it approved so /conclave-planning can refine the epic's stories from it. Unknowns become spike candidates, missing decisions become proposed ADRs.
+allowed-tools: Bash(git rev-parse:*), Bash(git status:*), Bash(git config user.name:*), Bash(ls:*), Bash(cat:*), Bash(date:*), Bash(find:*), Bash(grep:*), Read, Write, Edit, Agent, AskUserQuestion
 ---
 
-# /conclave-spec — Deprecated
+# /conclave-spec &lt;EP-NNN | approve SPEC-NNN&gt;
 
-This command has been merged into `/conclave-init`.
+The SPEC sits between the epic and its stories:
 
-Please run `/conclave-init` instead. It does everything this command used to do: detects your stack, collects project metadata, and creates the `conclave/` workspace.
-
-```bash
-/conclave-init
 ```
+Epic (what · why)  →  Spike(s) (unknowns)  →  ADR(s) (decisions)  →  SPEC (how)  →  Stories (/conclave-planning)
+```
+
+- **ADR** — one decision, its alternatives and evidence. Small, permanent.
+- **SPEC** — the design for one epic, composed from its ADRs: components, contracts, data, tests, rollout, and the story breakdown planning refines. Lives at `conclave/product/specs/SPEC-NNN-<slug>.md`.
+
+```
+/conclave-spec EP-003              # author (or revise) the SPEC for EP-003
+/conclave-spec approve SPEC-002    # mark it approved — planning can now refine EP-003 from it
+```
+
+When is a SPEC needed? When the Tech Lead risk pass (inception) or `/conclave-epic` set `needs_spec: true` on the epic — typically an epic that changes the data model, a public contract, or more than one component. `/conclave-planning` enforces it per `delivery.spec_gate`. Any epic may have one.
+
+Nothing is committed.
 
 ---
 
-<!-- original content preserved below for reference only -->
+## Step 1 — Resolve the workspace
 
-# /conclave-spec (original)
+1. `git rev-parse --show-toplevel` → `REPO_ROOT`. Not a git repo → refuse.
+2. Require `conclave/config.md` with `conclave_version` ≥ `2.0.0` and `product/epics/`. v1 workspace → *"Run `/conclave-init --upgrade` first."* Stop.
+3. Require a clean working tree — same message as `/conclave-story`.
+4. Read `config.md`: `project_language` (default `es`), `product_doc_path`, `models.*` → `MODEL_FOR_TL`, `MODEL_FOR_PM`.
 
-One-time project setup wizard. Creates the `conclave/` workspace and records the project configuration that every other Conclave command reads.
+## Step 2 — Parse the sub-action
 
-**Run this command once per repository**, before `/conclave-planning`. If the workspace already exists, the command refuses and tells you what to do instead.
+- `EP-NNN` → **author**. The epic must exist; `retired` or `done` → refuse (*"Epic is <status>; a SPEC would design nothing."*).
+- `approve SPEC-NNN` → **approve** (Step A). The file must exist under `product/specs/`.
+- Anything else → `Usage: /conclave-spec <EP-NNN | approve SPEC-NNN>`.
 
-There are no AI agents in this command — it is a wizard that reads your project and writes configuration. Story and sprint generation happens in `/conclave-planning`.
+## Step 3 — Existing spec for the epic (author only)
 
----
+Read the epic's `spec:` field.
 
-## Step 0 — Guard idempotency
+- Empty → new spec. `SPEC_ID` = highest `SPEC-NNN` under `product/specs/` + 1 (zero-padded, start `001`).
+- Points to a `draft` spec → **revise in place** (same ID). Ask: **What should change?** (free text, may be "re-check against the latest ADRs and spikes").
+- Points to an `approved` spec → `AskUserQuestion`: **Write a new version** (new `SPEC_ID`, `supersedes: <old>`; the old one is marked `superseded` on write) / **Cancel**. Warn when any story of the epic is already `in-progress` or later: those stories keep their `spec:` link to the old version.
 
-1. Run `git rev-parse --show-toplevel` to find `REPO_ROOT`. If not a git repo, ask the user via `AskUserQuestion` whether to `git init` here; if they decline, stop with a clear message.
-2. If `$REPO_ROOT/conclave/config.md` already exists, **stop** and print:
-   > "`conclave/` is already initialized. Edit `conclave/config.md` directly to change settings. Run `/conclave-planning` to generate stories and plan a sprint."
+## Step 4 — Load inputs (in parallel)
 
-   Do not continue.
+- The epic file (goal, scope, success criterion, candidate stories, open questions, `adrs`, `spikes`).
+- `product/vision.md` (Product Goal), `product/architecture.md`, every `product/adr/ADR-*.md` (full text for the epic's `adrs:`, index line for the rest).
+- Findings of the epic's done spikes (`findings_path` of each story in `spikes:`).
+- When `product_doc_path` is a `/conclave-discovery` package: `02-data-model.md` and `03-bloc.md`.
+- The existing spec (revise / new version).
+- `tech-spec.template.md` body.
 
-## Step 1 — Detect the stack
+Snapshot the epic, the existing spec (if any) and the ADR index to `conclave/context/<ISO_TIMESTAMP>/`.
 
-Before asking the user anything, scan the project to detect the technology stack. This gives the user something concrete to confirm rather than a blank field.
+## Step 5 — Wave 1: Tech Lead authors the spec
 
-Run the following in parallel and collect the results:
+One `Agent` call (`MODEL_FOR_TL`, `tech-lead.md` prefix), task **spec authoring** (charter section "How you operate inside `/conclave-spec`"). Pass `SPEC_ID` verbatim and the next free ADR number (`NEXT_ADR_ID`, computed as in `/conclave-adr` Step 6). Language: `project_language` for prose; keys and identifiers in English.
+
+Output, in this order:
+1. One `## Spec` block — the body of `tech-spec.template.md`.
+2. Zero or more `## ADR` blocks — full `adr.template.md` documents (`status: proposed`), numbered from `NEXT_ADR_ID`, for decisions the design needs that no ADR records yet. At most 3; more than that means the epic needs a spike first.
+3. Or, instead of everything, `SPEC_BLOCKED: <question>` (one per line) when an unknown makes any design a guess.
+
+`SPEC_BLOCKED` → show the questions and `AskUserQuestion`: **Create spikes for them** (run `/conclave-spike` Steps 2–7 once per question with `--epic` set, then stop) / **Write the spec anyway** (re-run the TL with *"record each blocked question in §12 with Resolve by: spike"*) / **Cancel**.
+
+## Step 6 — Wave 2: Product Manager scope check
+
+One `Agent` call (`MODEL_FOR_PM`, `product-manager.md` prefix), task **spec scope check** (charter section "How you operate inside `/conclave-spec` (scope check)"). Inputs: the epic file, the Product Goal, the spec's §2 Scope and §11 Story breakdown. Output: `SCOPE_OK` or a `## Scope findings` list (scope creep, a missing slice of the success criterion, a story with no user value that is not an enabler).
+
+Findings → re-run Wave 1 once with them appended to the task; then continue whatever the second PM verdict is, carrying any remaining findings into §12 as `PM decision` rows.
+
+## Step 7 — Checkpoint
+
+```
+SPEC-NNN  <title>  (EP-NNN)
+  Decisions: ADR-004 (accepted), ADR-007 (new, proposed), …
+  Stories:   7 candidates — 2 enabler, 5 feature — ≈ <units> units ≈ <n> sprints at current velocity
+  Open:      2 questions (1 spike, 1 PM decision)
+  PM check:  OK | <n> findings carried into §12
+```
+
+`AskUserQuestion`: **Write it** / **Change something** (free text → back to Step 5, max 2 rounds) / **Cancel**.
+
+## Step 8 — Write
+
+1. `mkdir -p conclave/product/specs`. Write `product/specs/SPEC-NNN-<slug>.md` ← template + TL block. Frontmatter: `status: draft`, `epic`, `adrs` (every ADR in §3), `spikes` (the epic's done spikes used), `authors` (roster Tech Lead, or `git config user.name` when solo), `created_at`.
+2. Each new `## ADR` block → `product/adr/ADR-NNN-<slug>.md` and a row in `architecture.md` §4 (same validation as `/conclave-adr` Step 9 — `status: proposed`, Decision section present).
+3. New version: old spec → `status: superseded`, `superseded_by: SPEC-NNN`.
+4. Epic frontmatter: `spec: SPEC-NNN`; `adrs` ∪= the spec's ADRs; `needs_spec: true`. Replace nothing in `## Candidate stories` — append one line: `> Refined by [SPEC-NNN](../specs/SPEC-NNN-<slug>.md) §11 — planning uses that breakdown.`
+5. When §11's total size differs from the epic `size` by a full sprint or more → tell the user and suggest `/conclave-roadmap replan`.
+
+## Step A — `approve SPEC-NNN` (mechanical — no subagent)
+
+1. Guard: `status` must be `draft`. `approved` → *"Already approved."* `superseded` → refuse.
+2. Warn (do not refuse) for each §12 row with `Resolve by: spike` whose spike is not `done`, and for each ADR in `adrs:` still `proposed`: *"Approving with open spike / unaccepted ADR — planning will carry the risk."* `AskUserQuestion`: **Approve anyway** / **Cancel**.
+3. Set `status: approved`, `approved_at` (today), `approved_by` (`git config user.name`); fill §13.
+
+## Step 9 — Report
+
+```
+✓ SPEC-NNN <title> — draft (EP-NNN)
+  New ADRs: ADR-007 (proposed)
+  Next: review it, then /conclave-spec approve SPEC-NNN
+```
 
 ```bash
-find $REPO_ROOT -maxdepth 3 -type f \( \
-  -name "package.json" \
-  -o -name "tsconfig.json" \
-  -o -name "next.config.*" \
-  -o -name "vite.config.*" \
-  -o -name "angular.json" \
-  -o -name "nuxt.config.*" \
-  -o -name "svelte.config.*" \
-  -o -name "go.mod" \
-  -o -name "Cargo.toml" \
-  -o -name "requirements.txt" \
-  -o -name "pyproject.toml" \
-  -o -name "setup.py" \
-  -o -name "pubspec.yaml" \
-  -o -name "build.gradle" \
-  -o -name "build.gradle.kts" \
-  -o -name "pom.xml" \
-  -o -name "Gemfile" \
-  -o -name "mix.exs" \
-  -o -name "composer.json" \
-  -o -name ".php-version" \
-\) \
--not -path "*/.git/*" \
--not -path "*/node_modules/*" \
--not -path "*/vendor/*" \
--not -path "*/build/*" \
--not -path "*/dist/*"
+git add conclave/ && git commit -m "conclave: SPEC-NNN for EP-NNN — <title>"
 ```
-
-Build a readable summary of what was found. Examples of how to infer from files:
-
-| Signal file | Likely stack |
-|---|---|
-| `package.json` + `next.config.*` | Next.js (TypeScript if `tsconfig.json` present) |
-| `package.json` + no framework config | Node.js |
-| `pubspec.yaml` | Flutter / Dart |
-| `go.mod` | Go |
-| `Cargo.toml` | Rust |
-| `requirements.txt` or `pyproject.toml` | Python |
-| `build.gradle` or `pom.xml` | Android / Java / Kotlin |
-| `Gemfile` | Ruby on Rails |
-| `mix.exs` | Elixir |
-| `composer.json` | PHP |
-
-If no signal files are found, set the detected stack to "Not detected — will fill manually".
-
-## Step 2 — Collect project info (AskUserQuestion)
-
-Ask the user all required fields in a single `AskUserQuestion` call.
-
-**Question 1 — Project name**
-Free text. Used as the title in all generated artifacts.
-
-**Question 2 — Story ID prefix**
-Free text, default: `US`. Explain: *"Stories will be named `<PREFIX>-001`, `<PREFIX>-002`, etc. Examples: `US` (user story), `TASK`, `FEAT`, or a project abbreviation like `MYAPP`."*
-
-**Question 3 — Project language**
-Options: `es` (Spanish — recommended default), `en` (English), other (free text for any ISO 639-1 code). Explain: *"All Conclave-generated markdown — stories, acceptance criteria, reports — will be written in this language."*
-
-**Question 4 — Launch date**
-ISO date (YYYY-MM-DD). Optional — the user can enter "TBD" if not yet known.
-
-**Question 5 — Team mode**
-Options:
-- `team` — a multi-person engineering team
-- `solo` — a single developer (forces `lean` profile; roster will have one row)
-
-**Question 6 — Team profile** (skip if team_mode is `solo` — force `lean`)
-Options:
-- `lean` (recommended for small teams / internal projects) — only Sprint Planning and QA Verification are enforced
-- `full-scrum` — all ceremonies required (daily standup, grooming, peer PR review, sprint review, retro)
-- `custom` — you'll configure each ceremony individually in `conclave/config.md`
-
-Wait for all answers before continuing.
-
-## Step 3 — Confirm or override the detected stack
-
-Use a second `AskUserQuestion` to present the detected stack and let the user confirm or correct it.
-
-Show:
-- Detected signal files and the inferred stack label.
-- Fields to confirm: language, framework, datastore, infrastructure.
-
-For each field, the default is what you inferred from the signal files (or empty if nothing was detected). Options:
-- "Looks correct" — use the detected values
-- "Let me correct it" — accept free text for each field
-
-If the user corrects any field, use their values. Set:
-
-```
-STACK_LANGUAGE   = <confirmed or user-entered>
-STACK_FRAMEWORK  = <confirmed or user-entered>
-STACK_DATASTORE  = <confirmed or user-entered>
-STACK_INFRA      = <confirmed or user-entered>
-PROJECT_TYPE     = <inferred from stack: backend | frontend | mobile | devops | multi>
-```
-
-## Step 4 — Find the product planning document
-
-The product planning document is the single source of truth for stories and sprints. It must exist before `/conclave-planning` can run.
-
-**4.1 — Search the repo for a candidate**
-
-Look for these files in priority order:
-
-```bash
-find $REPO_ROOT -maxdepth 4 -type f -name "*.md" \
-  -not -path "*/.git/*" \
-  -not -path "*/node_modules/*" \
-  -not -path "*/conclave/*" \
-  | xargs grep -l -i "sprint\|backlog\|user stor\|epics\|feature\|mvp\|milestone\|release" \
-    2>/dev/null | head -10
-```
-
-Also check these specific paths without grepping (they may exist but be empty):
-- `$REPO_ROOT/docs/mvp.md`
-- `$REPO_ROOT/docs/project.md`
-- `$REPO_ROOT/mvp.md`
-- `$REPO_ROOT/project.md`
-- `$REPO_ROOT/docs/product.md`
-- `$REPO_ROOT/PRODUCT.md`
-
-**4.2 — If one or more candidates are found**
-
-Present up to 3 candidates to the user via `AskUserQuestion`:
-- "We found these files that may contain your product plan. Which one is it?"
-- Options: each candidate path, plus "None of these — I'll specify one" and "None of these — I'll create one now"
-
-If the user picks a file, set `PRODUCT_DOC_PATH` to that path and continue to Step 5.
-
-If the user says "I'll specify one" — ask for the path and set `PRODUCT_DOC_PATH`. If the file doesn't exist at that path, tell the user and wait for a valid path.
-
-**4.3 — If no candidates are found**
-
-Use `AskUserQuestion` to present three options:
-
-> "No product planning document was found in this repo. `/conclave-planning` needs one to generate stories and sprints. Please choose:"
-
-Options:
-1. **"I'll paste the content now"** — The user pastes the content of the document in their next message. Write it to `$REPO_ROOT/docs/mvp.md` and set `PRODUCT_DOC_PATH = "docs/mvp.md"`.
-2. **"The file is already there — here's the path"** — The user provides the path. Verify it exists. Set `PRODUCT_DOC_PATH`.
-3. **"I'll create it later"** — Acknowledge and set `PRODUCT_DOC_PATH = null`. The workspace will be created but `/conclave-planning` will refuse to run until the field is filled in `config.md`.
-
-Recommended format to suggest if the user is creating the document:
-
-```markdown
-# <Project name> — Product Plan
-
-## Vision
-<One-paragraph description of the product.>
-
-## MVP Scope
-<What the MVP includes and excludes.>
-
-## Sprint 1
-### Goal
-<One sentence.>
-### Features
-- Feature 1: <description>
-- Feature 2: <description>
-
-## Sprint 2
-### Goal
-<One sentence.>
-### Features
-- Feature 3: <description>
-```
-
-## Step 5 — Create the workspace
-
-Create all files in parallel where possible.
-
-### 5.1 — Directory structure
-
-```bash
-mkdir -p $REPO_ROOT/conclave/team
-mkdir -p $REPO_ROOT/conclave/product
-mkdir -p $REPO_ROOT/conclave/context
-mkdir -p $REPO_ROOT/conclave/sprints
-mkdir -p $REPO_ROOT/conclave/runs
-mkdir -p $REPO_ROOT/conclave/report
-mkdir -p $REPO_ROOT/.github/ISSUE_TEMPLATE
-```
-
-### 5.2 — conclave/config.md
-
-Read `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/config.template.md`. Fill in all `{{placeholders}}` with the collected values:
-
-| Placeholder | Value |
-|---|---|
-| `{{project_name}}` | from Step 2 |
-| `{{project_type}}` | from Step 3 |
-| `{{project_language}}` | from Step 2 |
-| `{{story_prefix}}` | from Step 2 |
-| `{{launch_date}}` | from Step 2 (or "TBD") |
-| `{{product_doc_path}}` | from Step 4 (or `""` if null) |
-| `{{stack_language}}` | from Step 3 |
-| `{{framework}}` | from Step 3 |
-| `{{datastore}}` | from Step 3 |
-| `{{infrastructure}}` | from Step 3 |
-| `{{repo_url}}` | output of `git remote get-url origin 2>/dev/null \|\| echo ""` |
-| `{{iso_date}}` | today's date (ISO) |
-| `{{conclave_version}}` | `1.0.0` |
-| `{{team_mode}}` | from Step 2 |
-| `{{team_profile}}` | from Step 2 (force `lean` when `team_mode = solo`) |
-| `{{daily_standup_required}}` | `true` for full-scrum, `false` for lean, ask for custom |
-| `{{backlog_grooming_required}}` | `true` for full-scrum, `false` for lean |
-| `{{peer_pr_review_required}}` | `true` for full-scrum, `false` for lean |
-| `{{sprint_review_required}}` | `true` for full-scrum, `false` for lean |
-| `{{sprint_retrospective_required}}` | `true` for full-scrum, `false` for lean |
-
-Write to `$REPO_ROOT/conclave/config.md`.
-
-### 5.3 — team/roster.md
-
-Read `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/roster.template.md`. Fill in:
-- If `team_mode = solo`: a single row with the project name as person name covering all disciplines.
-- If `team_mode = team`: leave the template rows as-is for the team to fill in.
-
-Write to `$REPO_ROOT/conclave/team/roster.md`.
-
-### 5.4 — team/ceremonies.md
-
-Read `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/ceremonies.template.md`. Use default sprint length (2 weeks), Monday as planning day, Wednesday as standup, Friday as retro. Write to `$REPO_ROOT/conclave/team/ceremonies.md`.
-
-### 5.5 — product/definition-of-ready.md and product/definition-of-done.md
-
-Read the DoR and DoD templates and write them as-is (they are sensible defaults). Adjust the `peer_pr_review` bullet in the DoD to reflect the chosen profile — comment it out if `peer_pr_review_required: false`.
-
-### 5.6 — conclave/README.md
-
-Read `${CLAUDE_PLUGIN_ROOT}/skills/conclave/templates/conclave-readme.template.md`. Fill in `{{project_name}}` and `{{iso_date}}`. Write to `$REPO_ROOT/conclave/README.md`.
-
-### 5.7 — GitHub templates
-
-Read and write the two GitHub templates from `skills/conclave/templates/`:
-- `pr-template-github.template.md` → `.github/PULL_REQUEST_TEMPLATE.md`
-- `bug-report-github.template.md` → `.github/ISSUE_TEMPLATE/bug_report.md`
-
-Only write these if the target files do not already exist (do not overwrite).
-
-### 5.8 — Context snapshot
-
-In parallel:
-- If `$REPO_ROOT/CLAUDE.md` exists, copy its content to `conclave/context/claude-md.snapshot.md`. If `$HOME/.claude/CLAUDE.md` also exists, append its content under a `## Global` heading.
-- Write `conclave/context/skills.inventory.md` listing the skills currently available in the session.
-- Write `conclave/context/rules.inventory.md` listing the stack signal files found in Step 1 (paths only — no content).
-
-## Step 6 — Report to the user
-
-Print a clear summary:
-
-```
-✓ Conclave workspace initialized at conclave/
-
-  Project:        <project_name>
-  Story prefix:   <prefix>-001, <prefix>-002, …
-  Launch date:    <launch_date>
-  Stack:          <framework> / <language>
-  Profile:        <team_profile>
-  Product doc:    <product_doc_path or "⚠ not set — edit config.md before running /conclave-planning">
-```
-
-Then suggest:
-
-```bash
-# Review the workspace
-ls conclave/
-
-# When ready, generate stories and plan the first sprint:
-/conclave-planning
-
-# Or plan all sprints from your product document at once:
-/conclave-planning --all
-```
-
-If `PRODUCT_DOC_PATH` is null (user chose "I'll create it later"), add:
-
-> ⚠️ **Before running `/conclave-planning`**, create your product document and set `product_doc_path` in `conclave/config.md`.
 
 ## Guardrails
 
-- Do not create any file outside `$REPO_ROOT/conclave/` or `$REPO_ROOT/.github/` (and only if those files don't already exist).
-- Do not commit. The user reviews on a PR.
-- Do not run any AI agent. This command is orchestrator logic only.
-- Do not overwrite an existing `conclave/config.md` under any circumstances — the idempotency guard in Step 0 must catch that first.
+- Never commit, push, or open a PR.
+- Only write under `conclave/product/` — `specs/`, `adr/`, `architecture.md` §4, and the epic's frontmatter / candidate-stories note — plus `conclave/context/`.
+- Never write story files — planning refines stories from §11.
+- Never write `status: approved` from a subagent; only Step A (a human running it) approves.
+- Never renumber: `SPEC_ID` and ADR numbers are computed by the orchestrator and used verbatim.

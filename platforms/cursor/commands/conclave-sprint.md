@@ -1,6 +1,6 @@
 ---
 name: conclave-sprint
-description: Drive an entire active sprint end-to-end in one pass. Interactive (default): planning → batched Dev/QA/PR review. Headless (--no-interaction / commands.sprint.interactive: false): the same one pass with zero prompts and documented planning defaults. Neither mode merges, self-heals, or reads a schedule — unattended delivery lives in /conclave-dev --loop (ADR-006).
+description: Drive the build phase of a sprint in one pass. Interactive (default): planning (if no sprint is active) → batched Dev/QA/PR review. Closing stays with /conclave-close. Headless (--no-interaction / commands.sprint.interactive: false): the same one pass with zero prompts and documented planning defaults. Neither mode merges, self-heals, or reads a schedule — unattended delivery lives in /conclave-dev --loop (ADR-006).
 ---
 
 # /conclave-sprint
@@ -14,7 +14,7 @@ description: Drive an entire active sprint end-to-end in one pass. Interactive (
 > - Concurrent batches still issue ≤ 3 Task calls per wave (correctness over wall-clock if Cursor serializes them).
 
 
-Drive an entire active (or draft) sprint end-to-end in a single invocation.
+Drive the build phase of a sprint in a single invocation: plan the next roadmap slot if no sprint is active, then one pass of Dev → QA → PR review. Closing the sprint (review, retro, velocity, reports) is `/conclave-close`.
 
 ```
 /conclave-sprint
@@ -82,26 +82,16 @@ Print one line: `Models: <role>=<id>, ...` listing only non-null values. If all 
 ## Step 3 — Resolve the sprint
 
 1. List `$REPO_ROOT/conclave/sprints/` and find the sprint(s).
-2. Identify the sprint with `status: active` or `status: draft`. Set `SPRINT_ID` and `SPRINT_PATH`.
-   - No sprint → refuse: *"No sprint to run. Create one with `/conclave-spec`, then lock it with `/conclave-planning`."* Stop.
+2. Identify the sprint with `status: active`. Set `SPRINT_ID` and `SPRINT_PATH`.
+   - None active → Phase 1 runs `/conclave-planning` to plan the next roadmap slot (Step 4). If the workspace predates v2 (no `product/roadmap.md`) → refuse: *"Run `/conclave-init --upgrade` first."* Stop.
    - Multiple `active` sprints → refuse (should not happen in normal flow). Stop.
 
-## Step 4 — Phase 1: Planning (skipped if sprint already `active`)
+## Step 4 — Phase 1: Planning (skipped if a sprint is already `active`)
 
-Check the resolved sprint's `status`:
-- `status: active` → print `Phase 1 — Planning: skipped (sprint already active)` and continue to Step 5.
-- `status: draft` → run the full Sprint Planning agent orchestration:
-  - Read all inputs as specified in `/conclave-planning` Steps 2–3.
-  - Ask the user for sprint dates and facilitator (Step 3 of `/conclave-planning`).
-  - **Wave 1** — issue two `Agent` calls in a single message:
-    - **Agent B — Product Manager**: model `MODEL_FOR_PM` (omit if null). Same task as `/conclave-planning` Agent B.
-    - **Agent C — Tech Lead**: model `MODEL_FOR_TL` (omit if null). Same task as `/conclave-planning` Agent C.
-  - Wait for both. If either errors: print `Sprint run aborted: Phase 1 (Planning) failed. Fix the error above and re-run /conclave-sprint.` Stop.
-  - **Wave 2** — issue one `Task` call:
-    - **Agent A — Scrum Master**: model `MODEL_FOR_SM` (omit if null). Same task as `/conclave-planning` Agent A.
-  - Wait. If it errors: same abort message. Stop.
-  - Synthesize and validate per `/conclave-planning` Steps 5–6. Write all outputs (`meta.md`, `spec.md`, story frontmatter, `planning.md`, `backlog.md`).
-  - Sprint must be `active` after this step. If not, abort and stop.
+- A sprint is `active` → print `Phase 1 — Planning: skipped (SPRINT-NNN already active)` and continue to Step 5.
+- No sprint is `active` → run `/conclave-planning` Steps 1–10 inline (gate, slot resolution, refinement Wave 1, TL feasibility Wave 2, SM planning Wave 3, validation, lock), using the resolved `MODEL_FOR_PM`, `MODEL_FOR_TL`, `MODEL_FOR_SM`. Its gate still applies: a previous sprint that is not `closed` cannot exist here because none is active.
+  - Any agent error → print `Sprint run aborted: Phase 1 (Planning) failed. Fix the error above and re-run /conclave-sprint.` Stop.
+  - The new sprint must be `active` afterwards; otherwise abort and stop. Set `SPRINT_ID`, `SPRINT_PATH`.
 
 ## Step 5 — Collect Phase 2 stories
 
@@ -194,6 +184,17 @@ Stories still in flight: US-002, US-005. Run /conclave-dev --loop to drive them 
 approved PR unattended (Dev → QA → Tech Lead, no merge).
 ```
 
+## Step 12 — Close hint
+
+When every non-retired story of the sprint is `done`, print:
+
+```
+All stories in SPRINT-NNN are done. Run /conclave-close to review the Increment,
+run the retro, record velocity, and generate the sprint report.
+```
+
+This command never sets a sprint `closed` and never writes `conclave/report/` — that is `/conclave-close`.
+
 ---
 
 # Headless one-pass mode
@@ -209,10 +210,11 @@ Unattended delivery lives in /conclave-dev --loop (three waves, leaves approved 
 
 Substitutions:
 
-1. **Step 4 (Planning), `draft` sprint** — no `AskQuestion`. Apply:
-   - Sprint start = today (UTC date); end = start + the sprint length in `ceremonies` if present, else +14 days.
+1. **Step 4 (Planning), no active sprint** — no `AskQuestion`. Apply:
+   - Sprint start = today (UTC date); end = start + `sprint.length_weeks` (default 2) weeks.
    - Facilitator = the first roster member (or the sole solo row).
    - Coverage gaps → assign the Tech Lead as a temporary fallback and record it in the planning notes.
+   - DoR failures → drop the story back to `status: backlog`; over-capacity → drop lowest priority; under-capacity → do not pull more.
    - Prepend each Agent task with `Headless sprint run — no AskQuestion; use defaults.`
    - The sprint must be `active` afterwards; otherwise abort exactly as the interactive path does.
 2. **Steps 5–11** run unchanged, including batch-of-3 concurrency. Phase 4 still honors `ceremonies.peer_pr_review.required` — headless mode does **not** force the Tech Lead gate. (`/conclave-dev --loop` does, for its own run.)
@@ -232,4 +234,4 @@ To pick those stories up unattended, run `/conclave-dev --loop` afterwards: it r
 - **Do not modify any file outside `$REPO_ROOT/conclave/`** except story feature branches, `tests/uat/` paths QA may write, and git operations on those branches.
 - **Never print a phase skip silently.**
 - **Re-runs are safe.** Story `status` frontmatter is the recovery mechanism.
-- **Sprint close stays a ceremony.** This command does not mechanically close a sprint; `/conclave-review` does.
+- **Sprint close stays a ceremony.** This command never closes a sprint; `/conclave-close` does.

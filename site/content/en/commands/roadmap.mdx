@@ -1,0 +1,76 @@
+---
+title: /conclave-roadmap
+description: Release planning — how many sprints, and what goes in each. show prints the release plan; replan has the Scrum Master re-sequence every future slot against a fixed number of sprints or as many as the must/should epics need.
+---
+
+# /conclave-roadmap
+
+`/conclave-init` writes the first roadmap; `/conclave-close` re-forecasts dates after every sprint; `/conclave-epic` slots one epic at a time. This command is for the moment the team wants to decide **how many sprints** the release has — or re-sequence everything after the plan has drifted.
+
+```
+/conclave-roadmap show                     # release plan at a glance
+/conclave-roadmap replan --sprints 6       # fit the release into 6 sprints (Sprint 0 included)
+/conclave-roadmap replan --sprints auto    # as many sprints as the must/should epics need
+/conclave-roadmap replan                   # keep the current horizon, re-sequence
+```
+
+Nothing is committed. Added in v2.0.0.
+
+## The horizon
+
+The **horizon** is `sprint.planned_sprints` in `config.md`, mirrored as `horizon` / `planned_sprints` in `roadmap.md`:
+
+| Horizon | Roadmap holds |
+|---|---|
+| `auto` | As many slots as the `must` and `should` epics need. `could` epics go to *Beyond the horizon* unless they fit in the last slot's spare capacity. |
+| A number `N` | Exactly `N` slots, Sprint 0 and closed sprints included. Epics that do not fit go to **Beyond the horizon** in priority order, each with the extra sprints it would need. |
+
+With a fixed number, the forecast names any `must` epic left beyond the horizon — that is a scope decision for the PM, not something the roadmap hides. Only `/conclave-init` and `/conclave-roadmap replan` change the horizon.
+
+## `show`
+
+Mechanical, no subagent. Reads `roadmap.md`, every epic and every sprint's `meta.md`, and prints:
+
+```
+Release plan — taskly
+  Horizon:   6 sprints    Sprint length: 2 weeks
+  Sprints:   1 closed · 1 active · 4 planned  (Sprint 0: yes)
+  MVP at:    SPRINT-004 (2026-12-04)   Launch: 2026-12-15 — on track
+  Velocity:  12 (avg of last 3 closed)
+
+  Slot  Sprint      Epics                         Status
+  0     SPRINT-000  EP-001                        closed
+  1     SPRINT-001  EP-002, spike:EP-004          active
+  2     SPRINT-002  EP-003                        planned
+  …
+  Beyond the horizon: EP-007 (should, +1 sprint), EP-008 (could, +1)
+
+  Epics needing attention:
+    EP-004  uncertainty: high — spike scheduled in SPRINT-001
+    EP-005  needs_spec — SPEC-002 is draft (/conclave-spec approve SPEC-002)
+```
+
+## `replan [--sprints N|auto]`
+
+Requires a clean working tree.
+
+1. **Horizon** — from `--sprints`, or asked: **Keep current** / **Auto** / **Fixed number**. With no velocity yet, the fixed-formula capacity per sprint is shown next to the question. The horizon counts **all** slots — `--sprints 6` with 2 closed sprints leaves 4 to plan. A number smaller than closed + active slots + 1 is refused.
+2. **Snapshot** — `roadmap.md`, `config.md` and every epic's frontmatter to `conclave/context/`.
+3. **Scrum Master re-plans** every future `planned` slot — `closed` and `active` rows are copied verbatim. Inputs: every open epic (size, priority, dependencies, `uncertainty`, `needs_spec`, SPEC status, open questions, stories done/total), velocity history, sprint length, launch date. Rules:
+   - Fill slots by priority and dependencies; `S` ≈ 1 slot, `M` ≈ 2, `L` ≈ 3; at most 2 small epics per slot.
+   - Capacity per slot from the average velocity of the last 3 closed sprints (fixed formula only when none).
+   - **Spike entries**: every epic still at `uncertainty: high` gets `spike:EP-NNN` in the slot before its first slot (≈ one `S` story of capacity, at most two per slot). An epic whose spike already lowered its uncertainty gets none.
+   - **SPEC lead time**: an epic with `needs_spec: true` should not open slot 1 unless Sprint 0 is on.
+4. **Checkpoint** — the old → new slot table, Beyond the horizon, MVP slot and launch verdict, with any `must` epic beyond the horizon on its own line. **Apply** / **Change something** (one re-run) / **Cancel**.
+5. **Write** — `roadmap.md` (Release plan, Slots, Beyond the horizon, Forecast; burnup untouched; a re-plan log row), `config.md` `sprint.planned_sprints`, and each epic's `roadmap_slots`.
+
+## Spike entries
+
+A slot's `Epics` cell may hold `spike:EP-NNN` alongside epic IDs. It reserves room for a timeboxed spike that de-risks `EP-NNN` before its feature stories are refined. [`/conclave-planning`](/en/commands/planning) turns each entry into `type: spike` stories from the epic's open questions — see [`/conclave-spike`](/en/commands/spike).
+
+## Guardrails
+
+- Never commits, pushes, or opens a PR.
+- Never changes an `active` or `closed` slot, the burnup table, or any sprint directory.
+- Never creates, retires or edits epics — it suggests `/conclave-epic split|retire` in the report instead.
+- Writes only `product/roadmap.md`, `config.md` `sprint.planned_sprints`, and epic `roadmap_slots`.

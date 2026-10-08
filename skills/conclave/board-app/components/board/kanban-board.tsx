@@ -21,7 +21,7 @@ export function KanbanBoard({
 
   if (!selectedSprint) {
     return (
-      <EmptyState message="No sprints yet — run /conclave-spec and /conclave-planning to get data, then this board picks it up on the next reload." />
+      <EmptyState message="No sprints yet — run /conclave-init and /conclave-planning to get data, then this board picks it up on the next reload." />
     );
   }
 

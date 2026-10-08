@@ -1,0 +1,120 @@
+---
+title: /conclave-spike
+description: Crea un spike con timebox — una historia type spike que responde una pregunta técnica o de producto antes de que el equipo se comprometa a construir. Se corre con /conclave-dev como cualquier historia; sus hallazgos alimentan /conclave-adr y /conclave-spec.
+---
+
+# /conclave-spike
+
+Un **spike** es investigación con fecha límite: compra conocimiento, no features. Usalo cuando una historia no se puede estimar, cuando el diseño de una épica depende de algo que nadie midió, o cuando dos opciones se ven igual de buenas en el papel.
+
+```
+/conclave-spike "¿Alcanza Postgres LISTEN/NOTIFY para nuestra carga realtime o necesitamos Redis?" --epic EP-003
+/conclave-spike "<pregunta>" --timebox S
+/conclave-spike                                   # pregunta la pregunta
+```
+
+El comando escribe una historia con `type: spike` — una sola pregunta, un timebox (`XS | S | M`), salidas declaradas y 2–3 escenarios Gherkin que verifican el **entregable**, no el comportamiento en producción. No se commitea nada. Agregado en v2.0.0.
+
+## De dónde salen los spikes
+
+| Origen | Cómo |
+|---|---|
+| Inception | La pasada de riesgo del Tech Lead marca una épica `uncertainty: high` y lista sus preguntas abiertas; el roadmap agenda `spike:EP-NNN` un slot antes. [`/conclave-planning`](/es/commands/planning) lo convierte en una historia spike. |
+| Planning | La factibilidad de la Wave 2 marca `SPIKE_NEEDED` para una historia que no se puede estimar. |
+| Una SPEC | [`/conclave-spec`](/es/commands/spec) lista una pregunta abierta con `Resolve by: spike`. |
+| En cualquier momento | Este comando. |
+
+## Cómo fluye un spike
+
+```
+/conclave-spike      → historia type: spike (backlog o sprint activo)
+/conclave-dev <ID>   → la corre el Tech Lead: hallazgos + ADR propuesto / SPEC draft, PR solo de docs
+/conclave-qa <ID>    → verifica que el entregable responde la pregunta
+/conclave-close      → la velocity cuenta el timebox; los hallazgos actualizan la épica
+```
+
+Un spike reusa la [máquina de estados de historias](/es/state-machine#los-spikes-reusan-esta-misma-máquina-de-estados-v200) normal: `backlog → ready → in-progress → review → [verified] → done`. `done` significa que el conocimiento existe, no que se entregó una feature.
+
+## Qué hace
+
+### Paso 1 — Workspace
+
+Requiere un workspace v2 (`conclave_version >= 2.0.0`) y un working tree limpio. Lee `story_prefix`, `project_language`, `delivery.spike_max_timebox` (default `M`) y el modelo del Tech Lead, y busca el sprint activo (o draft), si hay.
+
+### Paso 2 — Semilla
+
+Pregunta solo lo que no vino en los argumentos:
+
+1. **Pregunta** — obligatoria. "Investigar X" se acepta; el Tech Lead la reformula como decisión y el checkpoint muestra la reescritura.
+2. **Épica** — cualquier `EP-NNN` no retirada ni terminada, o ninguna.
+3. **Timebox** — `XS | S | M`, nunca por encima de `delivery.spike_max_timebox`. Un pedido mayor se rechaza: *"Dividí la pregunta — un spike más largo que M es un proyecto, no un spike."* Default `S`.
+4. **Salidas** — multi-selección: `adr` (un registro de decisión), `spec` (redactar o revisar la SPEC de la épica — solo con épica), `estimate` (re-estimar la épica o historias nombradas). `findings` siempre se incluye.
+5. **Dónde cae** — **Backlog** (default) o **Sprint activo** (avisa que suma unidades a un sprint bloqueado).
+
+### Paso 3 — Snapshot
+
+Copia la épica, `architecture.md`, el índice de ADRs y la SPEC de la épica (si hay) a `conclave/context/<timestamp>/`.
+
+### Paso 4 — El Tech Lead redacta el spike
+
+Un subagente Tech Lead escribe la historia (`type: spike`, `question`, `timebox` = `estimate`, `spike_outputs`, `discipline`, prioridad) y su archivo de aceptación:
+
+- **Una pregunta**, formulada como decisión ("¿Podemos …?", "¿Deberíamos …?", "¿Cuál de A o B …?"). Dos preguntas → dos spikes.
+- Forma de la historia: **Para decidir** · **Vamos a investigar** · **Dentro de** — después se frena y se reporta, con o sin respuesta.
+- Los escenarios verifican el entregable — p. ej. *Given terminó el timebox, When se lee el reporte de hallazgos, Then enuncia una recomendación respaldada por al menos una fila de evidencia Tier A o B*.
+
+Si un ADR aceptado, la arquitectura o la SPEC ya responden la pregunta, el TL devuelve `SPIKE_NOT_NEEDED: <motivo>` y no se escribe nada.
+
+### Paso 5 — Checkpoint
+
+Muestra la pregunta reformulada, timebox, salidas, disciplina y nombres de escenarios: **Escribirlo** / **Cambiar algo** (una re-corrida) / **Cancelar**.
+
+### Paso 6 — Escritura
+
+- **Backlog** → `product/stories-backlog/<PREFIX>-NNN-<slug>.md` + `acceptance/AC-<PREFIX>-NNN.md`, `status: backlog`.
+- **Sprint activo** → `stories/` y `acceptance/` del sprint, `status: ready`, asignado al Tech Lead del roster; una fila en el `spec.md` del sprint y las unidades del timebox sumadas a `committed_units` en `meta.md`.
+- La épica suma el ID a `spikes:` y `stories:`; una línea que coincide bajo `## Open questions (spike candidates)` queda con el sufijo `→ <ID>`.
+- Se agrega una fila al backlog (título con prefijo `Spike:`).
+
+## Frontmatter del spike
+
+```yaml
+type: spike
+question: "¿Alcanza Postgres LISTEN/NOTIFY para nuestra carga realtime o necesitamos Redis?"
+timebox: "S"                # XS | S | M — igual a estimate
+estimate: "S"
+spike_outputs: [findings, adr]   # findings siempre; + adr | spec | estimate
+findings_path: ""           # lo completa /conclave-dev cuando corrió el spike
+epic: "EP-003"
+```
+
+## Correr el spike
+
+[`/conclave-dev`](/es/commands/dev) enruta toda historia `type: spike` al **Tech Lead**, sea cual sea su `discipline`. El TL elige la evidencia más barata que pueda cambiar la decisión (docs versionadas, medir el código existente, o un prototipo descartable en un worktree o una rama `lab/<ID>-*`), se frena al cumplirse el timebox, y escribe:
+
+- `conclave/sprints/SPRINT-NNN/spikes/<ID>-findings.md` desde `spike-findings.template.md` — pregunta, enfoque, tabla de evidencia con tiers, opciones, una recomendación, impacto en el backlog (cambios de estimación, nuevas historias candidatas, incertidumbre resultante), follow-ups, y `outcome: answered | partially-answered | not-answered`.
+- Cada salida declarada: un ADR `proposed` en `product/adr/`, una SPEC `draft` en `product/specs/`, o las nuevas estimaciones en los hallazgos.
+
+El PR es **solo de docs** — markdown bajo `conclave/`; el código del prototipo nunca entra. `outcome: not-answered` es un resultado legítimo cuando el reporte dice con honestidad qué se probó y qué hacer después.
+
+[`/conclave-qa`](/es/commands/qa) verifica los escenarios contra los hallazgos y las salidas (sin UAT, sin esperar CI), y [`/conclave-close`](/es/commands/close) vuelca los hallazgos en la épica: `uncertainty`, `adrs`, `spec`, la pregunta abierta respondida y las nuevas historias candidatas.
+
+## Salida
+
+```
+✓ US-014  Spike: ¿Alcanza Postgres LISTEN/NOTIFY para nuestra carga realtime?
+  Timebox: S   Outputs: findings, adr   Epic: EP-003
+  Landed in: backlog
+```
+
+```bash
+git add conclave/ && git commit -m "conclave: spike US-014 — transporte realtime"
+/conclave-dev US-014       # cuando esté en un sprint
+```
+
+## Guardrails
+
+- Nunca commitea, pushea ni abre un PR.
+- Un spike tiene exactamente una pregunta y un timebox ≤ `delivery.spike_max_timebox`. Nunca sin timebox.
+- Nunca escribe un ADR ni una SPEC acá — el spike los produce cuando corre.
+- Solo escribe en `conclave/product/` (stories-backlog, backlog, `spikes:` / preguntas abiertas de la épica) y, si cae en el sprint activo, en las historias, aceptación, tabla de `spec.md` y `committed_units` de ese sprint.

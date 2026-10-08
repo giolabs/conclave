@@ -59,6 +59,17 @@ When more than one story ID is passed, the same upfront-validation → concurren
 
 QA never executes the generated tests itself — the target repo's own CI does, and never resolves, reads, or writes a secret value at any point.
 
+### Spike stories (v2.0.0+)
+
+A `type: spike` story ships knowledge, not behaviour, so UAT and the CI wait (steps 5–6) are skipped. QA reads the findings report (`findings_path`), every ADR the spike produced and its SPEC, and checks each Gherkin scenario against them:
+
+- The findings exist, restate the question, and the `outcome` is honest — a recommendation resting only on Tier D evidence counts as `not-answered`.
+- Every output in `spike_outputs` exists: an ADR with `status: proposed` and a Decision section, a SPEC with `status: draft`, re-estimates listed under "Impact on the backlog".
+- The PR diff holds only markdown under `conclave/` — any application or prototype code is a `blocked` verdict.
+- `outcome: not-answered` is **not** a failure by itself: it passes when the report says what was tried, why it did not converge, and what to do next.
+
+Verdicts are `passed` / `blocked`; never `pending_uat`.
+
 ## What it produces
 
 - A `## Verification — <date>` section **appended** to `acceptance/AC-US-NNN.md` — never overwrites previous verification runs, now including a UAT execution subsection (CI run + result, or mobile checklist state).

@@ -55,9 +55,14 @@ Follow these steps in order.
 
 Read:
 
-- `$REPO_ROOT/conclave/config.md` — extract `team_profile`, `ceremonies.*`, and `models.*`. Resolve:
+- `$REPO_ROOT/conclave/config.md` — extract `team_profile`, `ceremonies.*`, `models.*`, and `lab_test.*`. Resolve:
   - `MODEL_FOR_TL` = `models.overrides.tech_lead` → `models.default` → null
   Invalid model name → `WARNING: Unknown model '<value>' for role <role>. Falling back to <next_fallback>.` then continue. Absent block → null, no warning. Print `Models: tl=<id>` for any non-null values.
+  - `LAB_TEST_ENABLED` = `lab_test.enabled` (default `false`).
+  - `LAB_TEST_BRANCH` = `lab_test.integration_branch` → `repo.integration_branch` → `develop`.
+  - `LAB_TEST_RUNNER` = `lab_test.runner` (default `auto`).
+  - `LAB_TEST_TIMEBOX` = `lab_test.timebox_minutes` (default `30`).
+  - `LAB_TEST_GENERATE_ON` = `lab_test.stories.generate_on` (default `pr-review`).
 - `$REPO_ROOT/conclave/product/architecture.md`
 - `$REPO_ROOT/conclave/product/definition-of-done.md`
 - Story file (must show `status: verified`)
@@ -71,7 +76,7 @@ Issue a single `Task` tool call with:
 
 - **Model**: `MODEL_FOR_TL` (omit if null).
 - Prompt prefix: full content of `agents/tech-lead.md`.
-- Task: review the PR per the charter's "How you operate inside `/conclave-pr-review`" section.
+- Task: review the PR per the charter's "How you operate inside `/conclave-pr-review`" section. **`type: spike` (v2.0.0+)**: review the deliverable instead of code — the findings answer the question with the evidence they claim, each produced ADR passes the `/conclave-adr` evidence gates, a produced SPEC follows `tech-spec.template.md`, and the diff holds only markdown under `conclave/`. Also embed the findings file, produced ADRs and SPEC.
 - Inputs embedded:
   - Story file content
   - Acceptance file content (including QA's latest verification block)
@@ -105,6 +110,50 @@ If `gh` is not available, print the prepared command for the user to run.
 ### 6.3 Push
 `git push origin $BRANCH` so the story-status change is visible.
 
+### 6.5 Generate the story lab test (if applicable)
+
+Check: `LAB_TEST_ENABLED == true` AND `LAB_TEST_GENERATE_ON == pr-review` AND `verdict == approved` AND the story is not `type: spike` (a spike has no runtime behaviour to lab-test).
+
+If the check passes:
+
+a. Check if a lab spec already exists at `$SPRINT_PATH/stories/US-NNN-lab.md` (or `$REPO_ROOT/conclave/sprints/$SPRINT_ID/stories/US-NNN-lab.md`). If it exists and its `status` is not `blocked`, skip generation (do not overwrite a usable spec).
+
+b. **Require `conclave/lab-config.md`**. Attempt to read `$REPO_ROOT/conclave/lab-config.md`:
+   - If **not found**: skip lab spec generation and print:
+     ```
+     ⚠  Lab spec not generated — conclave/lab-config.md is missing.
+        The Tech Lead needs the Variable registry to write concrete Verify commands.
+        Setup:
+          cp <plugin_root>/skills/conclave/templates/lab-config.template.md conclave/lab-config.md
+          # Fill in the Variable registry section and environment values.
+          echo "conclave/lab-config.md" >> .gitignore
+        Then re-run /conclave-pr-review US-NNN to generate the lab spec.
+     ```
+   - If found: parse frontmatter; store Variable registry (names + purpose only, never values) as `LAB_VAR_REGISTRY`. Check `.gitignore`; warn if missing.
+
+c. Dispatch the Tech Lead subagent via `Agent`:
+   - **Model**: `MODEL_FOR_TL` (omit if null).
+   - Prompt prefix: full content of `agents/tech-lead.md`.
+   - Task: *"Generate a lab test specification for the story below. Follow the 'How you operate inside lab test generation' section of your charter — Story context mode."*
+   - Embed:
+     - The full story file content
+     - The acceptance file content (with QA's verification block)
+     - The full diff
+     - Lab test config: `integration_branch`, `runner`, `timebox_minutes`
+     - **`LAB_VAR_REGISTRY`** — the Variable registry table from `conclave/lab-config.md` (variable names + purpose + required-when). The TL uses these names to write concrete `Verify:` commands. Never embed actual values.
+     - **`LAB_CONFIG.environments.integration.base_url`** (or `local.base_url` if integration is empty) — the base URL for the Verify command.
+   - Expected output: the fully rendered content of a `lab-test.template.md` — a complete `US-NNN-lab.md` with no unfilled `{{placeholder}}` strings. If the TL cannot write a concrete `Verify:` command (insufficient context from the diff), it returns a partial spec with `status: blocked` and a `## Needs more info` section.
+
+c. Write the lab spec to `$SPRINT_PATH/stories/US-NNN-lab.md`.
+
+d. Update `lab_test_path` in the story file frontmatter to point to the lab spec path. Commit: `chore(US-NNN): TL generates lab test spec`.
+
+e. Push: `git push origin $BRANCH`.
+
+f. Report the lab spec path in Step 7's output.
+
+If the check does not pass (lab_test disabled, generate_on is not pr-review, or verdict is request_changes): skip silently.
+
 ## Step 7 — Report
 
 Print:
@@ -112,6 +161,7 @@ Print:
 - Story ID, title, and final `status` (`done` or back to `review`).
 - TL verdict (`approved` or `request_changes: <count> blocker(s), <count> non-blocking`).
 - For `approved`: link to the PR with a note that it is approved and ready to merge. Remind the user that merging is a separate human action (release windows, batching).
+- For `approved` + `LAB_TEST_ENABLED`: lab spec path (if generated), or reason skipped (spec already existed / not applicable). Next step: once merged to the integration branch, QA runs `/conclave-qa US-NNN --lab` to execute the lab spec.
 - For `request_changes`: numbered list of blockers with location and description. Next step: the dev pushes fixes, then re-run `/conclave-qa US-NNN` (criteria may have shifted) followed by `/conclave-pr-review US-NNN`.
 
 ## Guardrails
@@ -122,3 +172,5 @@ Print:
 - **Do not modify code on the dev branch.** TL findings go in the review body; the dev addresses them.
 - **A single blocker blocks the whole approval.** Do not approve "with notes" when there is any `blocker`-severity finding.
 - **Re-runs are append-only on the story file.** A second `/conclave-pr-review` after dev fixes adds a new `## TL findings` section if there are still findings; on approve, removes that section and moves to `done`.
+- **Lab spec generation is silently skipped on `request_changes`.** Only generate when the verdict is `approved`.
+- **Never overwrite an existing usable lab spec.** If `US-NNN-lab.md` already exists and its status is not `blocked`, skip generation.

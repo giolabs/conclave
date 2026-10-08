@@ -211,6 +211,6 @@ gh pr merge 144 --squash --delete-branch
 # O uno por uno desde la página del PR en el navegador.
 ```
 
-Las historias ya están en `done` con una review aprobatoria; mergear solo baja el código a `repo.integration_branch`. Cuando todas las historias no-retired del sprint estén en `done` **y** hayas mergeado lo que querés, cerrá el sprint con `/conclave-review` (cuando esa ceremonia exista) — el loop nunca lo cierra.
+Las historias ya están en `done` con una review aprobatoria; mergear solo baja el código a `repo.integration_branch`. Cuando todas las historias no-retired del sprint estén en `done` **y** hayas mergeado lo que querés, cerrá el sprint con [`/conclave-close`](/es/commands/close) — el loop en sí nunca lo cierra.
 
 Las historias incompletas quedan donde las dejó la última wave (`review`, `verified`, o de vuelta en `ready` tras un abort). Re-corré `/conclave-dev --loop` (o pasá sus IDs) en la próxima ventana, o levantalas en modo interactivo.

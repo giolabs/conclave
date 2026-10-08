@@ -24,8 +24,10 @@ Most "AI does Scrum" tools either invent a new proprietary data format or requir
 ## What you get
 
 - **Seven role charters** (`skills/conclave/agents/*.md`) — Tech Lead, Developer (covering Frontend and Backend), QA, Designer, DevOps, Product Manager, Scrum Master — each a markdown "system prompt" a slash command loads when it spawns a subagent for that discipline.
-- **Twelve slash commands** covering Day-0 founding artifacts, the per-story delivery loop, sprint orchestration, story/ADR/bug authoring, plus two complementary boards: [`/conclave-board`](/en/commands/board) (Next.js status Kanban) and [`/conclave-sprint-board`](/en/commands/sprint-board) (offline HTML roadmap / analytics).
-- **Profile-aware ceremonies.** Lean teams skip the daily standup, peer review, and retro. Full-scrum teams enforce everything. Two structural gates — Sprint Planning and QA Verification — are always on, regardless of profile.
+- **Seventeen slash commands** covering the Scrum Lite cycle — optional product discovery ([`/conclave-discovery`](/en/commands/discovery)), inception (`/conclave-init`), release planning ([`/conclave-roadmap`](/en/commands/roadmap)), planning, the per-story delivery loop, closing (`/conclave-close`) — plus epic/story/ADR/bug authoring, timeboxed spikes ([`/conclave-spike`](/en/commands/spike)), per-epic technical specs ([`/conclave-spec`](/en/commands/spec)), a Next.js status Kanban ([`/conclave-board`](/en/commands/board)) and DORA metrics.
+- **A product layer above stories.** Product Goal → epics → stories, with a living roadmap whose forecast is recomputed from real velocity at every sprint close.
+- **Knowledge before code.** Risky epics get a timeboxed spike first; decisions become ADRs; complex epics get a SPEC whose story breakdown drives planning — Epic → Spike → ADR → SPEC → Stories.
+- **Profile-aware gates.** Three structural gates — Sprint Planning, QA Verification, and Sprint Review — are always on. Lean teams skip the Tech Lead PR approval and the retro; full-scrum teams run both.
 - **Solo-friendly.** `/conclave-init` asks up front whether it's just you or a team, and scales the whole setup accordingly.
 
 ## Where to go next
@@ -36,5 +38,6 @@ Most "AI does Scrum" tools either invent a new proprietary data format or requir
 - [Roles](/en/roles) — the seven role charters and which commands invoke each.
 - [Team profiles](/en/profiles) — how to scale ceremony overhead to your team's size.
 - [Configuration reference](/en/configuration) — every field in `conclave/config.md` explained.
-- [Story state machine](/en/state-machine) — how a story moves from `backlog` to `done`, profile-aware.
-- [Commands](/en/commands/init) — full reference for each of the twelve shipped slash commands.
+- [State machines](/en/state-machine) — how epics, sprints, and stories move through their states.
+- [Commands](/en/commands/init) — full reference for each of the seventeen shipped slash commands.
+- [Upgrading from v1](/en/upgrade) — migrate an existing workspace with `/conclave-init --upgrade`.

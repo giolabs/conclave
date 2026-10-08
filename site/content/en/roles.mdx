@@ -11,38 +11,55 @@ Six are **disciplines**, always present in the roster whether or not they map to
 
 | Role | Kind | Charter | Invoked by |
 |---|---|---|---|
-| Tech Lead | Discipline | `agents/tech-lead.md` | `/conclave-spec` (architecture), `/conclave-planning` (feasibility + discipline assignment, Wave 1), `/conclave-pr-review` (code review) |
+| Tech Lead | Discipline | `agents/tech-lead.md` | `/conclave-discovery` (tech stack, data model, BLOC), `/conclave-init` (architecture, ADRs, enabler epic, risk pass), `/conclave-epic` (risk pass), `/conclave-spike`, `/conclave-spec`, `/conclave-dev` (every `type: spike` story), `/conclave-planning` (enabler and spike stories in Wave 1; feasibility + discipline assignment + `SPIKE_NEEDED` in Wave 2), `/conclave-pr-review` (code review), `/conclave-adr` |
 | Frontend / Backend / Mobile | Discipline | `agents/developer.md` | `/conclave-dev` (stories with `discipline: frontend \| backend \| mobile \| multi`) |
 | QA | Discipline | `agents/qa.md` | `/conclave-qa` |
 | Designer | Discipline | `agents/designer.md` | `/conclave-dev` (stories with `discipline: design`) |
 | DevOps | Discipline | `agents/devops.md` | `/conclave-dev` (stories with `discipline: devops`) |
-| Product Manager | Process role (optional) | `agents/product-manager.md` | `/conclave-spec` (backlog), `/conclave-planning` (scope review, Wave 1) |
-| Scrum Master | Process role (optional) | `agents/scrum-master.md` | `/conclave-planning` (facilitator + assignment, Wave 2 — runs after Product Manager and Tech Lead) |
+| Product Manager | Process role (optional) | `agents/product-manager.md` | `/conclave-discovery` (discovery, MVP), `/conclave-init` (vision + epics), `/conclave-planning` (refinement, Wave 1), `/conclave-close` (review, including spike outcomes), `/conclave-spec` (scope check), `/conclave-epic`, `/conclave-story` |
+| Scrum Master | Process role (optional) | `agents/scrum-master.md` | `/conclave-init` (roadmap: horizon, slots, spike entries), `/conclave-roadmap replan`, `/conclave-planning` (capacity + assignment, Wave 3), `/conclave-close` (retro), `/conclave-epic` (roadmap re-slotting) |
 
 ## Product Manager
 
-Functionally the **Product Owner** in Scrum terms, when someone holds this optional process role. Owns the Product Backlog, prioritizes, defines acceptance criteria.
+Functionally the **Product Owner** in Scrum terms, when someone holds this optional process role. Owns the Product Goal, the epics, and the Product Backlog; prioritizes; defines acceptance criteria.
 
-- **Input**: idea + context + clarifications + (optionally) Tech Lead's architectural draft.
-- **Output**: ordered Product Backlog as INVEST stories with MoSCoW priority, T-shirt estimate, Gherkin acceptance criteria.
+- **Input**: idea or product doc + inception answers (init); the slot's epics, carry-over, velocity (planning); sprint facts and done stories (close).
+- **Output**:
+  - `/conclave-discovery` → `00-discovery.md` (problem, ICP, personas, competitors, UVP, features) and `04-mvp.md` (Product Goal, metrics, candidate epics, Sprint 0, sequencing) in `docs/product/`.
+  - `/conclave-init` → `vision.md` (problem, personas, Product Goal, success metrics, MVP scope) and 3–8 epics ordered by value.
+  - `/conclave-planning` (Wave 1) → a Sprint Goal plus INVEST stories with MoSCoW priority, T-shirt estimate, and 2–4 Gherkin scenarios each, refined only from the slot's epics — from the SPEC's §11 story breakdown when the epic has one (flagging a row it disagrees with as a `Spec concern`, never redesigning it).
+  - `/conclave-close` → `review.md`: Sprint Goal verdict, epic and Product Goal progress, one line per spike done (question, outcome, what it changes), proposed adaptations.
+  - `/conclave-spec` (scope check, v2.0.0+) → `SCOPE_OK` or scope findings: scope the epic did not ask for, a part of the success criterion no row delivers, a feature row with no user value. It checks the design against the epic; it does not review the design itself.
+  - `/conclave-epic` / `/conclave-story` → new, edited, or split epics and stories.
 - **Quality checklist**: every story testable, every criterion verifiable, backlog ordered by value, acceptance criteria written before estimation.
 
 ## Tech Lead
 
 Owns architectural decisions, technical risks, per-story discipline assignment, and the code-level PR approval gate.
 
-- **Input**: idea + context + clarifications (for spec); draft sprint + architecture (for planning); PR diff + architecture + ADRs (for pr-review).
+- **Input**: idea + confirmed stack (init); draft sprint + architecture (planning); PR diff + architecture + ADRs (pr-review).
 - **Output**:
-  - `/conclave-spec` → Architectural Foundation: overview + ADRs + risks + cross-cutting concerns + mermaid diagram.
-  - `/conclave-planning` (Wave 1, in parallel with Product Manager) → feasibility findings per story, plus a `discipline` value (`frontend | backend | qa | design | devops | mobile | multi`) per story.
-  - `/conclave-pr-review` → structured verdict (approved / request-changes) + per-file findings (blocker / non-blocking) + ADR proposal evaluation.
+  - `/conclave-discovery` → `01-tech-stack.md`, `02-data-model.md` and `03-bloc.md` (domain rules) in `docs/product/`.
+  - `/conclave-init` → Architectural Foundation (overview, ADRs under `product/adr/`, risks, cross-cutting concerns, mermaid diagram) and, when Sprint 0 is on, the "Walking skeleton" enabler epic.
+  - **Risk pass** (`/conclave-init`, `/conclave-epic`, v2.0.0+) → per epic: `uncertainty` (`low | medium | high`), `needs_spec`, the ADRs it depends on, and 0–3 open questions phrased as decisions. Never changes the PM's scope or priority.
+  - `/conclave-spike` → a `type: spike` story: one question, a timebox ≤ `delivery.spike_max_timebox`, declared outputs, Gherkin that checks the deliverable — or `SPIKE_NOT_NEEDED` when an ADR or the architecture already answers it.
+  - `/conclave-dev` (spike execution) → runs every `type: spike` story whatever its discipline: findings report with evidence tiers, the declared proposed ADR / draft SPEC, docs-only PR. Prototypes stay on a lab branch.
+  - `/conclave-spec` → `SPEC-NNN` (`draft`): the epic's design composed from its ADRs, ending in an INVEST story breakdown; missing decisions become proposed ADRs (at most 3), unknowns go to §12 or come back as `SPEC_BLOCKED`.
+  - `/conclave-planning` Wave 1 → `type: enabler` stories for enabler slots, with script-checkable acceptance criteria, and `type: spike` stories for the slot's `spike:EP-NNN` entries.
+  - `/conclave-planning` Wave 2 → feasibility findings per story (against architecture, ADRs and the epic's SPEC), `SPIKE_NEEDED` for stories that cannot be estimated, plus a `discipline` value (`frontend | backend | qa | design | devops | mobile | multi`) per story.
+  - `/conclave-pr-review` → structured verdict (approved / request-changes) + per-file findings (blocker / non-blocking) + ADR proposal evaluation. For a spike, it reviews the findings, ADRs and SPEC instead of code.
 
 ## Scrum Master
 
 Facilitates ceremonies, assigns stories, surfaces blockers, protects the team's process. Does not write code, does not own the backlog or architecture.
 
-- **Input**: sprint draft + roster + backlog + DoR + Product Manager's and Tech Lead's Wave 1 findings (including each story's assigned discipline) + (optionally) previous retro.
-- **Output**: meeting record for the current ceremony (sprint planning today; standup / review / retro in future iterations). Runs in Wave 2 — after Product Manager and Tech Lead return — because assignment needs to know each story's discipline first.
+- **Input**: epics + team size + sprint length + launch date (init); draft stories + roster + DoR + Wave 1/2 findings + velocity history + open retro actions (planning); sprint signals + team answers (close).
+- **Output**:
+  - `/conclave-init` → `roadmap.md`: the release plan — horizon (`auto` or a fixed number of sprints), epics sequenced into slots, a `spike:EP-NNN` entry one slot ahead of every `uncertainty: high` epic, *Beyond the horizon* for what does not fit, MVP slot, forecast. An epic with `needs_spec: true` is kept out of slot 1 unless Sprint 0 is on, to leave time for its SPEC.
+  - `/conclave-roadmap replan` (v2.0.0+) → the same rules applied to future `planned` slots only, with capacity from real velocity; `closed` and `active` slots are never touched.
+  - `/conclave-planning` (Wave 3) → planning record with assignments and capacity from velocity. Runs last because assignment needs each story's discipline first.
+  - `/conclave-close` (when `ceremonies.close.retro: true`) → `retro.md` with keep / change / try and at most 3 action items.
+  - `/conclave-epic` → the roadmap re-slotted for a new, edited, or split epic (with a spike entry when it is `uncertainty: high`; into *Beyond the horizon* when a fixed horizon has no room).
 
 **Hard rule**: only assigns a story to a roster member whose `Discipline` matches (or who holds Tech Lead, for cross-cutting stories). If no match exists, it flags an unresolved coverage gap for the orchestrator to raise with the human — it never guesses.
 
@@ -77,7 +94,7 @@ Picks up a story tagged `discipline: devops`. Implements CI/CD pipeline and infr
 
 Adversarial verification against acceptance criteria. Discipline-aware only for its UAT strategy — otherwise verifies every story the same way regardless of which of the above produced it.
 
-- **Input**: story file (incl. `discipline`) + acceptance file + DoD + PR diff + CI status + `conclave/team/testing-environments.md`.
+- **Input**: story file (incl. `discipline` and `type`) + acceptance file + DoD + PR diff + CI status + `conclave/team/testing-environments.md`. For a `type: spike` story: the findings report and its produced ADRs / SPEC instead of UAT — the scenarios are checked against the deliverable, and any code in the PR is a blocker.
 - **Output**: verification report (appended to `acceptance/AC-US-NNN.md`, including a UAT execution subsection) + generated UAT artifacts under `tests/uat/` + story-status update (`verified`/`done`, `pending_uat`, or `review` with blockers).
 
 When `testing-environments.md` is configured, QA generates UAT test artifacts from the story's Gherkin scenarios instead of only reasoning about them:

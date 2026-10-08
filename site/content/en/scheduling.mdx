@@ -211,6 +211,6 @@ gh pr merge 144 --squash --delete-branch
 # Or one at a time from the PR page in the browser.
 ```
 
-Stories are already `done` with an approving review; merging only lands the code on `repo.integration_branch`. When every non-retired story in the sprint is `done` **and** you have merged what you want, close the sprint with `/conclave-review` (when that ceremony ships) — the loop itself never closes it.
+Stories are already `done` with an approving review; merging only lands the code on `repo.integration_branch`. When every non-retired story in the sprint is `done` **and** you have merged what you want, close the sprint with [`/conclave-close`](/en/commands/close) — the loop itself never closes it.
 
 Incomplete stories stay where the last wave left them (`review`, `verified`, or back at `ready` after an abort). Re-run `/conclave-dev --loop` (or pass their IDs) inside the next window, or pick them up interactively.

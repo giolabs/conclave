@@ -1,0 +1,62 @@
+---
+title: Actualizar desde v1
+description: Migrá un workspace de Conclave v1.x al ciclo Scrum Lite de v2 con /conclave-init --upgrade.
+---
+
+# Actualizar desde v1
+
+Conclave 2.0.0 es un release con breaking changes. Agrega una capa de producto arriba de las historias (visión, épicas, roadmap), una ceremonia de cierre (`/conclave-close`) y velocidad real — y elimina los comandos y claves de config que nunca pasaron de placeholders. Los workspaces existentes siguen funcionando solo después de una migración única.
+
+## Qué cambió
+
+| Área | v1.x | v2.0.0 |
+|---|---|---|
+| Jerarquía | Backlog → historias | Product Goal → épicas (`EP-NNN`) → historias |
+| Configuración | Wizard `/conclave-init`, doc de producto obligatorio | `/conclave-init` configuración **más inception** (visión, épicas, arquitectura, roadmap); doc de producto opcional |
+| Planning | La primera corrida generaba todo el backlog; `--all` planificaba todos los sprints | Planifica **un** slot del roadmap, refinando historias just in time; `--all` eliminado |
+| Cierre | Dentro de `/conclave-sprint` | [`/conclave-close`](/es/commands/close) — review, retro opcional, velocidad, reportes |
+| Estado del sprint | `draft → active → done / archived` | `draft → active → closed` |
+| Frontmatter de historia | — | agrega `type: feature \| enabler` y `epic: EP-NNN` |
+| Capacidad | Fórmula fija | Velocidad promedio de los últimos 3 sprints cerrados |
+| Comandos eliminados | `/conclave-spec` (alias obsoleto) | borrado |
+| Config eliminada | `daily_standup`, `backlog_grooming`, `sprint_review`, `sprint_retrospective` | advertencia e ignorado si siguen presentes |
+| Config agregada | — | `ceremonies.close.retro`, `sprint.length_weeks`, `sprint.sprint_zero` |
+
+Los comandos de standup, grooming, review y retro que figuraban como "planeados" en v1 no se van a lanzar. Review y retro viven dentro de `/conclave-close`; el grooming pasa inline en `/conclave-planning`; el board y los estados de las historias son la vista diaria.
+
+## Correr la migración
+
+Actualizá el plugin y, en cada repo destino:
+
+```bash
+git status                  # arrancá con el árbol limpio para que el diff sea revisable
+/conclave-init --upgrade
+```
+
+El comando migra en el lugar y nunca borra ni renombra un archivo de sprint, historia o reporte:
+
+1. **Inventario** — sprints por estado, cantidad de historias, cantidad de ADRs inline.
+2. **Config** — elimina las cuatro claves de ceremonia de v1, mapea `sprint_retrospective.required` → `ceremonies.close.retro`, agrega el bloque `sprint:` (`length_weeks` desde `team/ceremonies.md`, `sprint_zero: false`), setea `conclave_version: "2.0.0"`. Muestra el diff y pregunta antes de escribir.
+3. **Sprints** — `done` / `archived` → `closed`; agrega `slot`, `epics`, `committed_units`, `velocity` (desde las estimaciones de historias `done`), `sprint_goal_met`, `closed_at`.
+4. **Inception** — el Product Manager agrupa cada historia no retirada en exactamente una épica y escribe `vision.md`; tu `architecture.md` se mantiene; el Scrum Master escribe `roadmap.md` con los sprints pasados como slots `closed` y siembra el burnup con su velocidad.
+5. **Historias** — agrega `type: feature` y `epic: EP-NNN`.
+6. **Backlog** — agrega la columna `Epic` y linkea `vision.md`.
+
+Cada paso es idempotente; si falla a mitad de camino, volvé a correr el comando y retoma.
+
+```
+✓ Upgraded conclave/ to v2.0.0
+  Config:   ceremonies migrated (retro: true), sprint.length_weeks: 2
+  Sprints:  3 closed · 1 active · 0 draft
+  Epics:    5 created from 27 stories
+  Roadmap:  8 slots, MVP at SPRINT-006
+```
+
+## Después de la migración
+
+- Revisá el diff y commitealo.
+- Si `architecture.md` todavía tiene secciones inline `### ADR-NNN:`, corré [`/conclave-adr`](/es/commands/adr) una vez para moverlas a `product/adr/`.
+- Si el sprint activo ya terminó, corré [`/conclave-close`](/es/commands/close); si no, seguí trabajando y cerralo cuando termine.
+- Planificá el próximo sprint con [`/conclave-planning`](/es/commands/planning) — ahora se niega mientras haya un sprint `active`.
+- Reemplazá cualquier script o paso de CI que llamara a `/conclave-planning --all` o `/conclave-spec`. El nombre `/conclave-spec` ahora pertenece a **otro comando** — escribe la especificación técnica de una épica ([`/conclave-spec`](/es/commands/spec)) — así que un script viejo que lo llame empezaría a redactar una SPEC.
+- Opcional: corré [`/conclave-roadmap show`](/es/commands/roadmap) para revisar el plan de release, y [`/conclave-spec`](/es/commands/spec) para las épicas que la pasada de riesgo marcó `needs_spec`.

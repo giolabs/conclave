@@ -52,7 +52,7 @@ The command exits cleanly with no file writes.
 
 ## Inline-ADR migration (first run per repo)
 
-Repositories running pre-v0.8.0 `/conclave-spec` have inline `### ADR-NNN:` sections in `architecture.md` section 4. The first `/conclave-adr` run in such a repo migrates them to standalone files:
+Repositories bootstrapped before v0.8.0 have inline `### ADR-NNN:` sections in `architecture.md` section 4. The first `/conclave-adr` run in such a repo migrates them to standalone files:
 
 1. **Per-ADR atomicity** — extract one inline ADR at a time: write the standalone file, then remove that specific inline section. Repeat for the next.
 2. **Resumability** — if the migration is interrupted mid-way, an inline section still present in `architecture.md` corresponds to an ADR whose standalone file does not yet exist; a re-run picks up where the previous run left off.
@@ -76,6 +76,22 @@ After migration (or on any run against a repo that never had inline ADRs), secti
 
 Every `/conclave-adr` run appends a new row for the ADR it authored.
 
+## Linking the ADR to an epic (v2.0.0+)
+
+After writing, the command asks *"Which epic does this decision serve?"* — any non-retired epic, or `none` (default). For a chosen epic:
+
+- The ADR ID is appended to the epic's `adrs:`.
+- If the epic's SPEC is `approved`, it warns that the SPEC's §3 does not list this ADR yet — revise it with [`/conclave-spec EP-NNN`](/en/commands/spec).
+- If the epic has an open question this ADR answers, that line is suffixed `— decided by ADR-NNN`.
+
+## ADRs, spikes and SPECs
+
+An ADR records **one** decision. Since v2.0.0 ADRs are also written by [`/conclave-spec`](/en/commands/spec) (decisions the design needs that no ADR records yet) and by spikes that declare an `adr` output ([`/conclave-spike`](/en/commands/spike)) — always `status: proposed`, numbered by the orchestrator. A SPEC composes an epic's ADRs into a design; approving the SPEC does not accept its ADRs.
+
+```
+proposed ──team accepts (PR merge)──→ accepted ──a newer ADR──→ superseded
+```
+
 ## Model configuration
 
 `/conclave-adr` uses the standard model-resolution logic:
@@ -94,5 +110,5 @@ ADRs are versioned via `supersedes` and `superseded_by` frontmatter fields. In v
 
 - Never commits, pushes, or opens a PR.
 - Never writes `status: accepted` from the subagent — only migration writes `accepted`.
-- Never modifies any story file or any file outside `conclave/product/{architecture.md, adr/**}` and `conclave/context/`.
+- Never modifies any story file or any file outside `conclave/product/{architecture.md, adr/**}`, the linked epic's `adrs:` / open-question lines, and `conclave/context/`.
 - Discovery mode with no candidates is a clean exit, not a failure.

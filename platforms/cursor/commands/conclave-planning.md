@@ -1,6 +1,6 @@
 ---
 name: conclave-planning
-description: Run Sprint Planning for the current draft sprint. Profile-aware — adapts ceremony depth to the team's profile (lean / full-scrum / custom). Confirms the goal, assigns stories, validates DoR, computes capacity, and locks the sprint into status active.
+description: Sprint Planning for the next roadmap slot. Checks the slot's epics are ready to refine (approved SPEC when needs_spec, spike done or scheduled when uncertainty is high), refines them into INVEST stories with Gherkin acceptance criteria just in time (from the SPEC's story breakdown when there is one), turns the slot's spike entries into timeboxed spike stories, adds carry-over and retro action items, sizes the commitment against real velocity, assigns by discipline, and locks the sprint active. Run at the start of every sprint, after /conclave-init (first time) or /conclave-close (every time after).
 ---
 
 # /conclave-planning
@@ -14,184 +14,203 @@ description: Run Sprint Planning for the current draft sprint. Profile-aware —
 > - Concurrent batches still issue ≤ 3 Task calls per wave (correctness over wall-clock if Cursor serializes them).
 
 
-Run the **Sprint Planning** ceremony for the current draft sprint.
+Plan **one** sprint: the lowest roadmap slot that is not yet planned.
 
-This is one of the two **structural** Scrum gates (along with QA Verification) — it is required in every team profile and cannot be skipped. When it finishes, the sprint moves from `draft` → `active` and the team is committed to the selected stories.
+```
+/conclave-planning
+```
 
-Follow these steps in order.
+The cycle this command sits in:
+
+```
+/conclave-init (once) → /conclave-planning → build (/conclave-dev, /conclave-qa, /conclave-pr-review) → /conclave-close → /conclave-planning → …
+```
+
+Three waves of role subagents:
+
+| Wave | Role | Job |
+|---|---|---|
+| 0 | — (orchestrator) | **Readiness gate**: SPEC approved for `needs_spec` epics, spike done or scheduled for `uncertainty: high` epics |
+| 1 | Product Manager (+ Tech Lead for enabler and spike entries) | **Refine**: turn the slot's epic(s) into stories with acceptance criteria (from the SPEC's §11 when present); turn `spike:EP-NNN` entries into spike stories; propose the Sprint Goal |
+| 2 | Tech Lead | **Feasibility**: check against architecture/ADRs, assign `discipline`, flag under-estimates and cross-story dependencies |
+| 3 | Scrum Master | **Plan**: capacity from velocity, assignments, retro action items, planning record |
+
+> v2.0.0 removed `--all`. Stories are refined one slot at a time so each sprint's stories reflect what the previous review learned. The multi-sprint view lives in `product/roadmap.md`.
 
 ---
 
-## Step 1 — Resolve the draft sprint
+## Step 1 — Resolve workspace
 
-1. Run `git rev-parse --show-toplevel` to find `REPO_ROOT`. If not a git repo, surface that and stop.
-2. Confirm `$REPO_ROOT/conclave/config.md` exists. If not, suggest `/conclave-init` and stop.
-3. List `$REPO_ROOT/conclave/sprints/` and find the highest-numbered sprint directory.
-4. Read its `meta.md` frontmatter:
-   - `status: draft` → this is the sprint we plan. Continue. Set `SPRINT_ID` and `SPRINT_PATH`.
-   - `status: active` → refuse: planning has already happened. Suggest waiting until the sprint closes.
-   - `status: done` or `archived` → suggest `/conclave-spec` to create the next sprint.
-   - No sprint dir at all → suggest `/conclave-spec` and stop.
+1. `git rev-parse --show-toplevel` → `REPO_ROOT`. Not a git repo → surface and stop.
+2. `$REPO_ROOT/conclave/config.md` missing → *"Run `/conclave-init` first."* Stop.
+3. Read `config.md`. If `conclave_version` < `2.0.0` or `product/roadmap.md` is missing → *"This workspace predates v2 (no roadmap). Run `/conclave-init --upgrade` first."* Stop.
+4. Extract:
 
-## Step 2 — Load configuration and validate the profile contract
+| Field | Variable | Default |
+|---|---|---|
+| `project_name` | `PROJECT_NAME` | |
+| `story_prefix` | `STORY_PREFIX` | `US` |
+| `project_language` | `PROJECT_LANGUAGE` | `es` |
+| `team_profile`, `team_mode` | `TEAM_PROFILE`, `TEAM_MODE` | |
+| `sprint.length_weeks` | `SPRINT_WEEKS` | `2` |
+| `ceremonies.close.retro` | `RETRO_ON` | `false` |
+| `models.*` | `MODEL_FOR_PM`, `MODEL_FOR_TL`, `MODEL_FOR_SM` | overrides → default → null |
 
-Read `$REPO_ROOT/conclave/config.md`. Extract:
+If any removed v1 ceremony key (`daily_standup`, `backlog_grooming`, `sprint_review`, `sprint_retrospective`) is still present, print one warning that it is ignored since v2.0.0. Invalid model name → warn and fall back. Print non-null model assignments.
 
-- `models.*` — resolve models for the three planning agents:
-  - `MODEL_FOR_PM` = `models.overrides.product_manager` → `models.default` → null
-  - `MODEL_FOR_TL` = `models.overrides.tech_lead` → `models.default` → null
-  - `MODEL_FOR_SM` = `models.overrides.scrum_master` → `models.default` → null
-  Invalid model name → `WARNING: Unknown model '<value>' for role <role>. Falling back to <next_fallback>.` then continue. Absent block → all null, no warning. Print `Models: pm=<id>, tl=<id>, sm=<id>` for any non-null values.
-- `team_profile` (`lean` | `full-scrum` | `custom`)
-- `ceremonies.sprint_planning.required` → must be `true`. If somehow `false`, refuse with: *"sprint_planning is a structural Scrum gate and cannot be disabled. Edit config.md to restore required: true and re-run."*
-- `ceremonies.backlog_grooming.required` — affects step 5
-- `ceremonies.daily_standup.required` — affects what the planning record includes
-- `ceremonies.sprint_retrospective.required` — affects whether to import experiments
+## Step 2 — Gate and slot resolution
 
-Read the rest of the workspace in parallel:
+1. Read every `conclave/sprints/SPRINT-NNN/meta.md` frontmatter.
+   - Any sprint with `status: active` → refuse: *"SPRINT-NNN is still active. Run `/conclave-close` to review and close it before planning the next one."* Stop.
+   - Any sprint with `status: draft` → this is an interrupted earlier planning run; resume it (use that `SPRINT_ID` and skip story generation for stories that already exist on disk).
+2. Read `product/roadmap.md`. `SLOT` = the lowest row with status `planned`. None left → *"Every roadmap slot is planned. Add epics with `/conclave-epic new` and re-plan the roadmap, or edit `product/roadmap.md`."* Stop.
+3. `SPRINT_ID`: if the slot row already names a sprint ID that does not exist on disk, use it. Otherwise the next monotonic ID — highest existing `SPRINT-NNN` + 1; if none exist, `SPRINT-000` when `sprint.sprint_zero: true`, else `SPRINT-001`. IDs are never reused.
+4. `SLOT_EPICS` = the plain `EP-NNN` IDs in the slot row (not the `spike:` entries). Read each `product/epics/EP-NNN-*.md`; skip `retired` ones with a warning.
+5. `SLOT_SPIKES` = the `spike:EP-NNN` entries in the slot row (v2.0.0+). Each names an epic whose open questions this sprint answers; the epic itself may sit in a later slot.
 
-- `$REPO_ROOT/conclave/team/roster.md` — if it has no `Discipline` column (pre-0.2.0 schema), treat every member's discipline as `multi` for this run and print once: *"Roster is using the pre-0.2.0 schema (no Discipline column) — treating all members as multi-discipline. Run `/conclave-init` again or add a Discipline column by hand to opt into discipline-based assignment."* Do not refuse to run.
-- `$REPO_ROOT/conclave/product/backlog.md`
-- `$REPO_ROOT/conclave/product/definition-of-ready.md`
-- `$REPO_ROOT/conclave/product/architecture.md`
-- `$SPRINT_PATH/spec.md` and `$SPRINT_PATH/meta.md`
-- All `$SPRINT_PATH/stories/US-NNN-*.md` and `$SPRINT_PATH/acceptance/AC-US-NNN.md` — **skip any file whose frontmatter `status: retired`** (v0.8.0+: retired stories are historical records only and never enter planning; they may be present in the sprint dir if `/conclave-story retire` or `/conclave-story split` was run against a story already in the sprint).
-- If a previous sprint exists and `sprint_retrospective.required: true`: read `$REPO_ROOT/conclave/sprints/SPRINT-PREV/retro.md` to import active experiments.
+## Step 2.5 — Readiness gate: SPECs and spikes (v2.0.0+)
 
-## Step 3 — Ask the team for inputs
+An epic without `uncertainty` / `needs_spec` fields (written by hand, or by a pre-release v2 build) is treated as `low` / `false` and skips this step. Read `delivery.spec_gate` → `SPEC_GATE` (default `warn`).
 
-Use `AskQuestion`. The depth of the questionnaire depends on the profile.
+For each epic in `SLOT_EPICS`:
 
-**Always ask:**
+1. **SPEC** — `needs_spec: true` and the epic's `spec` is empty or not `approved`:
+   - `SPEC_GATE: require` → refuse: *"EP-NNN needs an approved SPEC before its stories can be refined. Run `/conclave-spec EP-NNN` (then `/conclave-spec approve SPEC-NNN`), or set `needs_spec: false` on the epic."* Stop.
+   - `SPEC_GATE: warn` → `AskQuestion`:
+     - **Write the SPEC now** — run `/conclave-spec EP-NNN` Steps 3–8 inline, then ask whether to approve it (Step A). Continue with whatever status results.
+     - **Plan without it** — refine from candidate stories; record *"EP-NNN planned without an approved SPEC"* as a commitment risk in `planning.md`.
+     - **Spike first** — drop EP-NNN from `SLOT_EPICS`, move it to the next `planned` slot in `roadmap.md` (Step 10 writes it, with a re-plan log row), and add `spike:EP-NNN` to `SLOT_SPIKES` if any open question remains.
+2. **Uncertainty** — `uncertainty: high` and none of the epic's `spikes:` is `done`, and no `spike:EP-NNN` is in this slot:
+   - `AskQuestion`: **Spike in this sprint, feature stories after** (adds `spike:EP-NNN` to `SLOT_SPIKES`, drops the epic from `SLOT_EPICS` and moves it to the next `planned` slot — same roadmap write as *Spike first*) / **Spike and stories together** (adds the spike; the PM refines only stories that do not depend on the open question) / **Accept the risk** (record it in `planning.md`).
 
-1. **Sprint start date** (default: today, ISO format).
-2. **Sprint end date** (default: start + sprint length from `ceremonies.md`).
-3. **Facilitator name** (the human Scrum Master running this session; default: the user running the command).
+Record every gate decision; Step 10 writes them into `planning.md` under commitments and risks. If the gate leaves both `SLOT_EPICS` and `SLOT_SPIKES` empty and there is no carry-over, stop without writing: *"Nothing left to plan in this slot — write the SPEC (`/conclave-spec`) or add spikes, then re-run."*
 
-**Ask in `full-scrum` only:**
+## Step 3 — Load planning inputs (in parallel)
 
-4. **Per-dev capacity adjustment** — any developers on PTO / partial availability this sprint? Free-form text.
-5. **Were there carryover commitments from last sprint?** (yes / no / N/A)
+- `product/vision.md` (Product Goal), `product/roadmap.md`, `SLOT_EPICS` files
+- `product/architecture.md`, `product/adr/` index, `product/definition-of-ready.md`
+- **SPECs** (v2.0.0+): for each epic in `SLOT_EPICS` whose `spec` is set, `product/specs/SPEC-NNN-*.md` — §3 decisions, §7 domain rules, §9 test strategy and §11 story breakdown drive refinement
+- **Spike findings**: for each epic in `SLOT_EPICS`, the findings of its `done` spikes (re-estimates and new candidate stories)
+- **Domain rules**: when `product_doc_path` points to a `/conclave-discovery` package (folder whose `README.md` has `conclave_product_package: true`), its `03-bloc.md` — invariants, use cases and edge cases the PM must turn into Gherkin scenarios
+- `product/backlog.md` and the story files it links
+- `team/roster.md` (no `Discipline` column → treat everyone as `multi`, print a one-time compatibility hint)
+- **Carry-over**: stories whose latest review marked them `next-sprint` (status `ready`/`in-progress`/`review`/`verified`, `sprint:` = the previous sprint)
+- **Backlog pull candidates**: stories with `status: backlog` whose `epic` is in `SLOT_EPICS`
+- **Retro actions**: if `RETRO_ON`, the previous sprint's `retro.md` action rows with `Status: open`
+- **Velocity history**: `velocity` from the last 3 `closed` sprints' `meta.md`
 
-**Ask if `backlog_grooming.required: false`:**
+## Step 4 — Ask the team for planning inputs (`AskQuestion`)
 
-6. **Refine top-of-backlog?** (yes / no — default yes) → if yes, the SM will absorb a light grooming pass into the planning output.
+Always:
+1. **Sprint start date** — default today.
+2. **Sprint end date** — default start + `SPRINT_WEEKS` weeks.
+3. **Facilitator** — default `git config user.name` or the solo roster row.
 
-## Step 4 — Delegate to PM and TL (Wave 1), then SM (Wave 2)
+`full-scrum` only:
+4. **Capacity adjustments** — anyone on PTO or partial availability?
 
-Dispatch happens in **two waves**, not one three-way-parallel round: Scrum Master's assignment task needs the Tech Lead's per-story `discipline` values to pick valid assignees, so it runs after Wave 1 returns rather than guessing ahead of it.
+## Step 5 — Wave 1: refinement
 
-### Wave 1 — issue two `Task` tool calls in a single message
+Issue the calls below **in a single message**.
 
-#### Agent B — Product Manager (scope reviewer)
+### Agent A — Product Manager (refine the slot)
 
 - **Model**: `MODEL_FOR_PM` (omit if null).
 - Prompt prefix: full content of `agents/product-manager.md`.
-- Task: validate **scope** of the selected stories. For each story in the draft sprint:
-  - Confirm the priority assigned during `/conclave-spec` is still correct in light of the rest of the backlog.
-  - Recommend a swap if a higher-value `must` story sits in the backlog.
-  - Confirm the acceptance criteria are unambiguous.
-- Output: a markdown section titled `## Scope findings` listing per-story verdicts (`ok` or a specific recommendation). No re-writes — only findings.
+- Task: **planning refinement mode** (charter section "How you operate inside `/conclave-planning` (refinement)").
+- Inputs: Product Goal, `SLOT` goal, every feature epic in `SLOT_EPICS` (goal, scope, success criterion, candidate stories), each epic's SPEC (when set — its §11 rows **replace** the candidate stories as the refinement source, and each story carries `spec: SPEC-NNN` and the `adrs:` its row implements), done spike findings, `03-bloc.md` (when present), carry-over stories, backlog pull candidates, Step 2.5 gate decisions, DoR, velocity history (or "none"), `story.template.md` and `acceptance.template.md` bodies.
+- Language: *"Write titles, stories and acceptance criteria in `{{PROJECT_LANGUAGE}}`. Keep frontmatter keys, Gherkin keywords (Given/When/Then) and identifiers in English."*
+- Output: a proposed **Sprint Goal** (one sentence, traceable to the slot goal) and one `## Story` + `## Acceptance` block pair per new story (`type: feature`, `epic: EP-NNN`, priority, estimate, dependencies, 2–4 Gherkin scenarios). No XL — split before returning. Reuse existing backlog pull candidates instead of duplicating them (reference them by ID).
 
-#### Agent C — Tech Lead (feasibility reviewer + discipline assignment)
+### Agent B — Tech Lead (enabler and spike stories) — only when `SLOT_EPICS` contains a `type: enabler` epic or `SLOT_SPIKES` is non-empty
 
 - **Model**: `MODEL_FOR_TL` (omit if null).
 - Prompt prefix: full content of `agents/tech-lead.md`.
-- Task: validate **technical feasibility** of the selected stories against the current `architecture.md`. For each story:
-  - Confirm the story respects existing ADRs, or flag the deviation it would force.
-  - Identify any cross-story technical dependencies (US-002 must merge before US-004).
-  - Flag stories that exceed their estimate based on the architecture (e.g. an `S` story that needs a new service is actually `M`+).
-  - **Assign a `discipline` value** (`frontend | backend | qa | design | devops | mobile | multi`) based on the nature of the work. Prefer `multi` over a guessed precision if the story text doesn't make it obvious.
-- Output: a markdown section titled `## Technical feasibility findings` listing per-story verdicts, each including its assigned `discipline`. No re-writes.
+- Task: turn each enabler epic into `type: enabler` stories ("In order to / We need") with acceptance criteria that a script can check (e.g. *Given a fresh clone, When `npm test` runs, Then it exits 0 with at least one passing test*). For Sprint 0 the minimum set is: scaffold for the confirmed stack, test framework + one passing test, lint, CI workflow running both on PRs, integration branch `develop` created from the default branch.
+- **Spike entries** (v2.0.0+): for each `spike:EP-NNN` in `SLOT_SPIKES`, turn the epic's `## Open questions (spike candidates)` (and any SPEC §12 row with `Resolve by: spike`) into `type: spike` stories per the charter section "How you operate inside `/conclave-spike` and spike refinement": one question each, timebox ≤ `delivery.spike_max_timebox`, `spike_outputs`, `epic: EP-NNN`, 2–3 Gherkin scenarios that check the deliverable. Skip questions that already have a spike story (check the epic's `spikes:`).
+- Inputs: enabler epic files, epic files named by `SLOT_SPIKES` (with their SPEC §12 when present), `architecture.md`, the ADR index, confirmed stack, `config.md` `repo:` and `delivery:` blocks.
 
-Wait for both. If either errors, surface and stop.
+Wait for all calls. Any error → surface and stop.
 
-### Wave 2 — issue one `Task` tool call, after Wave 1 returns
+## Step 6 — Write draft sprint and stories
 
-#### Agent A — Scrum Master (facilitator)
+1. Create `sprints/$SPRINT_ID/{stories,acceptance}/`. Render `sprint-meta.template.md` → `meta.md` with `status: draft`, `slot`, `epics: SLOT_EPICS`, goal = PM's proposed Sprint Goal.
+2. Next story number: highest `<PREFIX>-NNN` across `sprints/*/stories/` and `product/backlog.md` + 1 (zero-padded, start `001`).
+3. For each new story block: `stories/<PREFIX>-NNN-<slug>.md` from `story.template.md` (`status: backlog`, `sprint: $SPRINT_ID`, `type`, `epic`), and `acceptance/AC-<PREFIX>-NNN.md` from `acceptance.template.md`. Slug: lowercase ASCII, dash-separated, ≤ 40 chars.
+4. Carry-over and pulled backlog stories: **move** the story file and its acceptance file into `sprints/$SPRINT_ID/stories/` and `sprints/$SPRINT_ID/acceptance/` (same filenames) and set `sprint: $SPRINT_ID`. Every downstream command (`/conclave-dev`, `/conclave-qa`, `/conclave-sprint`, `/conclave-close`, `--loop`) collects stories from the active sprint's directory, so a story left elsewhere would never run. The previous sprint's `review.md` already records the carry-over; update the link in `product/backlog.md`.
+5. Append each new story ID to its epic's `stories:` list; spike stories also go to the epic's `spikes:` list.
 
-- **Model**: `MODEL_FOR_SM` (omit if null).
-- Prompt prefix: full content of `agents/scrum-master.md`.
-- Task: produce the **Sprint Planning record** following `skills/conclave/templates/planning.template.md`.
-- Inputs to embed: the draft `spec.md`, story files, roster (with the backward-compat note from Step 2 if applicable), backlog, DoR, prior retro if any, the user's answers from Step 3, the resolved profile and ceremony flags, `architecture.md` (read-only for context), **and Wave 1's two outputs** — the TL's per-story `discipline` values and feasibility findings, and the PM's scope findings.
-- Output: the planning-record markdown, including the "Discipline assignments & coverage gaps" section (per-story assignee, or an explicit unresolved-coverage-gap flag — see `scrum-master.md`'s assignment rule).
+## Step 7 — Wave 2: Tech Lead feasibility
 
-Wait for it. If it errors, surface and stop.
+One `Agent` call (`MODEL_FOR_TL`, `tech-lead.md` prefix). Task: for every story now in the draft sprint, validate against `architecture.md`, ADRs and the epic's SPEC (when set), identify cross-story dependencies (a feature story that depends on a spike in the same sprint must list it in `dependencies:`), flag under-estimates, and **assign `discipline`** (`frontend | backend | qa | design | devops | mobile | multi`). A story that cannot be estimated because of an unknown gets `SPIKE_NEEDED: <story> — <question>`. Output: `## Technical feasibility findings` — one verdict per story with its discipline.
 
-## Step 5 — Synthesize and validate
+`SPIKE_NEEDED` → `AskQuestion` per finding: **Add a spike and move the story to the backlog** (Agent B spike authoring for that question, then the story → `status: backlog`, `sprint: ""`) / **Add a spike, keep the story** (the story depends on the spike) / **Keep the story as is** (risk recorded).
 
-The orchestrator (you) now reconciles the three outputs:
+## Step 8 — Wave 3: Scrum Master planning record
 
-### 5.1 Apply scope swaps if the PM raised any
-If the PM recommended swapping a sprint story for a higher-value backlog story:
-- Surface the swap to the user via `AskQuestion` (accept / reject / discuss).
-- If accepted, update the in-memory story list. Move the dropped story back to `status: backlog` in the backlog, and pull the new one into the sprint.
+One `Agent` call (`MODEL_FOR_SM`, `scrum-master.md` prefix). Inputs: draft stories, roster, DoR, Step 4 answers, Wave 1 + Wave 2 outputs, velocity history, open retro actions, `planning.template.md`. Task per the charter section "How you operate inside `/conclave-planning`". Output: full planning record.
 
-### 5.2 Apply technical splits if the TL raised any
-If the TL flagged a story as under-estimated or needing a split:
-- Surface to user. If accepted, update the story file's frontmatter `estimate` field or create a split-story placeholder (`US-NNN-a`, `US-NNN-b`). For MVP, do not auto-split — just record the recommendation and ask the user to handle next groom.
+## Step 9 — Validate
 
-### 5.3 Run DoR validation
-For each remaining story, check against `definition-of-ready.md`, including the new **"discipline is assigned"** item — use the TL's Wave 1 `discipline` value (not yet written to disk). Stories that fail the DoR cannot enter the sprint:
-- If any fail in `lean`: surface to user, ask whether to drop them.
-- If any fail in `full-scrum`: refuse to lock — the team must groom first.
+### 9.1 DoR
+Each story against `definition-of-ready.md` (discipline from Wave 2; `epic:` set unless carry-over predates v2). A failing story cannot enter:
+- `lean`: ask whether to drop it back to `status: backlog` or fix it now (fix = re-run the PM for that story only).
+- `full-scrum`: same choice, but the sprint cannot lock while any failing story remains selected.
 
-### 5.4 Capacity check
-Compute:
-- `units(estimate)` mapping: XS=1, S=2, M=3, L=5, XL=8.
-- `committed = sum(units(story.estimate) for story in selected)`
-- `team_capacity = num_devs * sprint_weeks * 5` (rough nominal).
-- If `committed > 1.2 * team_capacity`: surface the over-commit and recommend dropping the lowest-priority story. Re-run from 5.3 if a drop is accepted.
+### 9.2 Capacity
+- Units: XS=1, S=2, M=3, L=5, XL=8. `committed = sum(units)` — spike stories count their `timebox`.
+- **Capacity source**: average `velocity` of the last 3 closed sprints. With no closed sprint yet: `num_devs × SPRINT_WEEKS × 5`, minus `full-scrum` PTO adjustments — and label it *"fixed formula — no velocity yet"*. A closed Sprint 0 counts as history only if it delivered ≥ 1 unit.
+- `committed > 1.2 × capacity` → `AskQuestion`: drop the lowest-priority story (back to backlog, `sprint: ""`) or keep and record the risk.
+- `committed < 0.6 × capacity` and more candidates exist in `SLOT_EPICS` → offer to pull the next one.
 
-### 5.5 Absorb grooming if `backlog_grooming.required: false`
-The SM agent included a `## Top-of-backlog refinement` subsection. Use it to update `conclave/product/backlog.md` — only the `last_groomed_at` field and any reordering the SM recommended. Do NOT write new stories from this step.
+### 9.3 Discipline coverage gaps
+SM-flagged gap → `AskQuestion`: *"No one on the roster covers `<discipline>` for `<story>`. Assign to Tech Lead as a fallback?"* Record the answer.
 
-### 5.6 Resolve discipline coverage gaps
-If the SM's Wave 2 output flags any story as an unresolved coverage gap (no roster member's `Discipline` matches), surface it to the human via `AskQuestion` **yourself** — do not let the SM subagent guess: *"No one on the roster covers `<discipline>` for `<story>`. Assign to Tech Lead as a temporary fallback, or pick someone else?"* Record the resolution (who was actually assigned, and that it was a fallback) in that story's `Notes` cell for `planning.template.md`'s selected-stories table, so it's visible in the PR. Resolve every gap before proceeding to Step 6 — an unresolved gap blocks locking the sprint the same way a failed DoR item does.
+## Step 10 — Lock the sprint
 
-## Step 6 — Write outputs
+1. `meta.md`: `status: active`, `target_start`, `target_end`, `committed_units`.
+2. `spec.md` ← `sprint-spec.template.md` with the final story table (discipline, assignee), `status: active`.
+3. Story frontmatter: `assignee` (SM), `discipline` (TL), `status: ready`.
+4. `planning.md` ← `planning.template.md` with SM output, PM/TL findings, capacity source, retro actions carried in, slot and epics, and the Step 2.5 / `SPIKE_NEEDED` decisions as commitments and risks.
+5. `product/backlog.md`: append new stories (Epic column filled); selected rows → `ready`, `In sprint` = `$SPRINT_ID`; dropped rows → `backlog`, `—`. Update `last_groomed_at`.
+6. Epics in `SLOT_EPICS`: `proposed` → `active`.
+7. `product/roadmap.md`: slot row → status `active`, sprint ID, real dates; its Epics column reflects the final `SLOT_EPICS` and `SLOT_SPIKES`. Epics moved by Step 2.5 are added to the next `planned` row, with one re-plan log row (`trigger: planning gate`).
 
-### 6.1 Update `meta.md`
-Set `status: active`, `target_start`, `target_end`. Keep `created_at` untouched.
+## Step 11 — Report
 
-### 6.2 Update `spec.md`
-Replace the selected-stories table with the final list (with assignees filled in). Set `status: active` in frontmatter.
+```
+✓ SPRINT-NNN is active (<start> → <end>) — slot <n>: <slot goal>
+  Sprint Goal: <one sentence>
+  Epics:       EP-001, EP-002
 
-### 6.3 Update each story's frontmatter
-For each story in the final selection:
-- `assignee` → the person assigned by the SM (including any coverage-gap fallback resolved in 5.6)
-- `discipline` → the value the Tech Lead assigned in Wave 1
-- `status` → `ready`
+  <PREFIX>-001 → <assignee> (frontend) [M]  EP-001
+  <PREFIX>-002 → <assignee> (devops)   [S]  EP-000 enabler
+  ...
 
-### 6.4 Write `planning.md`
-Render `skills/conclave/templates/planning.template.md` using the SM's output, the PM's `Scope findings`, the TL's `Technical feasibility findings`, the user's answers, the capacity numbers, and the resolved profile. Write to `$SPRINT_PATH/planning.md`.
+  <PREFIX>-003 → <assignee> (backend) [S]  EP-004 spike: <question>
 
-### 6.5 Update the backlog table
-Mark each selected story's `Status` cell as `in-progress` and `In sprint` cell as `$SPRINT_ID` in `conclave/product/backlog.md`. Do not reorder unrelated rows.
+  Capacity: <committed> / <capacity> units — <velocity avg of SPRINT-x..y | fixed formula>
+  SPECs:    EP-002 ← SPEC-001 (approved) · EP-003 planned without SPEC (risk)
+  Retro actions carried in: <n>
+```
 
-## Step 7 — Report to the user
+Next:
 
-Print a short summary:
+```bash
+git add conclave/ && git commit -m "conclave: plan SPRINT-NNN — <sprint goal>"
 
-- The sprint is locked: `SPRINT_ID` is now `active`, runs from start_date to end_date.
-- Number of committed stories and total estimate units vs team capacity (with the buffer percentage).
-- Assignees and their discipline (one line per story: `US-NNN → <assignee> (<discipline>)`).
-- Any discipline coverage gaps that came up and how they were resolved (5.6).
-- Any open commitments / risks the SM flagged.
-- Suggested git command sequence:
-
-  ```bash
-  git add conclave/
-  git commit -m "conclave: lock SPRINT-NNN — <one-line sprint goal>"
-  gh pr create --title "Sprint Planning: SPRINT-NNN" --body "Goal, assignments, DoR validation."
-  ```
-
-- Next step for each dev: `/conclave-dev US-NNN` (planned, not yet shipped — for now, devs work the stories manually).
+/conclave-dev <PREFIX>-001                   # one story
+/conclave-dev --loop                          # autonomous three-wave loop over the sprint
+/conclave-close                               # at sprint end
+```
 
 ## Guardrails
 
-- **Do not modify** any file outside `$REPO_ROOT/conclave/`.
-- **Do not commit.** The team reviews planning as a PR.
-- **Never override the structural required flag** for `sprint_planning` or `qa_verification`. If a malformed `config.md` says otherwise, refuse with a clear error.
-- **If any agent's output fails its self-check**, surface the failure to the user verbatim and stop. Do not silently fix.
-- **Preserve every existing comment, note, or hand-edit** in `spec.md`, story files, and `planning.md` if they exist. Re-runs must be idempotent: a second `/conclave-planning` on the same draft sprint should be refused (status would be `active`), not silently re-do the work.
+- Do not modify any file outside `$REPO_ROOT/conclave/`.
+- Do not commit.
+- `sprint_planning` and `qa_verification` are structural — refuse if a config sets either to `required: false`.
+- Exactly one sprint may be `active`. Never plan while one is active; never activate a second.
+- Refinement is just in time: never generate stories for epics outside `SLOT_EPICS` (backlog pull candidates must already exist). Spike entries are the one exception — `spike:EP-NNN` refines only the epic's open questions, never its feature stories.
+- Never write or approve a SPEC or ADR except through the `/conclave-spec` inline path of Step 2.5, which keeps that command's checkpoint.
+- Preserve hand-edits in story files, `spec.md`, and `planning.md` on a resumed draft.
+- Any agent output that fails its self-check → surface verbatim and stop.
