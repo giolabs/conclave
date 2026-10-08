@@ -65,6 +65,7 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 - Stale references to `/conclave-spec`, `/conclave-review`, `/conclave-sprint close` and "planned, not yet shipped" commands across commands, templates and the board empty state.
 - `SKILL.md` §5 template list now includes every shipped template.
+- Docs site changelog (EN/ES) was missing the 1.2.0 entry and most of 2.0.0; both are now there.
 
 ### Security
 

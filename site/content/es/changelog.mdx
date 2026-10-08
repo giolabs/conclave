@@ -11,39 +11,81 @@ Todos los cambios notables del plugin Conclave están documentados aquí. El for
 
 ## 2.0.0 — 2026-10-07
 
-**Release con cambios incompatibles — ciclo "Scrum Lite"**: inception (visión, Product Goal, épicas, roadmap) → Sprint Planning por slot del roadmap → build → `/conclave-close`. Los workspaces v1.x corren `/conclave-init --upgrade` una vez — mirá [Actualizar desde v1](/es/upgrade). La lista completa de cambios está en el `CHANGELOG.md` del repositorio; esta entrada cubre el flujo de planificación. Conclave hace explícito el camino de una épica a sus historias: **Épica (qué · por qué) → Spike(s) (incógnitas con timebox) → ADR(s) (una decisión cada uno) → SPEC (el diseño técnico de la épica) → Historias**. Cada paso es opcional para una épica bien entendida y se exige solo donde la épica lo indica.
+**Release con cambios incompatibles — ciclo "Scrum Lite".** Conclave ahora lleva un proyecto de una idea cruda al sprint N con un ciclo Scrum reducido: discovery de producto opcional → inception (visión, Product Goal, épicas con evaluación de riesgo del Tech Lead, arquitectura + ADRs, un roadmap con la cantidad de sprints que elijas) → Sprint Planning por slot del roadmap → construcción → cierre del sprint (review + retro). Entre una épica y sus historias hay un camino explícito de conocimiento: **Épica → Spike(s) → ADR(s) → SPEC → Historias**. Los workspaces v1.x corren `/conclave-init --upgrade` una vez — mirá [Actualizar desde v1](/es/upgrade).
 
 ### Agregado
 
-**`/conclave-spike`** — crea una historia `type: spike`: una pregunta formulada como decisión, un timebox (`XS | S | M`, con tope en `delivery.spike_max_timebox`), salidas declaradas (`findings` siempre; `adr`, `spec`, `estimate` a pedido) y Gherkin que verifica el entregable. `/conclave-dev` enruta todo spike al Tech Lead, que escribe `sprints/SPRINT-NNN/spikes/<ID>-findings.md` más el ADR propuesto o la SPEC draft que correspondan y abre un **PR solo de docs**; QA verifica el entregable; `/conclave-close` vuelca los hallazgos en la épica. Un spike cuenta su timebox en las unidades comprometidas y en la velocity.
+**[`/conclave-discovery`](/es/commands/discovery)** — convierte una idea cruda (o un documento incompleto con `--from`) en el paquete de producto que necesita la inception, en `docs/product/`: discovery (problema, ICP, personas, competidores investigados, propuesta de valor, features), stack, modelo de datos, BLOC (reglas de dominio) y MVP (Product Goal, métricas, épicas candidatas, Sprint 0). Un checkpoint sobre ICP / problema / propuesta de valor; lo desconocido queda como preguntas abiertas.
 
-**`/conclave-spec EP-NNN`** — el Tech Lead compone la especificación técnica de la épica (`product/specs/SPEC-NNN-<slug>.md`: decisiones, diseño, contratos, datos, reglas de dominio, tests, rollout, desglose de historias, preguntas abiertas) a partir de sus ADRs, escribiendo cualquier decisión faltante como ADR propuesto; el Product Manager la contrasta con el alcance de la épica. `/conclave-spec approve SPEC-NNN` la aprueba. Es un comando nuevo — el viejo alias `/conclave-spec` eliminado en 2.0.0 no tiene relación.
+**Inception en [`/conclave-init`](/es/commands/init)** — después del setup, init busca documentos de producto en el repo (u ofrece discovery), pregunta cuántos sprints tiene el release y si el gate de SPEC debe `warn` o `require`, y corre en paralelo PM (visión + épicas) y TL (arquitectura, ADRs, épica enabler de Sprint 0), una **pasada de riesgo del Tech Lead** sobre cada épica (`uncertainty`, `needs_spec`, preguntas abiertas) y el roadmap del SM. Un checkpoint de confirmación antes de escribir nada.
 
-**`/conclave-roadmap show | replan [--sprints N|auto]`** — planificación del release: cuántos sprints y qué va en cada uno. El Scrum Master re-secuencia todos los slots futuros contra un horizonte fijo o tantos sprints como necesiten las épicas `must`/`should`; las épicas que no entran van a *Beyond the horizon*.
+**[`/conclave-roadmap`](/es/commands/roadmap)** — planificación del release: `show` muestra el plan; `replan [--sprints N|auto]` re-secuencia los slots futuros contra un horizonte fijo o tantos sprints como necesiten las épicas `must`/`should`. Las épicas que no entran van a *Más allá del horizonte*.
 
-**Pasada de riesgo del Tech Lead** — `/conclave-init` (nueva ola 1.5) y `/conclave-epic` definen la `uncertainty` de cada épica (`low | medium | high`), `needs_spec`, los ADRs de los que depende, y una sección **Open questions (spike candidates)**.
+**[`/conclave-spike`](/es/commands/spike)** — una historia `type: spike`: una pregunta formulada como decisión, un timebox (`XS | S | M`) y salidas declaradas (hallazgos, más ADR / SPEC / estimación). `/conclave-dev` envía los spikes al Tech Lead, que escribe `spikes/<ID>-findings.md` en un PR solo de documentación; QA verifica el entregable; `/conclave-close` vuelca los hallazgos en la épica. El roadmap agenda `spike:EP-NNN` un slot antes de cada épica de alta incertidumbre.
 
-**Plan de release en el roadmap** — `horizon` (`auto` o N), `planned_sprints`, una fila de Release plan, *Beyond the horizon*, y entradas `spike:EP-NNN` agendadas un slot antes de cada épica de alta incertidumbre.
+**[`/conclave-spec`](/es/commands/spec)** — la especificación técnica de una épica (`product/specs/SPEC-NNN-<slug>.md`): decisiones, diseño, contratos, datos, reglas de dominio, tests, rollout y desglose en historias. El TL la compone con los ADRs de la épica (escribiendo los que faltan como propuestos), el PM verifica el alcance y una persona la aprueba con `/conclave-spec approve SPEC-NNN`.
 
-**Config** — `sprint.planned_sprints` (`auto` o N) y un bloque `delivery:` con `spike_max_timebox` y `spec_gate: warn | require`.
+**[`/conclave-close`](/es/commands/close)** — el único comando que pone un sprint en `closed`: gate de bugs críticos, decisión sobre historias sin terminar, Sprint Review del PM, retro del SM (si está activa), velocidad, burnup y nuevo pronóstico, resultados de spikes en las épicas, más el reporte de cierre, la guía UAT y `dora-data.yml`.
 
-**Frontmatter** — las épicas suman `uncertainty`, `needs_spec`, `spec`, `adrs`, `spikes`; las historias suman `type: spike` (con `question`, `timebox`, `spike_outputs`, `findings_path`) más `spec` y `adrs`. Templates nuevos `tech-spec.template.md` y `spike-findings.template.md`.
+**[`/conclave-epic`](/es/commands/epic)** `new | edit | split | retire` — mantiene viva la capa de épicas después de la inception, con la pasada de riesgo del TL y el re-slot del SM.
+
+**Sprint 0 / walking skeleton** — con `sprint.sprint_zero: true` el primer sprint es `SPRINT-000`, con historias `type: enabler` (scaffold, tests, lint, CI, rama `develop`).
+
+**Capacidad según velocidad** — planning dimensiona con el promedio de velocidad de los últimos 3 sprints cerrados; la fórmula fija solo aplica antes de cerrar el primer sprint.
+
+**Criterios de aceptación desde el BLOC** — con un paquete de discovery, cada invariante / caso de uso / caso borde que toca una historia aparece como escenario Gherkin.
+
+**Templates** — `vision`, `epic`, `roadmap`, `sprint-review`, `retro`, `tech-spec`, `spike-findings` y los templates `product-*` de discovery.
+
+**Config y frontmatter** — `ceremonies.close.retro`, `sprint.length_weeks`, `sprint.sprint_zero`, `sprint.planned_sprints`, `delivery.spike_max_timebox`, `delivery.spec_gate`. Las historias suman `type: feature | enabler | spike`, `epic`, `spec`, `adrs` (los spikes agregan `question`, `timebox`, `spike_outputs`, `findings_path`); las épicas llevan `uncertainty`, `needs_spec`, `spec`, `adrs`, `spikes`; el `meta.md` del sprint suma `slot`, `epics`, `committed_units`, `velocity`, `sprint_goal_met`, `closed_at`.
 
 ### Cambiado
 
-**`/conclave-init`** pregunta cuántos sprints tiene el release y si el planning debe avisar o exigir una SPEC, y corre la pasada de riesgo del TL antes del roadmap. El checkpoint muestra sprints, spikes y ADRs.
+**[`/conclave-planning`](/es/commands/planning)** planifica un slot del roadmap por vez con refinamiento inline, después de un gate de preparación (SPEC aprobada para épicas `needs_spec`, spike hecho o agendado para épicas de alta incertidumbre). Refina desde el desglose de la SPEC cuando existe, convierte las entradas de spike en historias spike y se niega mientras haya un sprint `active`.
 
-**`/conclave-planning`** corre un readiness gate antes de refinar (SPEC aprobada para épicas `needs_spec` según `delivery.spec_gate`; spike hecho o agendado para épicas `uncertainty: high`), convierte las entradas `spike:EP-NNN` en historias spike, refina desde la §11 (desglose de historias) de la SPEC cuando existe, y deja que el TL marque `SPIKE_NEEDED` para historias que no se pueden estimar.
+**Estado del sprint**: `draft → active → closed`; un solo sprint activo a la vez.
 
-**`/conclave-qa`** y **`/conclave-pr-review`** verifican y revisan los hallazgos, ADRs y SPEC de un spike en lugar de correr UAT o revisar código; los lab tests se saltean para spikes.
+**[`/conclave-sprint`](/es/commands/sprint)** cubre solo la construcción; el cierre pasó a `/conclave-close`.
 
-**`/conclave-adr`** pregunta a qué épica sirve la decisión y la vincula.
+**Perfiles** — `lean` = gate del TL y retro apagados; `full-scrum` = ambos encendidos. La Sprint Review ahora es estructural, junto con Planning y la verificación de QA.
 
-Los templates de **Definition of Ready / Done** cubren spikes e historias respaldadas por una SPEC.
+**[`/conclave-adr`](/es/commands/adr)** vincula cada ADR nuevo a una épica. **[`/conclave-qa`](/es/commands/qa)** y **[`/conclave-pr-review`](/es/commands/pr-review)** manejan spikes (el entregable en lugar de UAT o código; sin lab tests).
+
+**[`/conclave-story new`](/es/commands/story)** pregunta épica y tipo. El roster solo usa `git config user.name`. `product_doc_path` es entrada opcional de la inception, no la fuente de verdad de la planificación.
+
+### Eliminado
+
+**El viejo `/conclave-spec`** (solo redirigía a `/conclave-init`) — el nombre ahora es del nuevo comando de SPEC. **`/conclave-planning --all`** — el roadmap es la vista multi-sprint. **Claves de config** `daily_standup`, `backlog_grooming`, `sprint_review`, `sprint_retrospective` — se avisan y se ignoran; `--upgrade` las borra.
+
+### Seguridad
+
+Dependencias del sitio de docs actualizadas (`next` 16.4.0 corrige un advisory crítico); los advisories restantes afectan solo herramientas de build.
 
 ### Actualización
 
-`/conclave-init --upgrade` una vez por workspace v1.x: agrega `sprint.planned_sprints: auto` y el bloque `delivery:`, corre la pasada de riesgo del Tech Lead sobre las épicas derivadas y arma el roadmap con su plan de release y entradas de spike. Una épica sin los campos de riesgo se lee como `uncertainty: low`, `needs_spec: false`.
+```bash
+/conclave-init --upgrade   # una vez por workspace v1.x; revisá el diff y commiteá
+/conclave-close            # si el sprint activo ya terminó
+/conclave-planning         # planificá el siguiente slot del roadmap
+```
+
+`--upgrade` agrega `sprint.planned_sprints: auto` y el bloque `delivery:`, agrupa las historias existentes en épicas, corre la pasada de riesgo del TL y arma el roadmap con su plan de release y entradas de spike.
+
+---
+
+## 1.2.0 — 2026-08-27
+
+### Agregado
+
+**Lab tests** — una capa opcional de verificación de punta a punta contra la rama de integración (bloque `lab_test:` en config, `lab-test.template.md`, `lab-config.template.md`). El Tech Lead genera un spec de laboratorio ejecutable para un bug o una historia aprobada; `/conclave-qa --lab` lo corre, registra evidencia Tier A y abre un `BUG-NNN` si falla. Mirá [Lab tests](/es/lab-tests).
+
+**Refinador Haiku en `/conclave-bug report`** — un pre-análisis de solo lectura que propone título, `suspected_code_area` y las preguntas bloqueantes antes de preguntar nada. Nuevos campos de bug `suspected_code_area` y `lab_test_path`; las historias suman `lab_test_path`.
+
+### Cambiado
+
+**ADRs basados en evidencia** — el charter del Tech Lead exige niveles de evidencia, un umbral de reversibilidad y refutación antes de devolver un ADR; el template de ADR suma `reversibility`, `applies_to`, una tabla de incógnitas y reglas RFC-2119.
+
+**`/conclave-bug report`** solo pregunta cuando el refinador encuentra una ambigüedad bloqueante; **`/conclave-bug list`** muestra una columna `Lab`.
 
 ---
 
