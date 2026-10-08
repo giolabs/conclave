@@ -4,6 +4,10 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ## [Unreleased]
 
+### Added
+
+- **Release workflow** (`.github/workflows/release.yml`). Merging a `.github/release-notes/vX.Y.Z.md` file into `main` now publishes the GitHub release and its tag; the tag must match the version in `.claude-plugin/plugin.json`, and an existing release is never overwritten. It can also be run by hand (`workflow_dispatch`). This replaces tagging from a local clone; the first notes file is `v2.0.0.md`.
+
 ---
 
 ## [2.0.0] — 2026-10-08
