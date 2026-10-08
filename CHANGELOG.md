@@ -6,7 +6,7 @@ All notable changes to the Conclave plugin are documented here. Format loosely f
 
 ---
 
-## [2.0.0] — 2026-10-07
+## [2.0.0] — 2026-10-08
 
 **Breaking release — "Scrum Lite" lifecycle.** Conclave now drives a project from a raw idea to sprint N through a reduced Scrum cycle: inception (vision, Product Goal, epics with a Tech Lead risk assessment, a roadmap with the number of sprints you set) → Sprint Planning per roadmap slot → build → Sprint Close (review + retro). Between an epic and its stories sits an explicit knowledge path — timeboxed spikes for unknowns, ADRs for decisions, a SPEC per epic for the design. Before this release Conclave assumed a product document already split into `## Sprint N` existed, had no epic layer, no Sprint 0, and never closed a sprint (review, retro, standup and grooming were config flags without commands; velocity never fed capacity). Existing v1.x workspaces must run `/conclave-init --upgrade` once before `/conclave-planning`, `/conclave-close` or `/conclave-epic` will run.
 
