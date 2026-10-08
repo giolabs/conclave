@@ -62,6 +62,10 @@ In addition, check whether the change affects anything described in these places
 
 Do not skip the CHANGELOG entry for "small" changes — an incomplete changelog is worse than a verbose one.
 
+### Releasing
+
+Bump `version` in `.claude-plugin/plugin.json` (the Cursor manifest follows via `scripts/generate-cursor-platform.py`), move `[Unreleased]` to a dated `[X.Y.Z]` section, and add `.github/release-notes/vX.Y.Z.md` (first line `# <title>`, then the release body). When that file reaches `main`, `.github/workflows/release.yml` creates the tag and the GitHub release.
+
 ## Architecture
 
 ### The core pattern: prose-orchestrated subagents

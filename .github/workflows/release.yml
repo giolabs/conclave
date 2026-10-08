@@ -1,0 +1,64 @@
+name: Release
+
+# Publishes a GitHub release (and its tag) when a notes file lands on main.
+# Add .github/release-notes/vX.Y.Z.md — first line "# <release title>", the rest
+# is the release body — in the same PR that bumps .claude-plugin/plugin.json.
+# The tag must match the plugin version; an existing release is never touched.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/release-notes/*.md"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish, e.g. v2.0.0 (needs .github/release-notes/<tag>.md on main)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect tags to publish
+        id: tags
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            tags="$INPUT_TAG"
+          else
+            tags=$(git diff --name-only --diff-filter=AM "$BEFORE" "$GITHUB_SHA" -- .github/release-notes/ \
+              | sed -n 's#^\.github/release-notes/\(v[^/]*\)\.md$#\1#p')
+          fi
+          echo "tags=$(echo $tags)" >> "$GITHUB_OUTPUT"
+
+      - name: Create releases
+        if: steps.tags.outputs.tags != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAGS: ${{ steps.tags.outputs.tags }}
+        run: |
+          version="v$(jq -r .version .claude-plugin/plugin.json)"
+          for tag in $TAGS; do
+            notes=".github/release-notes/$tag.md"
+            [ -f "$notes" ] || { echo "::error::$notes not found"; exit 1; }
+            if [ "$tag" != "$version" ]; then
+              echo "::error::$tag does not match plugin version $version"; exit 1
+            fi
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "$tag already released — skipping"; continue
+            fi
+            title=$(head -n 1 "$notes" | sed 's/^# *//')
+            tail -n +2 "$notes" > /tmp/body.md
+            gh release create "$tag" --target "$GITHUB_SHA" --title "$title" --notes-file /tmp/body.md --latest
+          done
